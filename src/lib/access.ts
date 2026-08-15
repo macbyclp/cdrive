@@ -1,0 +1,91 @@
+import { prisma } from "@/lib/prisma";
+import type { User, Permission } from "@prisma/client";
+
+const rank: Record<Permission, number> = { VIEW: 1, EDIT: 2 };
+
+function sufficient(have: Permission, need: Permission) {
+  return rank[have] >= rank[need];
+}
+
+/** Bir klasör (ve üstündeki tüm ataları) üzerinde kullanıcının izin seviyesini döner, yoksa null. */
+export async function folderPermissionLevel(
+  user: User,
+  folderId: string | null
+): Promise<Permission | null> {
+  if (!folderId) return "EDIT"; // kök seviyesi: herkes kendi kökünde çalışabilir
+  if (user.role === "ADMIN") return "EDIT";
+
+  let current = await prisma.folder.findUnique({ where: { id: folderId } });
+  let best: Permission | null = null;
+
+  while (current) {
+    if (current.ownerId === user.id) return "EDIT";
+    if (
+      user.role === "MANAGER" &&
+      current.departmentId &&
+      current.departmentId === user.departmentId
+    ) {
+      return "EDIT";
+    }
+    const grant = await prisma.folderPermission.findUnique({
+      where: { folderId_userId: { folderId: current.id, userId: user.id } },
+    });
+    if (grant && (!best || sufficient(grant.permission, best))) {
+      best = grant.permission;
+    }
+    if (!current.parentId) break;
+    current = await prisma.folder.findUnique({ where: { id: current.parentId } });
+  }
+  return best;
+}
+
+export async function canAccessFolder(user: User, folderId: string | null, need: Permission) {
+  const level = await folderPermissionLevel(user, folderId);
+  return level !== null && sufficient(level, need);
+}
+
+export async function filePermissionLevel(user: User, fileId: string): Promise<Permission | null> {
+  if (user.role === "ADMIN") return "EDIT";
+
+  const file = await prisma.file.findUnique({ where: { id: fileId } });
+  if (!file) return null;
+  if (file.ownerId === user.id) return "EDIT";
+
+  const direct = await prisma.filePermission.findUnique({
+    where: { fileId_userId: { fileId, userId: user.id } },
+  });
+
+  const folderLevel = await folderPermissionLevel(user, file.folderId);
+
+  const levels = [direct?.permission, folderLevel].filter(Boolean) as Permission[];
+  if (levels.length === 0) return null;
+  return levels.includes("EDIT") ? "EDIT" : "VIEW";
+}
+
+export async function canAccessFile(user: User, fileId: string, need: Permission) {
+  const level = await filePermissionLevel(user, fileId);
+  return level !== null && sufficient(level, need);
+}
+
+export async function assertQuota(user: User, addBytes: bigint) {
+  const projected = user.usedBytes + addBytes;
+  if (projected > user.quotaBytes) {
+    const err = new Error(
+      `Depolama kotası aşıldı: ${formatBytes(user.usedBytes)} / ${formatBytes(user.quotaBytes)} kullanımda.`
+    );
+    (err as Error & { status?: number }).status = 413;
+    throw err;
+  }
+}
+
+export function formatBytes(bytes: bigint | number) {
+  const n = typeof bytes === "bigint" ? Number(bytes) : bytes;
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let val = n;
+  let i = 0;
+  while (val >= 1024 && i < units.length - 1) {
+    val /= 1024;
+    i++;
+  }
+  return `${val.toFixed(val < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
+}

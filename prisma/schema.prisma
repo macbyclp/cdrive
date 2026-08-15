@@ -1,0 +1,211 @@
+// Cdrive — kurumsal dosya yönetim platformu veritabanı şeması
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN // her şeye erişim, kullanıcı/departman yönetimi
+  MANAGER // kendi departmanının tüm dosyalarını yönetir
+  MEMBER // sadece kendi dosyaları + kendisiyle paylaşılanlar
+}
+
+enum Permission {
+  VIEW
+  EDIT
+}
+
+enum AuditAction {
+  LOGIN
+  LOGIN_FAILED
+  LOGOUT
+  UPLOAD
+  DOWNLOAD
+  DELETE
+  RESTORE
+  RENAME
+  MOVE
+  CREATE_FOLDER
+  SHARE_CREATE
+  SHARE_REVOKE
+  PERMISSION_GRANT
+  PERMISSION_REVOKE
+  USER_CREATE
+  USER_UPDATE
+  USER_DEACTIVATE
+  DEPARTMENT_CREATE
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  quotaBytes BigInt  @default(5368709120) // departman varsayılan kota: 5 GB
+  createdAt DateTime @default(now())
+
+  users   User[]
+  folders Folder[]
+
+  @@map("departments")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(MEMBER)
+  active       Boolean  @default(true)
+  quotaBytes   BigInt   @default(2147483648) // kullanıcı varsayılan kota: 2 GB
+  usedBytes    BigInt   @default(0)
+  createdAt    DateTime @default(now())
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  ownedFolders Folder[]      @relation("FolderOwner")
+  ownedFiles   File[]        @relation("FileOwner")
+  fileVersionsUploaded FileVersion[]
+  filePermissions FilePermission[] @relation("FilePermissionUser")
+  folderPermissions FolderPermission[] @relation("FolderPermissionUser")
+  shareLinks   ShareLink[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Folder {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  parentId String?
+  parent   Folder?  @relation("FolderTree", fields: [parentId], references: [id])
+  children Folder[] @relation("FolderTree")
+
+  ownerId String
+  owner   User   @relation("FolderOwner", fields: [ownerId], references: [id])
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  files       File[]
+  permissions FolderPermission[]
+
+  @@index([parentId])
+  @@index([ownerId])
+  @@map("folders")
+}
+
+model File {
+  id          String   @id @default(cuid())
+  name        String
+  mimeType    String
+  size        BigInt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  folderId String?
+  folder   Folder? @relation(fields: [folderId], references: [id])
+
+  ownerId String
+  owner   User   @relation("FileOwner", fields: [ownerId], references: [id])
+
+  currentVersionId String? @unique
+  currentVersion   FileVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
+
+  versions    FileVersion[]     @relation("FileVersions")
+  permissions FilePermission[]
+  shareLinks  ShareLink[]
+
+  @@index([folderId])
+  @@index([ownerId])
+  @@index([name])
+  @@map("files")
+}
+
+model FileVersion {
+  id           String   @id @default(cuid())
+  versionNo    Int
+  storageKey   String   // diskteki fiziksel dosya adı (uuid)
+  size         BigInt
+  checksum     String?
+  createdAt    DateTime @default(now())
+
+  fileId String
+  file   File   @relation("FileVersions", fields: [fileId], references: [id], onDelete: Cascade)
+
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  currentFor File? @relation("CurrentVersion")
+
+  @@unique([fileId, versionNo])
+  @@map("file_versions")
+}
+
+model FilePermission {
+  id         String     @id @default(cuid())
+  fileId     String
+  file       File       @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User       @relation("FilePermissionUser", fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @default(VIEW)
+  createdAt  DateTime   @default(now())
+
+  @@unique([fileId, userId])
+  @@map("file_permissions")
+}
+
+model FolderPermission {
+  id         String     @id @default(cuid())
+  folderId   String
+  folder     Folder     @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User       @relation("FolderPermissionUser", fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @default(VIEW)
+  createdAt  DateTime   @default(now())
+
+  @@unique([folderId, userId])
+  @@map("folder_permissions")
+}
+
+model ShareLink {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  fileId    String
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+  expiresAt DateTime?
+  maxDownloads Int?
+  downloadCount Int @default(0)
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("share_links")
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  action    AuditAction
+  detail    String?
+  targetType String?
+  targetId   String?
+  ip         String?
+  createdAt DateTime    @default(now())
+
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([userId])
+  @@map("audit_logs")
+}
