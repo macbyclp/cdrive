@@ -7,13 +7,15 @@ import ShareDialog from "@/components/ShareDialog";
 import VersionsDialog from "@/components/VersionsDialog";
 import PreviewDialog from "@/components/PreviewDialog";
 import MoveDialog from "@/components/MoveDialog";
-import RowMenu from "@/components/RowMenu";
+import RowMenu, { type RowMenuItem } from "@/components/RowMenu";
 import { InputDialog, ConfirmDialog } from "@/components/Dialogs";
 import { useToast } from "@/components/ToastProvider";
 import type { Crumb, FileItem, FolderItem, MeUser } from "@/lib/types";
 import { badgeColorForMime, formatBytesStr, formatDate, iconForMime, previewKind } from "@/lib/format";
 
 type View = "root" | "shared" | "search";
+type ViewMode = "list" | "grid";
+const VIEW_MODE_KEY = "cdrive-view-mode";
 type PendingAction =
   | { kind: "new-folder" }
   | { kind: "rename-folder"; folder: FolderItem }
@@ -42,7 +44,19 @@ function DriveInner() {
   const [versionsTarget, setVersionsTarget] = useState<{ id: string; name: string } | null>(null);
   const [previewTarget, setPreviewTarget] = useState<{ id: string; name: string; mimeType: string } | null>(null);
   const [pending, setPending] = useState<PendingAction | null>(null);
+  const [viewMode, setViewModeState] = useState<ViewMode>("list");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount sonrası localStorage'dan tek seferlik senkronizasyon
+    if (stored === "list" || stored === "grid") setViewModeState(stored);
+  }, []);
+
+  function setViewMode(mode: ViewMode) {
+    setViewModeState(mode);
+    localStorage.setItem(VIEW_MODE_KEY, mode);
+  }
 
   const refreshMe = useCallback(() => {
     fetch("/api/me")
@@ -285,23 +299,28 @@ function DriveInner() {
             </h1>
           )}
 
-          {view === "root" && (
-            <div className="mb-5 flex gap-2">
-              <button className="btn-secondary" onClick={() => setPending({ kind: "new-folder" })}>
-                + Yeni klasör
-              </button>
-              <button className="btn-primary" onClick={() => fileInputRef.current?.click()}>
-                ⬆ Dosya yükle
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => uploadFiles(e.target.files)}
-              />
-            </div>
-          )}
+          <div className="mb-5 flex items-center justify-between gap-2">
+            {view === "root" ? (
+              <div className="flex gap-2">
+                <button className="btn-secondary" onClick={() => setPending({ kind: "new-folder" })}>
+                  + Yeni klasör
+                </button>
+                <button className="btn-primary" onClick={() => fileInputRef.current?.click()}>
+                  ⬆ Dosya yükle
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => uploadFiles(e.target.files)}
+                />
+              </div>
+            ) : (
+              <div />
+            )}
+            <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+          </div>
 
           {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
@@ -330,7 +349,48 @@ function DriveInner() {
             </div>
           )}
 
-          {!loading && (folders.length > 0 || files.length > 0) && (
+          {!loading && (folders.length > 0 || files.length > 0) && viewMode === "grid" && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {folders.map((f) => (
+                <FolderCard
+                  key={f.id}
+                  folder={f}
+                  onOpen={() => (view === "shared" ? router.push(`/drive?folder=${f.id}`) : goFolder(f.id))}
+                  menuItems={[
+                    { label: "Paylaş", onClick: () => setShareTarget({ type: "folder", id: f.id, name: f.name }) },
+                    ...(view === "root"
+                      ? [
+                          { label: "Taşı", onClick: () => setPending({ kind: "move-folder" as const, folder: f }) },
+                          { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-folder" as const, folder: f }) },
+                          { label: "Sil", onClick: () => setPending({ kind: "delete-folder" as const, folder: f }), danger: true },
+                        ]
+                      : []),
+                  ]}
+                />
+              ))}
+              {files.map((f) => (
+                <FileCard
+                  key={f.id}
+                  file={f}
+                  onOpen={() => openFile(f)}
+                  menuItems={[
+                    { label: "İndir", onClick: () => downloadFile(f) },
+                    { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
+                    { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
+                    ...(view === "root"
+                      ? [
+                          { label: "Taşı", onClick: () => setPending({ kind: "move-file" as const, file: f }) },
+                          { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-file" as const, file: f }) },
+                          { label: "Sil", onClick: () => setPending({ kind: "delete-file" as const, file: f }), danger: true },
+                        ]
+                      : []),
+                  ]}
+                />
+              ))}
+            </div>
+          )}
+
+          {!loading && (folders.length > 0 || files.length > 0) && viewMode === "list" && (
             <div className="card overflow-hidden">
               {folders.map((f) => (
                 <div
@@ -586,6 +646,103 @@ function SideLink({
 
 function RowActions({ children }: { children: React.ReactNode }) {
   return <div className="hidden shrink-0 items-center gap-1 sm:flex">{children}</div>;
+}
+
+function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
+  return (
+    <div className="flex shrink-0 rounded-lg border p-0.5" style={{ borderColor: "var(--border)" }}>
+      {(["list", "grid"] as ViewMode[]).map((m) => (
+        <button
+          key={m}
+          onClick={() => onChange(m)}
+          aria-label={m === "list" ? "Liste görünümü" : "Izgara görünümü"}
+          className="rounded-md px-2.5 py-1.5 text-sm transition-colors"
+          style={
+            mode === m
+              ? { background: "var(--accent-soft)", color: "var(--accent-soft-foreground)" }
+              : { color: "var(--text-secondary)" }
+          }
+        >
+          {m === "list" ? "☰" : "▦"}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CardShell({
+  onOpen,
+  menuItems,
+  children,
+}: {
+  onOpen: () => void;
+  menuItems: RowMenuItem[];
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="group relative flex flex-col items-center rounded-xl border p-4 text-center transition-all"
+      style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = "var(--accent)";
+        e.currentTarget.style.boxShadow = "var(--shadow-md)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = "var(--border)";
+        e.currentTarget.style.boxShadow = "none";
+      }}
+    >
+      <div className="absolute right-1.5 top-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+        <RowMenu items={menuItems} />
+      </div>
+      <button onClick={onOpen} className="flex w-full flex-col items-center gap-2">
+        {children}
+      </button>
+    </div>
+  );
+}
+
+function FolderCard({
+  folder,
+  onOpen,
+  menuItems,
+}: {
+  folder: FolderItem;
+  onOpen: () => void;
+  menuItems: RowMenuItem[];
+}) {
+  return (
+    <CardShell onOpen={onOpen} menuItems={menuItems}>
+      <span
+        className="flex h-14 w-14 items-center justify-center rounded-xl text-2xl"
+        style={{ background: "var(--accent-soft)" }}
+      >
+        📁
+      </span>
+      <span className="line-clamp-2 w-full text-sm font-medium break-words" style={{ color: "var(--text-primary)" }}>
+        {folder.name}
+      </span>
+    </CardShell>
+  );
+}
+
+function FileCard({ file, onOpen, menuItems }: { file: FileItem; onOpen: () => void; menuItems: RowMenuItem[] }) {
+  return (
+    <CardShell onOpen={onOpen} menuItems={menuItems}>
+      <span
+        className="flex h-14 w-14 items-center justify-center rounded-xl text-2xl"
+        style={{ background: `${badgeColorForMime(file.mimeType)}1f` }}
+      >
+        {iconForMime(file.mimeType)}
+      </span>
+      <span className="line-clamp-2 w-full text-sm font-medium break-words" style={{ color: "var(--text-primary)" }}>
+        {file.name}
+      </span>
+      <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+        {formatBytesStr(file.size)}
+      </span>
+    </CardShell>
+  );
 }
 
 export default function DrivePage() {

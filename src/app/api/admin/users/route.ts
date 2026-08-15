@@ -18,6 +18,7 @@ export async function GET() {
         passwordHash: undefined,
         usedBytes: u.usedBytes.toString(),
         quotaBytes: u.quotaBytes.toString(),
+        department: u.department ? { ...u.department, quotaBytes: u.department.quotaBytes.toString() } : null,
       }))
     );
   } catch (err) {

@@ -45,7 +45,8 @@ export function iconForMime(mime: string) {
   if (mime.includes("sheet") || mime.includes("excel")) return "📊";
   if (mime.includes("word") || mime.includes("document")) return "📄";
   if (mime.includes("presentation")) return "📽️";
-  return "📁";
+  if (mime.startsWith("text/")) return "📝";
+  return "📄";
 }
 
 /** Dosya türüne göre yumuşak, renkli bir rozet zemini — göz taraması için kategori rengi. */
