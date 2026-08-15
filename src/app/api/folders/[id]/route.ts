@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { canAccessFolder } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
+import { softDeleteFolderRecursive } from "@/lib/trash";
 
 const patchSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -79,12 +80,3 @@ async function isDescendant(folderId: string, candidateParentId: string): Promis
   return false;
 }
 
-async function softDeleteFolderRecursive(folderId: string) {
-  const now = new Date();
-  await prisma.folder.update({ where: { id: folderId }, data: { deletedAt: now } });
-  await prisma.file.updateMany({ where: { folderId }, data: { deletedAt: now } });
-  const children = await prisma.folder.findMany({ where: { parentId: folderId }, select: { id: true } });
-  for (const child of children) {
-    await softDeleteFolderRecursive(child.id);
-  }
-}

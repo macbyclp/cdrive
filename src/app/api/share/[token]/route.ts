@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { readFile } from "@/lib/storage";
+import { verifyPassword } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 
-// Herkese açık indirme uç noktası — oturum gerektirmez, sadece geçerli token.
-export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
+// Herkese açık indirme uç noktası — oturum gerektirmez, sadece geçerli token
+// (ve varsa şifre, ?password= sorgu parametresiyle).
+export async function GET(req: Request, { params }: { params: Promise<{ token: string }> }) {
   try {
     const { token } = await params;
     const link = await prisma.shareLink.findUnique({
@@ -21,6 +23,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
     }
     if (link.maxDownloads && link.downloadCount >= link.maxDownloads) {
       return NextResponse.json({ error: "İndirme limitine ulaşıldı" }, { status: 410 });
+    }
+    if (link.passwordHash) {
+      const password = new URL(req.url).searchParams.get("password") ?? "";
+      if (!password || !(await verifyPassword(password, link.passwordHash))) {
+        return NextResponse.json({ error: "Şifre gerekli veya hatalı", requiresPassword: true }, { status: 401 });
+      }
     }
     if (!link.file || link.file.deletedAt || !link.file.currentVersion) {
       return NextResponse.json({ error: "Dosya artık mevcut değil" }, { status: 404 });

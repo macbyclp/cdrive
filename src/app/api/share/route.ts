@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireUser, hashPassword } from "@/lib/auth";
 import { canAccessFile } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
@@ -11,6 +11,7 @@ const schema = z.object({
   fileId: z.string(),
   expiresInHours: z.number().min(1).max(24 * 30).optional(),
   maxDownloads: z.number().min(1).optional(),
+  password: z.string().min(4).max(100).optional(),
 });
 
 export async function POST(req: Request) {
@@ -30,10 +31,11 @@ export async function POST(req: Request) {
           ? new Date(Date.now() + body.expiresInHours * 3600_000)
           : null,
         maxDownloads: body.maxDownloads ?? null,
+        passwordHash: body.password ? await hashPassword(body.password) : null,
       },
     });
     await logAudit({ userId: user.id, action: "SHARE_CREATE", targetType: "file", targetId: body.fileId, detail: token });
-    return NextResponse.json(link);
+    return NextResponse.json({ ...link, passwordHash: undefined, hasPassword: !!link.passwordHash });
   } catch (err) {
     return errorResponse(err);
   }
@@ -48,7 +50,9 @@ export async function GET(req: Request) {
     const ok = await canAccessFile(user, fileId, "VIEW");
     if (!ok) return NextResponse.json({ error: "Yetkiniz yok" }, { status: 403 });
     const links = await prisma.shareLink.findMany({ where: { fileId }, orderBy: { createdAt: "desc" } });
-    return NextResponse.json(links);
+    return NextResponse.json(
+      links.map((l) => ({ ...l, passwordHash: undefined, hasPassword: !!l.passwordHash }))
+    );
   } catch (err) {
     return errorResponse(err);
   }

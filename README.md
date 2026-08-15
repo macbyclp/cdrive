@@ -10,14 +10,22 @@ Kurumsal dosya yönetim platformu — departmanlar arası klasör/dosya paylaş�
 - **Paylaşım**: Kullanıcıya e-posta ile Görüntüle/Düzenle izni verme; ayrıca süre/limit ayarlanabilen genel (herkese açık) indirme bağlantıları.
 - **Versiyonlama**: Aynı klasöre aynı isimle tekrar yükleme yeni versiyon oluşturur; eski versiyona geri dönülebilir.
 - **Arama**: Dosya adına göre, erişim yetkisiyle filtrelenmiş arama.
-- **Depolama kotası**: Kullanıcı ve departman bazlı, aşıldığında yükleme reddedilir.
-- **Admin paneli**: Kullanıcı oluşturma/düzenleme (rol, departman, kota, aktif/pasif), departman yönetimi, tüm sistem etkinlik günlüğü (giriş, yükleme, silme, paylaşım vb.).
+- **Depolama kotası**: Kullanıcı ve departman bazlı, aşıldığında yükleme reddedilir; admin panelinden düzenlenebilir.
+- **Çöp kutusu**: Silinen dosya/klasörler geri getirilebilir veya kalıcı olarak silinebilir (purge).
+- **Son kullanılanlar & Favoriler**: Son açılan/indirilen dosyalar ve yıldızlanan öğeler için ayrı görünümler.
+- **Toplu işlemler**: Çoklu seçimle birden fazla dosya/klasörü aynı anda taşıma, silme veya indirme.
+- **Sürükle-bırak yükleme**: Dosyaları doğrudan tarayıcıya sürükleyip bırakarak yükleme.
+- **Klasörü .zip olarak indirme**: Bir klasörün tüm alt ağacını tek bir zip dosyası halinde indirme.
+- **Şifreli paylaşım bağlantıları**: Genel bağlantılara opsiyonel şifre koruması; `/s/[token]` herkese açık iniş sayfası.
+- **Tema**: Açık/Koyu/Sistem, liste veya ızgara (kart) görünümü — tercihler tarayıcıda kalıcı.
+- **Admin paneli**: Kullanıcı/departman yönetimi, depolama analitiği (departman/kullanıcı bazlı kullanım grafikleri), tüm sistem etkinlik günlüğü (giriş, yükleme, silme, paylaşım vb.).
 
 ## Teknoloji
 
 - Next.js 16 (App Router, Turbopack) + React 19 + TypeScript
 - PostgreSQL + Prisma ORM
 - Tailwind CSS 4
+- `archiver` — klasör zip indirme
 - Dosyalar yerel diskte saklanır (`STORAGE_ROOT`, varsayılan `./storage`)
 
 ## Kurulum

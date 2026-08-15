@@ -30,7 +30,7 @@ type AuditLog = {
   user: { name: string; email: string } | null;
 };
 
-type Tab = "users" | "departments" | "audit";
+type Tab = "users" | "departments" | "analytics" | "audit";
 
 const AVATAR_COLORS = ["#0f172a", "#7c3aed", "#0891b2", "#c2410c", "#15803d", "#be185d", "#4338ca"];
 function avatarColor(seed: string) {
@@ -88,7 +88,7 @@ export default function AdminPage() {
         </p>
 
         <div className="mb-6 flex gap-1 border-b" style={{ borderColor: "var(--border)" }}>
-          {(["users", "departments", "audit"] as Tab[]).map((t) => (
+          {(["users", "departments", "analytics", "audit"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -98,7 +98,13 @@ export default function AdminPage() {
                 color: tab === t ? "var(--text-primary)" : "var(--text-secondary)",
               }}
             >
-              {t === "users" ? "Kullanıcılar" : t === "departments" ? "Departmanlar" : "Etkinlik günlüğü"}
+              {t === "users"
+                ? "Kullanıcılar"
+                : t === "departments"
+                  ? "Departmanlar"
+                  : t === "analytics"
+                    ? "Depolama analitiği"
+                    : "Etkinlik günlüğü"}
             </button>
           ))}
         </div>
@@ -119,6 +125,7 @@ export default function AdminPage() {
           <UsersTab users={users} departments={departments} reload={loadAll} currentUserId={user.id} />
         )}
         {!loading && !error && tab === "departments" && <DepartmentsTab departments={departments} reload={loadAll} />}
+        {!loading && !error && tab === "analytics" && <AnalyticsTab users={users} departments={departments} />}
         {!loading && !error && tab === "audit" && <AuditTab logs={logs} />}
       </main>
     </div>
@@ -421,6 +428,119 @@ function DepartmentsTab({ departments, reload }: { departments: Department[]; re
             Henüz departman yok.
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments: Department[] }) {
+  const totalUsed = users.reduce((sum, u) => sum + Number(u.usedBytes), 0);
+  const totalQuota = users.reduce((sum, u) => sum + Number(u.quotaBytes), 0);
+
+  const byDept = departments.map((d) => {
+    const deptUsers = users.filter((u) => u.department?.id === d.id);
+    const used = deptUsers.reduce((sum, u) => sum + Number(u.usedBytes), 0);
+    return { id: d.id, name: d.name, used, quota: Number(d.quotaBytes), userCount: deptUsers.length };
+  });
+  const noDeptUsed = users.filter((u) => !u.department).reduce((sum, u) => sum + Number(u.usedBytes), 0);
+
+  const topUsers = [...users].sort((a, b) => Number(b.usedBytes) - Number(a.usedBytes)).slice(0, 8);
+  const maxUserUsage = Math.max(1, ...topUsers.map((u) => Number(u.usedBytes)));
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="card p-4">
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            Toplam kullanılan alan
+          </p>
+          <p className="mt-1 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
+            {formatBytesStr(totalUsed)}
+          </p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            Toplam tanımlı kota
+          </p>
+          <p className="mt-1 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
+            {formatBytesStr(totalQuota)}
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Departmana göre kullanım
+        </h3>
+        <div className="card space-y-4 p-4">
+          {byDept.map((d) => {
+            const pct = Math.min(100, Math.round((d.used / Math.max(d.quota, 1)) * 100));
+            return (
+              <div key={d.id}>
+                <div className="mb-1 flex justify-between text-xs" style={{ color: "var(--text-secondary)" }}>
+                  <span>
+                    {d.name} · {d.userCount} kullanıcı
+                  </span>
+                  <span>
+                    {formatBytesStr(d.used)} / {formatBytesStr(d.quota)}
+                  </span>
+                </div>
+                <div className="h-2 w-full rounded-full" style={{ background: "var(--surface-muted)" }}>
+                  <div
+                    className="h-2 rounded-full transition-all"
+                    style={{ width: `${pct}%`, background: pct > 90 ? "var(--danger)" : "var(--accent)" }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+          {noDeptUsed > 0 && (
+            <div>
+              <div className="mb-1 flex justify-between text-xs" style={{ color: "var(--text-secondary)" }}>
+                <span>Departmansız kullanıcılar</span>
+                <span>{formatBytesStr(noDeptUsed)}</span>
+              </div>
+              <div className="h-2 w-full rounded-full" style={{ background: "var(--surface-muted)" }}>
+                <div className="h-2 rounded-full" style={{ width: "100%", background: "var(--text-tertiary)" }} />
+              </div>
+            </div>
+          )}
+          {byDept.length === 0 && noDeptUsed === 0 && (
+            <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+              Henüz veri yok.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          En çok yer kaplayan kullanıcılar
+        </h3>
+        <div className="card space-y-3 p-4">
+          {topUsers.map((u) => {
+            const used = Number(u.usedBytes);
+            const barPct = Math.round((used / maxUserUsage) * 100);
+            return (
+              <div key={u.id} className="flex items-center gap-3">
+                <span className="w-32 shrink-0 truncate text-xs" style={{ color: "var(--text-primary)" }}>
+                  {u.name}
+                </span>
+                <div className="h-2 flex-1 rounded-full" style={{ background: "var(--surface-muted)" }}>
+                  <div className="h-2 rounded-full" style={{ width: `${barPct}%`, background: "var(--accent)" }} />
+                </div>
+                <span className="w-16 shrink-0 text-right text-xs" style={{ color: "var(--text-secondary)" }}>
+                  {formatBytesStr(used)}
+                </span>
+              </div>
+            );
+          })}
+          {topUsers.length === 0 && (
+            <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+              Henüz kullanıcı yok.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

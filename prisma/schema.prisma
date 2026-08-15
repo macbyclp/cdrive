@@ -40,6 +40,9 @@ enum AuditAction {
   USER_DEACTIVATE
   DEPARTMENT_CREATE
   DEPARTMENT_UPDATE
+  STAR
+  UNSTAR
+  PURGE
 }
 
 model Department {
@@ -75,6 +78,8 @@ model User {
   folderPermissions FolderPermission[] @relation("FolderPermissionUser")
   shareLinks   ShareLink[]
   auditLogs    AuditLog[]
+  fileStars    FileStar[]
+  folderStars  FolderStar[]
 
   @@map("users")
 }
@@ -98,6 +103,7 @@ model Folder {
 
   files       File[]
   permissions FolderPermission[]
+  stars       FolderStar[]
 
   @@index([parentId])
   @@index([ownerId])
@@ -125,11 +131,36 @@ model File {
   versions    FileVersion[]     @relation("FileVersions")
   permissions FilePermission[]
   shareLinks  ShareLink[]
+  stars       FileStar[]
 
   @@index([folderId])
   @@index([ownerId])
   @@index([name])
   @@map("files")
+}
+
+model FileStar {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileId    String
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, fileId])
+  @@map("file_stars")
+}
+
+model FolderStar {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId  String
+  folder    Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, folderId])
+  @@map("folder_stars")
 }
 
 model FileVersion {
@@ -189,6 +220,7 @@ model ShareLink {
   maxDownloads Int?
   downloadCount Int @default(0)
   revoked   Boolean  @default(false)
+  passwordHash String?
   createdAt DateTime @default(now())
 
   @@map("share_links")

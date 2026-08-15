@@ -11,6 +11,7 @@ type Link = {
   expiresAt: string | null;
   maxDownloads: number | null;
   downloadCount: number;
+  hasPassword: boolean;
 };
 
 const EXPIRY_OPTIONS = [
@@ -45,6 +46,8 @@ export default function ShareDialog({
   const [expiryIdx, setExpiryIdx] = useState(0);
   const [limitEnabled, setLimitEnabled] = useState(false);
   const [maxDownloads, setMaxDownloads] = useState(10);
+  const [passwordEnabled, setPasswordEnabled] = useState(false);
+  const [linkPassword, setLinkPassword] = useState("");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   async function load() {
@@ -95,6 +98,10 @@ export default function ShareDialog({
   }
 
   async function createLink() {
+    if (passwordEnabled && linkPassword.trim().length < 4) {
+      toast("Şifre en az 4 karakter olmalı", "error");
+      return;
+    }
     setBusy(true);
     const expiresInHours = EXPIRY_OPTIONS[expiryIdx].hours;
     await fetch("/api/share", {
@@ -104,12 +111,15 @@ export default function ShareDialog({
         fileId: targetId,
         ...(expiresInHours ? { expiresInHours } : {}),
         ...(limitEnabled ? { maxDownloads } : {}),
+        ...(passwordEnabled ? { password: linkPassword } : {}),
       }),
     });
     setBusy(false);
     setCreatingLink(false);
     setExpiryIdx(0);
     setLimitEnabled(false);
+    setPasswordEnabled(false);
+    setLinkPassword("");
     toast("Bağlantı oluşturuldu", "success");
     load();
   }
@@ -121,7 +131,7 @@ export default function ShareDialog({
   }
 
   function copyLink(token: string) {
-    const url = `${window.location.origin}/api/share/${token}`;
+    const url = `${window.location.origin}/s/${token}`;
     navigator.clipboard
       .writeText(url)
       .then(() => {
@@ -280,6 +290,26 @@ export default function ShareDialog({
                   )}
                 </label>
 
+                <label className="flex items-center gap-2 text-xs" style={{ color: "var(--text-primary)" }}>
+                  <input
+                    type="checkbox"
+                    checked={passwordEnabled}
+                    onChange={(e) => setPasswordEnabled(e.target.checked)}
+                    className="h-3.5 w-3.5"
+                  />
+                  Şifreyle koru
+                  {passwordEnabled && (
+                    <input
+                      type="text"
+                      minLength={4}
+                      placeholder="şifre"
+                      value={linkPassword}
+                      onChange={(e) => setLinkPassword(e.target.value)}
+                      className="input w-28 px-2 py-1 text-xs"
+                    />
+                  )}
+                </label>
+
                 <div className="flex justify-end gap-2 pt-1">
                   <button type="button" className="btn-ghost text-xs" onClick={() => setCreatingLink(false)}>
                     Vazgeç
@@ -300,7 +330,7 @@ export default function ShareDialog({
               {links
                 .filter((l) => !l.revoked)
                 .map((l) => {
-                  const url = `${typeof window !== "undefined" ? window.location.origin : ""}/api/share/${l.token}`;
+                  const url = `${typeof window !== "undefined" ? window.location.origin : ""}/s/${l.token}`;
                   const copied = copiedToken === l.token;
                   return (
                     <div
@@ -320,6 +350,7 @@ export default function ShareDialog({
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2 pt-2">
                         <span className="badge">{l.downloadCount} indirme</span>
+                        {l.hasPassword && <span className="badge">🔒 şifreli</span>}
                         {l.maxDownloads && <span className="badge">limit: {l.maxDownloads}</span>}
                         {l.expiresAt ? (
                           <span className="badge">↳ {new Date(l.expiresAt).toLocaleDateString("tr-TR")}</span>

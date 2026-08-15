@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "archiver": "^8.0.0",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.9",
     "mime-types": "^3.0.2",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/archiver": "^8.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/mime-types": "^3.0.1",
     "@types/node": "^20",
