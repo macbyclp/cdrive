@@ -7,6 +7,7 @@ import ShareDialog from "@/components/ShareDialog";
 import VersionsDialog from "@/components/VersionsDialog";
 import PreviewDialog from "@/components/PreviewDialog";
 import MoveDialog from "@/components/MoveDialog";
+import RowMenu from "@/components/RowMenu";
 import { InputDialog, ConfirmDialog } from "@/components/Dialogs";
 import { useToast } from "@/components/ToastProvider";
 import type { Crumb, FileItem, FolderItem, MeUser } from "@/lib/types";
@@ -338,11 +339,11 @@ function DriveInner() {
                   style={{ borderColor: "var(--border)" }}
                 >
                   <button
-                    className="flex flex-1 items-center gap-3 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
                     onClick={() => (view === "shared" ? router.push(`/drive?folder=${f.id}`) : goFolder(f.id))}
                   >
                     <span className="text-xl">📁</span>
-                    <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                    <span className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                       {f.name}
                     </span>
                   </button>
@@ -367,6 +368,20 @@ function DriveInner() {
                       </>
                     )}
                   </RowActions>
+                  <div className="sm:hidden">
+                    <RowMenu
+                      items={[
+                        { label: "Paylaş", onClick: () => setShareTarget({ type: "folder", id: f.id, name: f.name }) },
+                        ...(view === "root"
+                          ? [
+                              { label: "Taşı", onClick: () => setPending({ kind: "move-folder" as const, folder: f }) },
+                              { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-folder" as const, folder: f }) },
+                              { label: "Sil", onClick: () => setPending({ kind: "delete-folder" as const, folder: f }), danger: true },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  </div>
                 </div>
               ))}
 
@@ -376,9 +391,9 @@ function DriveInner() {
                   className="flex flex-wrap items-center gap-3 border-b px-4 py-3 last:border-0"
                   style={{ borderColor: "var(--border)" }}
                 >
-                  <button className="flex flex-1 items-center gap-3 text-left" onClick={() => openFile(f)}>
+                  <button className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => openFile(f)}>
                     <span className="text-xl">{iconForMime(f.mimeType)}</span>
-                    <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                    <span className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                       {f.name}
                     </span>
                   </button>
@@ -412,6 +427,22 @@ function DriveInner() {
                       </>
                     )}
                   </RowActions>
+                  <div className="sm:hidden">
+                    <RowMenu
+                      items={[
+                        { label: "İndir", onClick: () => downloadFile(f) },
+                        { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
+                        { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
+                        ...(view === "root"
+                          ? [
+                              { label: "Taşı", onClick: () => setPending({ kind: "move-file" as const, file: f }) },
+                              { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-file" as const, file: f }) },
+                              { label: "Sil", onClick: () => setPending({ kind: "delete-file" as const, file: f }), danger: true },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -540,7 +571,7 @@ function SideLink({
 }
 
 function RowActions({ children }: { children: React.ReactNode }) {
-  return <div className="flex shrink-0 items-center gap-1">{children}</div>;
+  return <div className="hidden shrink-0 items-center gap-1 sm:flex">{children}</div>;
 }
 
 export default function DrivePage() {
