@@ -50,7 +50,10 @@ export default function TopBar({
       )}
 
       <a href="/drive" className="flex shrink-0 items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-sm font-semibold text-white dark:bg-slate-100 dark:text-slate-900">
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white"
+          style={{ background: "linear-gradient(135deg, var(--accent), #a78bfa)", boxShadow: "var(--shadow-sm)" }}
+        >
           C
         </div>
         <span className="hidden text-base font-semibold sm:inline" style={{ color: "var(--text-primary)" }}>
@@ -83,8 +86,8 @@ export default function TopBar({
           </div>
           <div className="h-1.5 w-full rounded-full" style={{ background: "var(--surface-muted)" }}>
             <div
-              className={`h-1.5 rounded-full ${usedPct > 90 ? "bg-red-500" : "bg-slate-900 dark:bg-slate-100"}`}
-              style={{ width: `${usedPct}%` }}
+              className="h-1.5 rounded-full transition-all"
+              style={{ width: `${usedPct}%`, background: usedPct > 90 ? "var(--danger)" : "var(--accent)" }}
             />
           </div>
         </div>

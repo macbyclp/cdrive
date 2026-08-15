@@ -47,10 +47,10 @@ export default function VersionsDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+    <div className="dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
       <div
-        className="w-full max-w-lg rounded-2xl border p-6 shadow-lg"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+        className="dialog-panel w-full max-w-lg rounded-2xl border p-6"
+        style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
       >
         <div className="mb-4 flex items-start justify-between">
           <div>
@@ -82,11 +82,7 @@ export default function VersionsDialog({
                 <div>
                   <div className="font-medium" style={{ color: "var(--text-primary)" }}>
                     v{v.versionNo}{" "}
-                    {idx === 0 && (
-                      <span className="ml-1 rounded bg-slate-900 px-1.5 py-0.5 text-[10px] text-white dark:bg-slate-100 dark:text-slate-900">
-                        güncel
-                      </span>
-                    )}
+                    {idx === 0 && <span className="badge ml-1">güncel</span>}
                   </div>
                   <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
                     {formatBytesStr(v.size)} · {v.uploadedBy.name} · {formatDate(v.createdAt)}

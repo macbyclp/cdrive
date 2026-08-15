@@ -32,10 +32,10 @@ export default function PreviewDialog({
   }, [fileId]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+    <div className="dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
       <div
-        className="flex h-full max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border shadow-lg"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+        className="dialog-panel flex h-full max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border"
+        style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
       >
         <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: "var(--border)" }}>
           <h2 className="truncate text-sm font-semibold" style={{ color: "var(--text-primary)" }}>

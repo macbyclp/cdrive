@@ -19,10 +19,10 @@ export function InputDialog({
 }) {
   const [value, setValue] = useState(initialValue);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+    <div className="dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
       <form
-        className="w-full max-w-sm rounded-2xl border p-6 shadow-lg"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+        className="dialog-panel w-full max-w-sm rounded-2xl border p-6"
+        style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
         onSubmit={(e) => {
           e.preventDefault();
           if (value.trim()) onConfirm(value.trim());
@@ -71,8 +71,8 @@ export function ConfirmDialog({
   onCancel: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-      <div className="w-full max-w-sm rounded-2xl border p-6 shadow-lg" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+    <div className="dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+      <div className="dialog-panel w-full max-w-sm rounded-2xl border p-6" style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}>
         <h2 className="mb-2 text-base font-semibold" style={{ color: "var(--text-primary)" }}>
           {title}
         </h2>

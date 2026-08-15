@@ -54,10 +54,10 @@ export default function MoveDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+    <div className="dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
       <div
-        className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl border shadow-lg"
-        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+        className="dialog-panel flex w-full max-w-md flex-col overflow-hidden rounded-2xl border"
+        style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
       >
         <div className="border-b px-6 py-4" style={{ borderColor: "var(--border)" }}>
           <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>

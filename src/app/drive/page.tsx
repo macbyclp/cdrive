@@ -11,7 +11,7 @@ import RowMenu from "@/components/RowMenu";
 import { InputDialog, ConfirmDialog } from "@/components/Dialogs";
 import { useToast } from "@/components/ToastProvider";
 import type { Crumb, FileItem, FolderItem, MeUser } from "@/lib/types";
-import { formatBytesStr, formatDate, iconForMime, previewKind } from "@/lib/format";
+import { badgeColorForMime, formatBytesStr, formatDate, iconForMime, previewKind } from "@/lib/format";
 
 type View = "root" | "shared" | "search";
 type PendingAction =
@@ -335,14 +335,21 @@ function DriveInner() {
               {folders.map((f) => (
                 <div
                   key={f.id}
-                  className="flex flex-wrap items-center gap-3 border-b px-4 py-3 last:border-0"
+                  className="group flex flex-wrap items-center gap-3 border-b px-4 py-3 transition-colors last:border-0"
                   style={{ borderColor: "var(--border)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
                   <button
                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
                     onClick={() => (view === "shared" ? router.push(`/drive?folder=${f.id}`) : goFolder(f.id))}
                   >
-                    <span className="text-xl">📁</span>
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg"
+                      style={{ background: "var(--accent-soft)" }}
+                    >
+                      📁
+                    </span>
                     <span className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                       {f.name}
                     </span>
@@ -388,11 +395,18 @@ function DriveInner() {
               {files.map((f) => (
                 <div
                   key={f.id}
-                  className="flex flex-wrap items-center gap-3 border-b px-4 py-3 last:border-0"
+                  className="flex flex-wrap items-center gap-3 border-b px-4 py-3 transition-colors last:border-0"
                   style={{ borderColor: "var(--border)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
                   <button className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => openFile(f)}>
-                    <span className="text-xl">{iconForMime(f.mimeType)}</span>
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg"
+                      style={{ background: `${badgeColorForMime(f.mimeType)}1f` }}
+                    >
+                      {iconForMime(f.mimeType)}
+                    </span>
                     <span className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                       {f.name}
                     </span>
@@ -551,10 +565,10 @@ function SideLink({
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm"
+      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors"
       style={
         active
-          ? { background: "var(--accent)", color: "var(--accent-foreground)" }
+          ? { background: "var(--accent-soft)", color: "var(--accent-soft-foreground)" }
           : { color: "var(--text-primary)" }
       }
       onMouseEnter={(e) => {

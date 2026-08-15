@@ -45,7 +45,10 @@ export default function SetupPage() {
     <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "var(--background)" }}>
       <div className="w-full max-w-md rounded-2xl border p-8 shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900 text-lg font-semibold text-white dark:bg-slate-100 dark:text-slate-900">
+          <div
+            className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold text-white"
+            style={{ background: "linear-gradient(135deg, #4f46e5, #a78bfa)", boxShadow: "var(--shadow-md)" }}
+          >
             C
           </div>
           <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>

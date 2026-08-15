@@ -47,3 +47,16 @@ export function iconForMime(mime: string) {
   if (mime.includes("presentation")) return "📽️";
   return "📁";
 }
+
+/** Dosya türüne göre yumuşak, renkli bir rozet zemini — göz taraması için kategori rengi. */
+export function badgeColorForMime(mime: string): string {
+  if (mime.startsWith("image/")) return "#ec4899"; // pembe
+  if (mime.startsWith("video/")) return "#8b5cf6"; // mor
+  if (mime.startsWith("audio/")) return "#f59e0b"; // amber
+  if (mime === "application/pdf") return "#ef4444"; // kırmızı
+  if (mime.includes("zip") || mime.includes("compressed")) return "#f97316"; // turuncu
+  if (mime.includes("sheet") || mime.includes("excel")) return "#16a34a"; // yeşil
+  if (mime.includes("word") || mime.includes("document")) return "#2563eb"; // mavi
+  if (mime.includes("presentation")) return "#dc2626"; // kırmızımsı
+  return "#64748b"; // gri
+}
