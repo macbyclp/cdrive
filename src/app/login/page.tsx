@@ -31,18 +31,24 @@ function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "var(--background)" }}>
+      <div className="w-full max-w-md rounded-2xl border p-8 shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900 text-lg font-semibold text-white">
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900 text-lg font-semibold text-white dark:bg-slate-100 dark:text-slate-900">
             C
           </div>
-          <h1 className="text-xl font-semibold text-slate-900">Cdrive&apos;a giriş yap</h1>
-          <p className="mt-1 text-sm text-slate-500">Kurumsal dosya yönetim platformu</p>
+          <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+            Cdrive&apos;a giriş yap
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Kurumsal dosya yönetim platformu
+          </p>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">E-posta</span>
+            <span className="mb-1 block text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+              E-posta
+            </span>
             <input
               required
               type="email"
@@ -53,7 +59,9 @@ function LoginForm() {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Şifre</span>
+            <span className="mb-1 block text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+              Şifre
+            </span>
             <input
               required
               type="password"
@@ -62,7 +70,7 @@ function LoginForm() {
               className="input"
             />
           </label>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button disabled={loading} className="btn-primary w-full">
             {loading ? "Giriş yapılıyor…" : "Giriş yap"}
           </button>

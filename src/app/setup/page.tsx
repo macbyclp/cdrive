@@ -42,14 +42,16 @@ export default function SetupPage() {
   if (checking) return null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "var(--background)" }}>
+      <div className="w-full max-w-md rounded-2xl border p-8 shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900 text-lg font-semibold text-white">
+          <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-slate-900 text-lg font-semibold text-white dark:bg-slate-100 dark:text-slate-900">
             C
           </div>
-          <h1 className="text-xl font-semibold text-slate-900">Cdrive&apos;ı kur</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+            Cdrive&apos;ı kur
+          </h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
             Sistemde henüz kullanıcı yok. İlk yönetici hesabını oluştur.
           </p>
         </div>
@@ -84,7 +86,7 @@ export default function SetupPage() {
               placeholder="En az 8 karakter"
             />
           </Field>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <button disabled={loading} className="btn-primary w-full">
             {loading ? "Oluşturuluyor…" : "Yönetici hesabı oluştur"}
           </button>
@@ -97,7 +99,9 @@ export default function SetupPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
+      <span className="mb-1 block text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+        {label}
+      </span>
       {children}
     </label>
   );

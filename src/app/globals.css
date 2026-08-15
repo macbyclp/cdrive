@@ -1,8 +1,44 @@
 @import "tailwindcss";
 
+/* data-theme="dark" sınıf tabanlı karanlık mod stratejisi (ThemeProvider tarafından <html>'e yazılır) */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+
+  --surface: #ffffff;
+  --surface-muted: #f1f5f9;
+  --surface-hover: #f1f5f9;
+  --border: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-tertiary: #94a3b8;
+  --accent: #0f172a;
+  --accent-foreground: #ffffff;
+  --accent-hover: #1e293b;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --ring: rgb(15 23 42 / 0.08);
+}
+
+[data-theme="dark"] {
+  --background: #0b0f19;
+  --foreground: #e2e8f0;
+
+  --surface: #131826;
+  --surface-muted: #1b2233;
+  --surface-hover: #1b2233;
+  --border: #262f45;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --accent: #e2e8f0;
+  --accent-foreground: #0b0f19;
+  --accent-hover: #cbd5e1;
+  --danger: #f87171;
+  --danger-hover: #fca5a5;
+  --ring: rgb(226 232 240 / 0.12);
 }
 
 @theme inline {
@@ -20,29 +56,33 @@ body {
 .input {
   width: 100%;
   border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
-  background: #fff;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+.input::placeholder {
+  color: var(--text-tertiary);
+}
 .input:focus {
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgb(15 23 42 / 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring);
 }
 
 .btn-primary {
   border-radius: 0.5rem;
-  background: #0f172a;
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-foreground);
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
   font-weight: 500;
   transition: background 0.15s;
 }
 .btn-primary:hover {
-  background: #1e293b;
+  background: var(--accent-hover);
 }
 .btn-primary:disabled {
   opacity: 0.6;
@@ -50,32 +90,52 @@ body {
 
 .btn-secondary {
   border-radius: 0.5rem;
-  border: 1px solid #cbd5e1;
-  background: #fff;
-  color: #0f172a;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
   font-weight: 500;
   transition: background 0.15s;
 }
 .btn-secondary:hover {
-  background: #f1f5f9;
+  background: var(--surface-hover);
 }
 
 .btn-ghost {
   border-radius: 0.375rem;
-  color: #475569;
+  color: var(--text-secondary);
   padding: 0.375rem 0.625rem;
   font-size: 0.8125rem;
-  transition: background 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
 .btn-ghost:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .card {
   border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
-  background: #fff;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+/* --- İskelet (skeleton) yükleme animasyonu --- */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.skeleton {
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+  background: var(--surface-muted);
+  border-radius: 0.375rem;
+}
+
+/* --- Toast bildirimleri --- */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.toast {
+  animation: toast-in 0.18s ease-out;
 }

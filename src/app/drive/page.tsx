@@ -8,6 +8,7 @@ import VersionsDialog from "@/components/VersionsDialog";
 import PreviewDialog from "@/components/PreviewDialog";
 import MoveDialog from "@/components/MoveDialog";
 import { InputDialog, ConfirmDialog } from "@/components/Dialogs";
+import { useToast } from "@/components/ToastProvider";
 import type { Crumb, FileItem, FolderItem, MeUser } from "@/lib/types";
 import { formatBytesStr, formatDate, iconForMime, previewKind } from "@/lib/format";
 
@@ -24,6 +25,7 @@ type PendingAction =
 function DriveInner() {
   const router = useRouter();
   const params = useSearchParams();
+  const toast = useToast();
   const folderId = params.get("folder");
   const view: View = params.get("view") === "shared" ? "shared" : params.get("q") ? "search" : "root";
   const q = params.get("q") ?? "";
@@ -34,7 +36,7 @@ function DriveInner() {
   const [breadcrumb, setBreadcrumb] = useState<Crumb[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<{ type: "file" | "folder"; id: string; name: string } | null>(null);
   const [versionsTarget, setVersionsTarget] = useState<{ id: string; name: string } | null>(null);
   const [previewTarget, setPreviewTarget] = useState<{ id: string; name: string; mimeType: string } | null>(null);
@@ -89,13 +91,8 @@ function DriveInner() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- veri klasör/görünüm değiştiğinde sunucudan yeniden çekilir
     load();
+    setSidebarOpen(false);
   }, [load]);
-
-  useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 3500);
-    return () => clearTimeout(t);
-  }, [notice]);
 
   function goFolder(id: string | null) {
     router.push(id ? `/drive?folder=${id}` : "/drive");
@@ -119,14 +116,16 @@ function DriveInner() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setNotice(d.error ?? "Klasör oluşturulamadı");
+      toast(d.error ?? "Klasör oluşturulamadı", "error");
       return;
     }
+    toast(`"${name}" klasörü oluşturuldu`, "success");
     load();
   }
 
   async function uploadFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
+    let ok = 0;
     for (const file of Array.from(fileList)) {
       const fd = new FormData();
       fd.append("file", file);
@@ -134,9 +133,12 @@ function DriveInner() {
       const res = await fetch("/api/files", { method: "POST", body: fd });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        setNotice(`${file.name}: ${d.error ?? "yüklenemedi"}`);
+        toast(`${file.name}: ${d.error ?? "yüklenemedi"}`, "error");
+      } else {
+        ok++;
       }
     }
+    if (ok > 0) toast(ok === 1 ? "Dosya yüklendi" : `${ok} dosya yüklendi`, "success");
     load();
     refreshMe();
   }
@@ -157,9 +159,10 @@ function DriveInner() {
     const res = await fetch(`/api/folders/${folder.id}`, { method: "DELETE" });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setNotice(d.error ?? "Silinemedi");
+      toast(d.error ?? "Silinemedi", "error");
       return;
     }
+    toast("Klasör silindi");
     load();
   }
 
@@ -179,9 +182,10 @@ function DriveInner() {
     const res = await fetch(`/api/files/${file.id}`, { method: "DELETE" });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setNotice(d.error ?? "Silinemedi");
+      toast(d.error ?? "Silinemedi", "error");
       return;
     }
+    toast("Dosya silindi");
     load();
     refreshMe();
   }
@@ -207,9 +211,10 @@ function DriveInner() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setNotice(d.error ?? "Taşınamadı");
+      toast(d.error ?? "Taşınamadı", "error");
       return;
     }
+    toast("Taşındı", "success");
     load();
   }
 
@@ -222,9 +227,10 @@ function DriveInner() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setNotice(d.error ?? "Taşınamadı");
+      toast(d.error ?? "Taşınamadı", "error");
       return;
     }
+    toast("Taşındı", "success");
     load();
   }
 
@@ -232,26 +238,34 @@ function DriveInner() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <TopBar user={user} onSearch={doSearch} />
+      <TopBar user={user} onSearch={doSearch} onMenuClick={() => setSidebarOpen(true)} />
 
       <div className="flex flex-1">
-        <aside className="hidden w-56 shrink-0 border-r border-slate-200 bg-white p-4 sm:block">
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-30 bg-slate-900/40 sm:hidden" onClick={() => setSidebarOpen(false)} />
+        )}
+        <aside
+          className={`fixed inset-y-0 left-0 z-40 w-56 shrink-0 border-r p-4 transition-transform sm:static sm:translate-x-0 ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+        >
           <nav className="space-y-1">
             <SideLink active={view === "root"} onClick={() => goFolder(null)} label="Sürücüm" icon="🗂️" />
             <SideLink active={view === "shared"} onClick={goShared} label="Benimle paylaşılanlar" icon="🤝" />
           </nav>
         </aside>
 
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 sm:p-6">
           {view === "root" && (
-            <div className="mb-4 flex flex-wrap items-center gap-1 text-sm text-slate-500">
-              <button onClick={() => goFolder(null)} className="hover:text-slate-900 hover:underline">
+            <div className="mb-4 flex flex-wrap items-center gap-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+              <button onClick={() => goFolder(null)} className="hover:underline" style={{ color: "inherit" }}>
                 Sürücüm
               </button>
               {breadcrumb.map((c) => (
                 <span key={c.id} className="flex items-center gap-1">
                   <span>/</span>
-                  <button onClick={() => goFolder(c.id)} className="hover:text-slate-900 hover:underline">
+                  <button onClick={() => goFolder(c.id)} className="hover:underline">
                     {c.name}
                   </button>
                 </span>
@@ -260,10 +274,14 @@ function DriveInner() {
           )}
 
           {view === "search" && (
-            <h1 className="mb-4 text-lg font-semibold text-slate-900">&quot;{q}&quot; için sonuçlar</h1>
+            <h1 className="mb-4 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+              &quot;{q}&quot; için sonuçlar
+            </h1>
           )}
           {view === "shared" && (
-            <h1 className="mb-4 text-lg font-semibold text-slate-900">Benimle paylaşılanlar</h1>
+            <h1 className="mb-4 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+              Benimle paylaşılanlar
+            </h1>
           )}
 
           {view === "root" && (
@@ -284,87 +302,120 @@ function DriveInner() {
             </div>
           )}
 
-          {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-          {notice && <p className="mb-4 text-sm text-amber-600">{notice}</p>}
-          {loading && <p className="text-sm text-slate-400">Yükleniyor…</p>}
+          {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-          {!loading && folders.length === 0 && files.length === 0 && (
-            <p className="text-sm text-slate-400">Bu klasör boş.</p>
+          {loading && (
+            <div className="card overflow-hidden">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-3 border-b px-4 py-3 last:border-0" style={{ borderColor: "var(--border)" }}>
+                  <div className="skeleton h-6 w-6 rounded" />
+                  <div className="skeleton h-4 flex-1 max-w-[12rem]" />
+                  <div className="skeleton h-3 w-16" />
+                </div>
+              ))}
+            </div>
           )}
 
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            {folders.map((f) => (
-              <div
-                key={f.id}
-                className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-0 hover:bg-slate-50"
-              >
-                <button
-                  className="flex flex-1 items-center gap-3 text-left"
-                  onClick={() => (view === "shared" ? router.push(`/drive?folder=${f.id}`) : goFolder(f.id))}
-                >
-                  <span className="text-xl">📁</span>
-                  <span className="text-sm font-medium text-slate-800">{f.name}</span>
-                </button>
-                <span className="text-xs text-slate-400">{formatDate(f.updatedAt)}</span>
-                <RowActions>
-                  <button className="btn-ghost" onClick={() => setShareTarget({ type: "folder", id: f.id, name: f.name })}>
-                    Paylaş
-                  </button>
-                  {view === "root" && (
-                    <>
-                      <button className="btn-ghost" onClick={() => setPending({ kind: "move-folder", folder: f })}>
-                        Taşı
-                      </button>
-                      <button className="btn-ghost" onClick={() => setPending({ kind: "rename-folder", folder: f })}>
-                        Yeniden adlandır
-                      </button>
-                      <button className="btn-ghost text-red-600" onClick={() => setPending({ kind: "delete-folder", folder: f })}>
-                        Sil
-                      </button>
-                    </>
-                  )}
-                </RowActions>
-              </div>
-            ))}
+          {!loading && folders.length === 0 && files.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-16 text-center" style={{ borderColor: "var(--border)" }}>
+              <span className="text-3xl">{view === "shared" ? "🤝" : view === "search" ? "🔍" : "📂"}</span>
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                {view === "shared"
+                  ? "Henüz sizinle paylaşılan bir şey yok."
+                  : view === "search"
+                    ? "Sonuç bulunamadı."
+                    : "Bu klasör boş."}
+              </p>
+            </div>
+          )}
 
-            {files.map((f) => (
-              <div
-                key={f.id}
-                className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-0 hover:bg-slate-50"
-              >
-                <button className="flex flex-1 items-center gap-3 text-left" onClick={() => openFile(f)}>
-                  <span className="text-xl">{iconForMime(f.mimeType)}</span>
-                  <span className="text-sm font-medium text-slate-800">{f.name}</span>
-                </button>
-                <span className="text-xs text-slate-400">{formatBytesStr(f.size)}</span>
-                <span className="text-xs text-slate-400">{formatDate(f.updatedAt)}</span>
-                <RowActions>
-                  <button className="btn-ghost" onClick={() => downloadFile(f)}>
-                    İndir
+          {!loading && (folders.length > 0 || files.length > 0) && (
+            <div className="card overflow-hidden">
+              {folders.map((f) => (
+                <div
+                  key={f.id}
+                  className="flex flex-wrap items-center gap-3 border-b px-4 py-3 last:border-0"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <button
+                    className="flex flex-1 items-center gap-3 text-left"
+                    onClick={() => (view === "shared" ? router.push(`/drive?folder=${f.id}`) : goFolder(f.id))}
+                  >
+                    <span className="text-xl">📁</span>
+                    <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                      {f.name}
+                    </span>
                   </button>
-                  <button className="btn-ghost" onClick={() => setShareTarget({ type: "file", id: f.id, name: f.name })}>
-                    Paylaş
+                  <span className="hidden text-xs sm:inline" style={{ color: "var(--text-tertiary)" }}>
+                    {formatDate(f.updatedAt)}
+                  </span>
+                  <RowActions>
+                    <button className="btn-ghost" onClick={() => setShareTarget({ type: "folder", id: f.id, name: f.name })}>
+                      Paylaş
+                    </button>
+                    {view === "root" && (
+                      <>
+                        <button className="btn-ghost" onClick={() => setPending({ kind: "move-folder", folder: f })}>
+                          Taşı
+                        </button>
+                        <button className="btn-ghost" onClick={() => setPending({ kind: "rename-folder", folder: f })}>
+                          Yeniden adlandır
+                        </button>
+                        <button className="btn-ghost text-red-600 dark:text-red-400" onClick={() => setPending({ kind: "delete-folder", folder: f })}>
+                          Sil
+                        </button>
+                      </>
+                    )}
+                  </RowActions>
+                </div>
+              ))}
+
+              {files.map((f) => (
+                <div
+                  key={f.id}
+                  className="flex flex-wrap items-center gap-3 border-b px-4 py-3 last:border-0"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <button className="flex flex-1 items-center gap-3 text-left" onClick={() => openFile(f)}>
+                    <span className="text-xl">{iconForMime(f.mimeType)}</span>
+                    <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                      {f.name}
+                    </span>
                   </button>
-                  <button className="btn-ghost" onClick={() => setVersionsTarget({ id: f.id, name: f.name })}>
-                    Versiyonlar
-                  </button>
-                  {view === "root" && (
-                    <>
-                      <button className="btn-ghost" onClick={() => setPending({ kind: "move-file", file: f })}>
-                        Taşı
-                      </button>
-                      <button className="btn-ghost" onClick={() => setPending({ kind: "rename-file", file: f })}>
-                        Yeniden adlandır
-                      </button>
-                      <button className="btn-ghost text-red-600" onClick={() => setPending({ kind: "delete-file", file: f })}>
-                        Sil
-                      </button>
-                    </>
-                  )}
-                </RowActions>
-              </div>
-            ))}
-          </div>
+                  <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                    {formatBytesStr(f.size)}
+                  </span>
+                  <span className="hidden text-xs sm:inline" style={{ color: "var(--text-tertiary)" }}>
+                    {formatDate(f.updatedAt)}
+                  </span>
+                  <RowActions>
+                    <button className="btn-ghost" onClick={() => downloadFile(f)}>
+                      İndir
+                    </button>
+                    <button className="btn-ghost" onClick={() => setShareTarget({ type: "file", id: f.id, name: f.name })}>
+                      Paylaş
+                    </button>
+                    <button className="btn-ghost" onClick={() => setVersionsTarget({ id: f.id, name: f.name })}>
+                      Versiyonlar
+                    </button>
+                    {view === "root" && (
+                      <>
+                        <button className="btn-ghost" onClick={() => setPending({ kind: "move-file", file: f })}>
+                          Taşı
+                        </button>
+                        <button className="btn-ghost" onClick={() => setPending({ kind: "rename-file", file: f })}>
+                          Yeniden adlandır
+                        </button>
+                        <button className="btn-ghost text-red-600 dark:text-red-400" onClick={() => setPending({ kind: "delete-file", file: f })}>
+                          Sil
+                        </button>
+                      </>
+                    )}
+                  </RowActions>
+                </div>
+              ))}
+            </div>
+          )}
         </main>
       </div>
 
@@ -469,9 +520,18 @@ function SideLink({
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
-        active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"
-      }`}
+      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm"
+      style={
+        active
+          ? { background: "var(--accent)", color: "var(--accent-foreground)" }
+          : { color: "var(--text-primary)" }
+      }
+      onMouseEnter={(e) => {
+        if (!active) e.currentTarget.style.background = "var(--surface-hover)";
+      }}
+      onMouseLeave={(e) => {
+        if (!active) e.currentTarget.style.background = "transparent";
+      }}
     >
       <span>{icon}</span>
       {label}

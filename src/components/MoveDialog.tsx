@@ -55,20 +55,27 @@ export default function MoveDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-      <div className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-        <div className="border-b border-slate-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-900">Taşı</h2>
-          <p className="mt-0.5 truncate text-sm text-slate-500">&quot;{itemName}&quot; için hedef klasör seç</p>
+      <div
+        className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl border shadow-lg"
+        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+      >
+        <div className="border-b px-6 py-4" style={{ borderColor: "var(--border)" }}>
+          <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+            Taşı
+          </h2>
+          <p className="mt-0.5 truncate text-sm" style={{ color: "var(--text-secondary)" }}>
+            &quot;{itemName}&quot; için hedef klasör seç
+          </p>
         </div>
 
-        <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 px-6 py-2 text-sm text-slate-500">
-          <button onClick={() => setCurrentId(null)} className="shrink-0 hover:text-slate-900 hover:underline">
+        <div className="flex items-center gap-1 overflow-x-auto border-b px-6 py-2 text-sm" style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}>
+          <button onClick={() => setCurrentId(null)} className="shrink-0 hover:underline" style={{ color: "inherit" }}>
             Sürücüm
           </button>
           {breadcrumb.map((c) => (
             <span key={c.id} className="flex shrink-0 items-center gap-1">
               <span>/</span>
-              <button onClick={() => setCurrentId(c.id)} className="hover:text-slate-900 hover:underline">
+              <button onClick={() => setCurrentId(c.id)} className="hover:underline">
                 {c.name}
               </button>
             </span>
@@ -76,16 +83,26 @@ export default function MoveDialog({
         </div>
 
         <div className="max-h-72 min-h-[8rem] overflow-y-auto px-2 py-2">
-          {error && <p className="px-4 py-2 text-sm text-red-600">{error}</p>}
-          {loading && <p className="px-4 py-2 text-sm text-slate-400">Yükleniyor…</p>}
+          {error && <p className="px-4 py-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {loading && (
+            <div className="space-y-2 px-2 py-1">
+              <div className="skeleton h-9 w-full" />
+              <div className="skeleton h-9 w-full" />
+            </div>
+          )}
           {!loading && folders.length === 0 && (
-            <p className="px-4 py-2 text-sm text-slate-400">Alt klasör yok.</p>
+            <p className="px-4 py-2 text-sm" style={{ color: "var(--text-tertiary)" }}>
+              Alt klasör yok.
+            </p>
           )}
           {folders.map((f) => (
             <button
               key={f.id}
               onClick={() => setCurrentId(f.id)}
-              className="flex w-full items-center gap-2 rounded-lg px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+              className="flex w-full items-center gap-2 rounded-lg px-4 py-2 text-left text-sm hover:opacity-80"
+              style={{ color: "var(--text-primary)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <span>📁</span>
               {f.name}
@@ -93,7 +110,7 @@ export default function MoveDialog({
           ))}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-slate-200 px-6 py-4">
+        <div className="flex justify-end gap-2 border-t px-6 py-4" style={{ borderColor: "var(--border)" }}>
           <button className="btn-secondary" onClick={onClose}>
             Vazgeç
           </button>

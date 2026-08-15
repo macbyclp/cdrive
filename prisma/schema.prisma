@@ -39,6 +39,7 @@ enum AuditAction {
   USER_UPDATE
   USER_DEACTIVATE
   DEPARTMENT_CREATE
+  DEPARTMENT_UPDATE
 }
 
 model Department {

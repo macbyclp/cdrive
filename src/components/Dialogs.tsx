@@ -21,15 +21,20 @@ export function InputDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
       <form
-        className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-lg"
+        className="w-full max-w-sm rounded-2xl border p-6 shadow-lg"
+        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
         onSubmit={(e) => {
           e.preventDefault();
           if (value.trim()) onConfirm(value.trim());
         }}
       >
-        <h2 className="mb-3 text-base font-semibold text-slate-900">{title}</h2>
+        <h2 className="mb-3 text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+          {title}
+        </h2>
         <label className="mb-4 block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
+          <span className="mb-1 block text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+            {label}
+          </span>
           <input
             autoFocus
             className="input"
@@ -67,15 +72,23 @@ export function ConfirmDialog({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-lg">
-        <h2 className="mb-2 text-base font-semibold text-slate-900">{title}</h2>
-        <p className="mb-5 text-sm text-slate-500">{description}</p>
+      <div className="w-full max-w-sm rounded-2xl border p-6 shadow-lg" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+        <h2 className="mb-2 text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+          {title}
+        </h2>
+        <p className="mb-5 text-sm" style={{ color: "var(--text-secondary)" }}>
+          {description}
+        </p>
         <div className="flex justify-end gap-2">
           <button className="btn-secondary" onClick={onCancel}>
             Vazgeç
           </button>
           <button
-            className={danger ? "rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700" : "btn-primary"}
+            className={
+              danger
+                ? "rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400"
+                : "btn-primary"
+            }
             onClick={onConfirm}
           >
             {confirmLabel}
