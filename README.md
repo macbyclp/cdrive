@@ -23,15 +23,20 @@ Kurumsal dosya yönetim platformu — departmanlar arası klasör/dosya paylaş�
 ## Teknoloji
 
 - Next.js 16 (App Router, Turbopack) + React 19 + TypeScript
-- PostgreSQL + Prisma ORM
+- MySQL/MariaDB + Prisma ORM (paylaşımlı hosting/cPanel uyumluluğu için — bkz. not aşağıda)
 - Tailwind CSS 4
 - `archiver` — klasör zip indirme
 - Dosyalar yerel diskte saklanır (`STORAGE_ROOT`, varsayılan `./storage`)
 
+> **Not:** Proje başlangıçta PostgreSQL ile geliştirildi, 2026-08-16'da hedef hosting ortamı
+> (cPanel + Node.js App, sadece MySQL/MariaDB destekliyor) nedeniyle MySQL'e taşındı. Şema
+> Postgres'e özgü hiçbir özellik kullanmıyor; PostgreSQL'e dönmek isterseniz
+> `prisma/schema.prisma`'da `provider = "postgresql"` yapıp migration'ları yeniden oluşturmanız yeterli.
+
 ## Kurulum
 
-1. `.env` dosyasındaki `DATABASE_URL` ve `SESSION_SECRET` değerlerini kontrol edin (yerel geliştirme için hazır değerler bırakıldı — **production'da `SESSION_SECRET`'ı mutlaka değiştirin**).
-2. PostgreSQL sunucusunun çalıştığından emin olun.
+1. `.env` dosyasındaki `DATABASE_URL` ve `SESSION_SECRET` değerlerini kontrol edin (yerel geliştirme için hazır değerler bırakıldı — **production'da `SESSION_SECRET`'ı mutlaka değiştirin**). `DATABASE_URL` formatı: `mysql://KULLANICI:SIFRE@HOST:3306/VERITABANI`.
+2. MySQL/MariaDB sunucusunun çalıştığından ve veritabanının oluşturulmuş olduğundan emin olun.
 3. Bağımlılıkları kurun ve migration'ları uygulayın:
 
    ```bash
@@ -46,6 +51,14 @@ Kurumsal dosya yönetim platformu — departmanlar arası klasör/dosya paylaş�
    ```
 
 5. Tarayıcıda `http://localhost:3000` adresine gidin. Sistemde hiç kullanıcı yoksa otomatik olarak `/setup` sayfasına yönlendirilip ilk yönetici hesabı oluşturulur.
+
+## cPanel / paylaşımlı hosting'e deploy
+
+1. cPanel'de **Setup Node.js App** ile yeni bir uygulama oluşturun (Node.js 18+, application root = proje klasörü, application URL = alan adınız/alt dizin).
+2. cPanel'de bir **MySQL Database** ve kullanıcı oluşturup uygulamaya tam yetki verin; bağlantı bilgilerini `DATABASE_URL` olarak `.env`'e (veya Node.js App arayüzündeki "Environment variables" bölümüne) girin.
+3. cPanel'in sağladığı "Enter to the virtual environment" terminalinden: `npm install`, `npx prisma migrate deploy`, `npm run build`.
+4. Node.js App arayüzünde **Startup File** olarak proje kökündeki `server.js`'i seçin (cPanel'in Passenger'ı `next start` komutunu değil, `process.env.PORT`'ta dinleyen bir `.js` giriş dosyası bekler — bu dosya projede hazır).
+5. Uygulamayı **Restart** edip alan adınızdan açın; hiç kullanıcı yoksa `/setup`'a yönlendirilecektir.
 
 ## Dizin yapısı (özet)
 

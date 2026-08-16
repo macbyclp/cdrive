@@ -14,7 +14,9 @@ export async function GET(req: Request) {
     const candidates = await prisma.file.findMany({
       where: {
         deletedAt: null,
-        name: { contains: q, mode: "insensitive" },
+        // Not: MySQL'in varsayılan koleksiyon düzeni (utf8mb4_*_ci) zaten büyük/küçük
+        // harf duyarsız karşılaştırma yapar; Postgres'teki gibi ayrı bir `mode` seçeneği yok.
+        name: { contains: q },
       },
       take: 200,
       orderBy: { updatedAt: "desc" },
