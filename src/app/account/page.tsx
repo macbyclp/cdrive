@@ -3,19 +3,15 @@
 import { useEffect, useState } from "react";
 import TopBar from "@/components/TopBar";
 import { useToast } from "@/components/ToastProvider";
+import { useMe } from "@/lib/useMe";
 import type { MeUser } from "@/lib/types";
 
 export default function AccountPage() {
-  const [user, setUser] = useState<MeUser | null>(null);
-
-  function refresh() {
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then((d) => setUser(d.user));
-  }
+  const { user, refresh } = useMe();
 
   useEffect(() => {
     refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!user) return null;
@@ -34,6 +30,7 @@ export default function AccountPage() {
         <div className="space-y-6">
           <PasswordCard />
           <TwoFactorCard user={user} onChange={refresh} />
+          <SessionsCard />
         </div>
       </main>
     </div>
@@ -243,6 +240,117 @@ function TwoFactorCard({ user, onChange }: { user: MeUser; onChange: () => void 
             </button>
           </div>
         </form>
+      )}
+    </div>
+  );
+}
+
+type SessionItem = {
+  id: string;
+  ip: string | null;
+  userAgent: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+};
+
+function describeDevice(userAgent: string | null) {
+  if (!userAgent) return "Bilinmeyen cihaz";
+  if (/mobile/i.test(userAgent)) return "Mobil tarayıcı";
+  if (/Windows/i.test(userAgent)) return "Windows · tarayıcı";
+  if (/Macintosh/i.test(userAgent)) return "Mac · tarayıcı";
+  if (/Linux/i.test(userAgent)) return "Linux · tarayıcı";
+  return "Tarayıcı";
+}
+
+function SessionsCard() {
+  const toast = useToast();
+  const [sessions, setSessions] = useState<SessionItem[]>([]);
+  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  function load() {
+    fetch("/api/account/sessions")
+      .then((r) => r.json())
+      .then((d) => {
+        setSessions(d.sessions ?? []);
+        setCurrentId(d.currentSessionId ?? null);
+        setLoading(false);
+      });
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function revoke(sessionId: string) {
+    await fetch("/api/account/sessions/revoke", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId }),
+    });
+    toast("Oturum sonlandırıldı");
+    load();
+  }
+
+  async function revokeOthers() {
+    await fetch("/api/account/sessions/revoke-others", { method: "POST" });
+    toast("Diğer tüm oturumlar sonlandırıldı", "success");
+    load();
+  }
+
+  return (
+    <div className="card p-5">
+      <div className="mb-1 flex items-center justify-between">
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Aktif oturumlar
+        </h2>
+        {sessions.length > 1 && (
+          <button className="btn-ghost text-xs text-red-600 dark:text-red-400" onClick={revokeOthers}>
+            Diğerlerini kapat
+          </button>
+        )}
+      </div>
+      <p className="mb-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+        Cdrive&apos;a giriş yapmış olduğun cihazlar. Tanımadığın bir oturum görürsen sonlandır ve şifreni değiştir.
+      </p>
+
+      {loading && (
+        <div className="space-y-2">
+          <div className="skeleton h-12 w-full" />
+          <div className="skeleton h-12 w-full" />
+        </div>
+      )}
+
+      {!loading && (
+        <div className="space-y-2">
+          {sessions.map((s) => (
+            <div
+              key={s.id}
+              className="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <div>
+                <div className="flex items-center gap-1.5 font-medium" style={{ color: "var(--text-primary)" }}>
+                  {describeDevice(s.userAgent)}
+                  {s.id === currentId && <span className="badge">bu cihaz</span>}
+                </div>
+                <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  {s.ip ?? "bilinmeyen IP"} · son görülme {new Date(s.lastSeenAt).toLocaleString("tr-TR")}
+                </div>
+              </div>
+              {s.id !== currentId && (
+                <button className="btn-ghost text-red-600 dark:text-red-400" onClick={() => revoke(s.id)}>
+                  Sonlandır
+                </button>
+              )}
+            </div>
+          ))}
+          {sessions.length === 0 && (
+            <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+              Aktif oturum bulunamadı.
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

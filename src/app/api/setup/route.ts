@@ -31,7 +31,10 @@ export async function POST(req: Request) {
     const user = await prisma.user.create({
       data: { name: body.name, email: body.email.toLowerCase(), passwordHash, role: "ADMIN" },
     });
-    await createSession({ userId: user.id, email: user.email, name: user.name, role: user.role });
+    await createSession(
+      { userId: user.id, email: user.email, name: user.name, role: user.role },
+      { ip: clientIp(req), userAgent: req.headers.get("user-agent") }
+    );
     await logAudit({ userId: user.id, action: "USER_CREATE", detail: "İlk admin hesabı oluşturuldu", ip: clientIp(req) });
     return NextResponse.json({ id: user.id, email: user.email, role: user.role });
   } catch (err) {

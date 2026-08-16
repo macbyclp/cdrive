@@ -10,7 +10,8 @@ import MoveDialog from "@/components/MoveDialog";
 import RowMenu, { type RowMenuItem } from "@/components/RowMenu";
 import { InputDialog, ConfirmDialog } from "@/components/Dialogs";
 import { useToast } from "@/components/ToastProvider";
-import type { Crumb, FileItem, FolderItem, MeUser } from "@/lib/types";
+import { useMe } from "@/lib/useMe";
+import type { Crumb, FileItem, FolderItem } from "@/lib/types";
 import { badgeColorForMime, formatBytesStr, formatDate, iconForMime, previewKind } from "@/lib/format";
 
 type View = "root" | "shared" | "search" | "recent" | "starred" | "trash";
@@ -53,7 +54,7 @@ function DriveInner() {
   const q = params.get("q") ?? "";
   const canBulk = view === "root";
 
-  const [user, setUser] = useState<MeUser | null>(null);
+  const { user, refresh: refreshMe } = useMe();
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [breadcrumb, setBreadcrumb] = useState<Crumb[]>([]);
@@ -69,6 +70,8 @@ function DriveInner() {
   const [starredFolderIds, setStarredFolderIds] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragOver, setDragOver] = useState(false);
+  const [draggedItem, setDraggedItem] = useState<{ type: "file" | "folder"; id: string } | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -81,12 +84,6 @@ function DriveInner() {
     setViewModeState(mode);
     localStorage.setItem(VIEW_MODE_KEY, mode);
   }
-
-  const refreshMe = useCallback(() => {
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then((d) => setUser(d.user));
-  }, []);
 
   const loadStars = useCallback(() => {
     fetch("/api/stars/ids")
@@ -214,7 +211,7 @@ function DriveInner() {
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
-    if (view !== "root") return;
+    if (view !== "root" || draggedItem) return;
     uploadFiles(e.dataTransfer.files);
   }
 
@@ -313,6 +310,48 @@ function DriveInner() {
     }
     toast("Taşındı", "success");
     load();
+  }
+
+  // --- Sürükle-bırak ile taşıma ---
+  function handleDragStart(type: "file" | "folder", id: string) {
+    return (e: React.DragEvent) => {
+      if (view !== "root") return;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", `${type}:${id}`);
+      setDraggedItem({ type, id });
+    };
+  }
+
+  function handleDragEnd() {
+    setDraggedItem(null);
+    setDropTargetId(undefined);
+  }
+
+  function canDropOn(targetFolderId: string | null) {
+    if (!draggedItem || view !== "root") return false;
+    if (draggedItem.type === "folder" && draggedItem.id === targetFolderId) return false;
+    return true;
+  }
+
+  function handleDropOn(targetFolderId: string | null) {
+    return async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setDropTargetId(undefined);
+      const item = draggedItem;
+      setDraggedItem(null);
+      if (!item || !canDropOn(targetFolderId)) return;
+      if (item.type === "folder") {
+        const folder = folders.find((f) => f.id === item.id);
+        if (!folder || folder.parentId === targetFolderId) return;
+        await submitMoveFolder(folder, targetFolderId);
+      } else {
+        const file = files.find((f) => f.id === item.id);
+        if (!file) return;
+        if (file.folderId === targetFolderId) return;
+        await submitMoveFile(file, targetFolderId);
+      }
+    };
   }
 
   // --- Yıldızlama ---
@@ -458,14 +497,14 @@ function DriveInner() {
         <main
           className="relative flex-1 p-4 sm:p-6"
           onDragOver={(e) => {
-            if (view !== "root") return;
+            if (view !== "root" || draggedItem) return;
             e.preventDefault();
             setDragOver(true);
           }}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
         >
-          {dragOver && view === "root" && (
+          {dragOver && view === "root" && !draggedItem && (
             <div
               className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-2xl border-2 border-dashed text-sm font-medium"
               style={{ borderColor: "var(--accent)", background: "var(--accent-soft)", color: "var(--accent-soft-foreground)" }}
@@ -476,13 +515,50 @@ function DriveInner() {
 
           {view === "root" && (
             <div className="mb-4 flex flex-wrap items-center gap-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-              <button onClick={() => goFolder(null)} className="hover:underline" style={{ color: "inherit" }}>
+              <button
+                onClick={() => goFolder(null)}
+                className="rounded px-1 hover:underline"
+                style={{
+                  color: "inherit",
+                  outline: dropTargetId === null && canDropOn(null) ? "2px dashed var(--accent)" : undefined,
+                  background: dropTargetId === null && canDropOn(null) ? "var(--accent-soft)" : undefined,
+                }}
+                onDragOver={(e) => {
+                  if (!canDropOn(null) || folderId === null) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDropTargetId(null);
+                }}
+                onDragLeave={(e) => {
+                  e.stopPropagation();
+                  setDropTargetId((cur) => (cur === null ? undefined : cur));
+                }}
+                onDrop={handleDropOn(null)}
+              >
                 Sürücüm
               </button>
               {breadcrumb.map((c) => (
                 <span key={c.id} className="flex items-center gap-1">
                   <span>/</span>
-                  <button onClick={() => goFolder(c.id)} className="hover:underline">
+                  <button
+                    onClick={() => goFolder(c.id)}
+                    className="rounded px-1 hover:underline"
+                    style={{
+                      outline: dropTargetId === c.id && canDropOn(c.id) ? "2px dashed var(--accent)" : undefined,
+                      background: dropTargetId === c.id && canDropOn(c.id) ? "var(--accent-soft)" : undefined,
+                    }}
+                    onDragOver={(e) => {
+                      if (!canDropOn(c.id) || c.id === folderId) return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDropTargetId(c.id);
+                    }}
+                    onDragLeave={(e) => {
+                      e.stopPropagation();
+                      setDropTargetId((cur) => (cur === c.id ? undefined : cur));
+                    }}
+                    onDrop={handleDropOn(c.id)}
+                  >
                     {c.name}
                   </button>
                 </span>
@@ -621,6 +697,21 @@ function DriveInner() {
                   onOpen={() =>
                     isTrash ? undefined : view === "shared" ? router.push(`/drive?folder=${f.id}`) : goFolder(f.id)
                   }
+                  draggable={view === "root"}
+                  onDragStart={handleDragStart("folder", f.id)}
+                  onDragEnd={handleDragEnd}
+                  isDropTarget={dropTargetId === f.id && canDropOn(f.id)}
+                  onCardDragOver={(e) => {
+                    if (!canDropOn(f.id)) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDropTargetId(f.id);
+                  }}
+                  onCardDragLeave={(e) => {
+                    e.stopPropagation();
+                    setDropTargetId((cur) => (cur === f.id ? undefined : cur));
+                  }}
+                  onCardDrop={handleDropOn(f.id)}
                   menuItems={
                     isTrash
                       ? [
@@ -651,6 +742,9 @@ function DriveInner() {
                   starred={starredFileIds.has(f.id)}
                   onToggleStar={!isTrash ? () => toggleStar("file", f.id, starredFileIds.has(f.id)) : undefined}
                   onOpen={() => (isTrash ? undefined : openFile(f))}
+                  draggable={view === "root"}
+                  onDragStart={handleDragStart("file", f.id)}
+                  onDragEnd={handleDragEnd}
                   menuItems={
                     isTrash
                       ? [
@@ -681,9 +775,32 @@ function DriveInner() {
                 <div
                   key={f.id}
                   className="group flex flex-wrap items-center gap-3 border-b px-4 py-3 transition-colors last:border-0"
-                  style={{ borderColor: "var(--border)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  style={{
+                    borderColor: "var(--border)",
+                    background: dropTargetId === f.id && canDropOn(f.id) ? "var(--accent-soft)" : undefined,
+                    outline: dropTargetId === f.id && canDropOn(f.id) ? "2px dashed var(--accent)" : undefined,
+                    outlineOffset: -2,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (dropTargetId !== f.id) e.currentTarget.style.background = "var(--surface-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (dropTargetId !== f.id) e.currentTarget.style.background = "transparent";
+                  }}
+                  draggable={view === "root"}
+                  onDragStart={handleDragStart("folder", f.id)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => {
+                    if (!canDropOn(f.id)) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDropTargetId(f.id);
+                  }}
+                  onDragLeave={(e) => {
+                    e.stopPropagation();
+                    setDropTargetId((cur) => (cur === f.id ? undefined : cur));
+                  }}
+                  onDrop={handleDropOn(f.id)}
                 >
                   {canBulk && (
                     <input
@@ -783,6 +900,9 @@ function DriveInner() {
                   style={{ borderColor: "var(--border)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  draggable={view === "root"}
+                  onDragStart={handleDragStart("file", f.id)}
+                  onDragEnd={handleDragEnd}
                 >
                   {canBulk && (
                     <input
@@ -1086,6 +1206,13 @@ function CardShell({
   starred,
   onToggleStar,
   children,
+  draggable,
+  onDragStart,
+  onDragEnd,
+  isDropTarget,
+  onCardDragOver,
+  onCardDragLeave,
+  onCardDrop,
 }: {
   onOpen?: () => void;
   menuItems: RowMenuItem[];
@@ -1095,19 +1222,39 @@ function CardShell({
   starred?: boolean;
   onToggleStar?: () => void;
   children: React.ReactNode;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
+  isDropTarget?: boolean;
+  onCardDragOver?: (e: React.DragEvent) => void;
+  onCardDragLeave?: (e: React.DragEvent) => void;
+  onCardDrop?: (e: React.DragEvent) => void;
 }) {
   return (
     <div
       className="group relative flex flex-col items-center rounded-xl border p-4 text-center transition-all"
-      style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+      style={{
+        borderColor: isDropTarget ? "var(--accent)" : "var(--border)",
+        background: isDropTarget ? "var(--accent-soft)" : "var(--surface)",
+        outline: isDropTarget ? "2px dashed var(--accent)" : undefined,
+        outlineOffset: -2,
+      }}
       onMouseEnter={(e) => {
+        if (isDropTarget) return;
         e.currentTarget.style.borderColor = "var(--accent)";
         e.currentTarget.style.boxShadow = "var(--shadow-md)";
       }}
       onMouseLeave={(e) => {
+        if (isDropTarget) return;
         e.currentTarget.style.borderColor = "var(--border)";
         e.currentTarget.style.boxShadow = "none";
       }}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onCardDragOver}
+      onDragLeave={onCardDragLeave}
+      onDrop={onCardDrop}
     >
       {selectable && (
         <input
@@ -1142,6 +1289,13 @@ function FolderCard({
   onToggleSelect,
   starred,
   onToggleStar,
+  draggable,
+  onDragStart,
+  onDragEnd,
+  isDropTarget,
+  onCardDragOver,
+  onCardDragLeave,
+  onCardDrop,
 }: {
   folder: FolderItem;
   onOpen?: () => void;
@@ -1151,6 +1305,13 @@ function FolderCard({
   onToggleSelect?: () => void;
   starred?: boolean;
   onToggleStar?: () => void;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
+  isDropTarget?: boolean;
+  onCardDragOver?: (e: React.DragEvent) => void;
+  onCardDragLeave?: (e: React.DragEvent) => void;
+  onCardDrop?: (e: React.DragEvent) => void;
 }) {
   return (
     <CardShell
@@ -1161,6 +1322,13 @@ function FolderCard({
       onToggleSelect={onToggleSelect}
       starred={starred}
       onToggleStar={onToggleStar}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      isDropTarget={isDropTarget}
+      onCardDragOver={onCardDragOver}
+      onCardDragLeave={onCardDragLeave}
+      onCardDrop={onCardDrop}
     >
       <span
         className="flex h-14 w-14 items-center justify-center rounded-xl text-2xl"
@@ -1184,6 +1352,9 @@ function FileCard({
   onToggleSelect,
   starred,
   onToggleStar,
+  draggable,
+  onDragStart,
+  onDragEnd,
 }: {
   file: FileItem;
   onOpen?: () => void;
@@ -1193,6 +1364,9 @@ function FileCard({
   onToggleSelect?: () => void;
   starred?: boolean;
   onToggleStar?: () => void;
+  draggable?: boolean;
+  onDragStart?: (e: React.DragEvent) => void;
+  onDragEnd?: () => void;
 }) {
   return (
     <CardShell
@@ -1203,6 +1377,9 @@ function FileCard({
       onToggleSelect={onToggleSelect}
       starred={starred}
       onToggleStar={onToggleStar}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
     >
       <span
         className="flex h-14 w-14 items-center justify-center rounded-xl text-2xl"

@@ -15,6 +15,7 @@ export type SessionPayload = {
   email: string;
   name: string;
   role: Role;
+  sessionId: string;
 };
 
 export async function hashPassword(password: string) {
@@ -25,8 +26,21 @@ export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
 }
 
-export async function createSession(payload: SessionPayload) {
-  const token = await new SignJWT({ ...payload })
+/**
+ * Yeni bir oturum açar: DB'de bir Session kaydı oluşturur (uzaktan
+ * sonlandırılabilmesi için) ve JWT'ye o kaydın id'sini gömer. JWT tek
+ * başına imza kontrolüyle doğrulanabilir olsa da, DB'deki kayıt "revoke"
+ * edilirse artık geçerli sayılmaz (bkz. requireSession).
+ */
+export async function createSession(
+  payload: Omit<SessionPayload, "sessionId">,
+  meta?: { ip?: string | null; userAgent?: string | null }
+) {
+  const session = await prisma.session.create({
+    data: { userId: payload.userId, ip: meta?.ip ?? undefined, userAgent: meta?.userAgent ?? undefined },
+  });
+
+  const token = await new SignJWT({ ...payload, sessionId: session.id })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
@@ -40,13 +54,34 @@ export async function createSession(payload: SessionPayload) {
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
   });
+  return session.id;
 }
 
 export async function destroySession() {
+  const session = await getSession();
+  if (session) {
+    await prisma.session.updateMany({
+      where: { id: session.sessionId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
   const store = await cookies();
   store.delete(SESSION_COOKIE);
 }
 
+/**
+ * Çerezi DB'ye dokunmadan siler. Middleware sadece JWT imzasının geçerliliğine
+ * bakar — DB'de revoke edilmiş/eksik bir oturumu (ör. bu özellikten önce
+ * verilmiş eski bir JWT) "geçerli" sanıp /login'i /drive'a geri yönlendirebilir.
+ * Böyle bir oturum tespit edildiğinde çerez burada temizlenmeli, aksi halde
+ * istemci /login'e yönlendiği anda middleware onu tekrar /drive'a atar.
+ */
+export async function clearSessionCookie() {
+  const store = await cookies();
+  store.delete(SESSION_COOKIE);
+}
+
+/** Sadece çerezdeki JWT'yi imza açısından çözer — DB'ye gitmez, ucuzdur. */
 export async function getSession(): Promise<SessionPayload | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
@@ -59,9 +94,12 @@ export async function getSession(): Promise<SessionPayload | null> {
   }
 }
 
+/** JWT geçerli olsa bile, DB'deki oturum kaydı "revoke" edilmişse reddeder. */
 export async function requireSession() {
   const session = await getSession();
-  if (!session) throw new AuthError("Oturum bulunamadı");
+  if (!session?.sessionId) throw new AuthError("Oturum sona erdi, tekrar giriş yapın");
+  const record = await prisma.session.findUnique({ where: { id: session.sessionId } });
+  if (!record || record.revokedAt) throw new AuthError("Oturum sona erdi, tekrar giriş yapın");
   return session;
 }
 
@@ -76,6 +114,29 @@ export async function requireRole(...roles: Role[]) {
   const user = await requireUser();
   if (!roles.includes(user.role)) throw new AuthError("Yetkisiz erişim", 403);
   return user;
+}
+
+// --- Aktif oturum yönetimi (hesap ayarlarında görüntülenir) ---
+
+export async function listSessions(userId: string) {
+  return prisma.session.findMany({
+    where: { userId, revokedAt: null },
+    orderBy: { lastSeenAt: "desc" },
+  });
+}
+
+export async function revokeSession(userId: string, sessionId: string) {
+  await prisma.session.updateMany({
+    where: { id: sessionId, userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+}
+
+export async function revokeOtherSessions(userId: string, exceptSessionId: string) {
+  await prisma.session.updateMany({
+    where: { userId, revokedAt: null, id: { not: exceptSessionId } },
+    data: { revokedAt: new Date() },
+  });
 }
 
 // --- İki adımlı giriş (2FA) için geçici oturum ---

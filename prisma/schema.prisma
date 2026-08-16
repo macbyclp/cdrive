@@ -47,6 +47,9 @@ enum AuditAction {
   TWO_FACTOR_ENABLE
   TWO_FACTOR_DISABLE
   PASSWORD_CHANGE
+  SESSION_REVOKE
+  SETTINGS_UPDATE
+  AUTO_CLEANUP
 }
 
 enum NotificationType {
@@ -95,8 +98,35 @@ model User {
   fileStars    FileStar[]
   folderStars  FolderStar[]
   notifications Notification[]
+  sessions     Session[]
 
   @@map("users")
+}
+
+model Session {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent  String?   @db.Text
+  ip         String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// Tek satırlık genel sistem ayarları — id her zaman 1.
+model SystemSettings {
+  id                   Int      @id @default(1)
+  trashRetentionDays   Int? // null = çöp kutusu otomatik boşaltılmaz
+  versionRetentionDays Int? // null = eski dosya versiyonları otomatik silinmez
+  maxFileSizeBytes     BigInt? // null = sınır yok
+  blockedExtensions    String? @db.Text // virgülle ayrılmış, örn ".exe,.bat,.sh"
+  updatedAt            DateTime @updatedAt
+
+  @@map("system_settings")
 }
 
 model Folder {

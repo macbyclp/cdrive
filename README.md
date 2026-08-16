@@ -20,7 +20,11 @@ Kurumsal dosya yönetim platformu — departmanlar arası klasör/dosya paylaş�
 - **Klasörü .zip olarak indirme**: Bir klasörün tüm alt ağacını tek bir zip dosyası halinde indirme.
 - **Şifreli paylaşım bağlantıları**: Genel bağlantılara opsiyonel şifre koruması; `/s/[token]` herkese açık iniş sayfası.
 - **Tema**: Açık/Koyu/Sistem, liste veya ızgara (kart) görünümü — tercihler tarayıcıda kalıcı.
-- **Admin paneli**: Kullanıcı/departman yönetimi, depolama analitiği (departman/kullanıcı bazlı kullanım grafikleri), tüm sistem etkinlik günlüğü (giriş, yükleme, silme, paylaşım vb.).
+- **Sürükle-bırak ile taşıma**: Dosya/klasörleri başka bir klasörün veya "Sürücüm" kök konumunun üzerine sürükleyip bırakarak taşıma (liste ve ızgara görünümlerinin ikisinde de).
+- **Oturum yönetimi**: Hesabına giriş yapılmış tüm cihazları `Hesap ayarları`'ndan görme, tek tek veya toplu olarak uzaktan sonlandırma (DB destekli oturum kaydı — JWT geçerli olsa bile sunucudan iptal edilebilir).
+- **Otomatik veri temizleme politikası**: Admin panelinden çöp kutusu ve eski dosya versiyonları için saklama süresi (gün) belirleme; cPanel Cron Job ile otomatikleştirilebilir (bkz. aşağıda).
+- **Dosya yükleme politikaları**: Admin panelinden sistem geneli maksimum dosya boyutu ve engellenen dosya uzantıları tanımlama.
+- **Admin paneli**: Kullanıcı/departman yönetimi, depolama analitiği (departman/kullanıcı bazlı kullanım grafikleri), tüm sistem etkinlik günlüğü (giriş, yükleme, silme, paylaşım vb.), sistem ayarları (temizleme politikası + dosya politikaları).
 
 ## Teknoloji
 
@@ -61,6 +65,23 @@ Kurumsal dosya yönetim platformu — departmanlar arası klasör/dosya paylaş�
 3. cPanel'in sağladığı "Enter to the virtual environment" terminalinden: `npm install`, `npx prisma migrate deploy`, `npm run build`.
 4. Node.js App arayüzünde **Startup File** olarak proje kökündeki `server.js`'i seçin (cPanel'in Passenger'ı `next start` komutunu değil, `process.env.PORT`'ta dinleyen bir `.js` giriş dosyası bekler — bu dosya projede hazır).
 5. Uygulamayı **Restart** edip alan adınızdan açın; hiç kullanıcı yoksa `/setup`'a yönlendirilecektir.
+
+## Otomatik veri temizleme (Cron Job)
+
+Admin panelindeki **Sistem ayarları** sekmesinden çöp kutusu ve eski dosya versiyonları için bir saklama
+süresi (gün) belirlediyseniz, bu politikayı düzenli olarak uygulamak için `POST /api/admin/cleanup`
+uç noktasını periyodik çağırmanız gerekir — aksi halde yalnızca admin panelindeki "Şimdi çalıştır"
+butonuyla elle tetiklenir.
+
+1. `.env`'e rastgele, tahmin edilemez bir `CRON_SECRET` değeri ekleyin (ör. `openssl rand -hex 32`).
+2. cPanel'de **Cron Jobs** bölümünden günlük (veya istediğiniz sıklıkta) bir görev oluşturun:
+
+   ```bash
+   curl -X POST -H "Authorization: Bearer <CRON_SECRET>" https://alan-adiniz.com/api/admin/cleanup
+   ```
+
+`CRON_SECRET` tanımlı değilse bu uç nokta yalnızca oturum açmış bir admin tarafından çağrılabilir
+(cron için Authorization başlığı zorunlu değildir, ama önerilir).
 
 ## Testler
 

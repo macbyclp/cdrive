@@ -1,0 +1,31 @@
+-- AlterTable
+ALTER TABLE `audit_logs` MODIFY `action` ENUM('LOGIN', 'LOGIN_FAILED', 'LOGOUT', 'UPLOAD', 'DOWNLOAD', 'DELETE', 'RESTORE', 'RENAME', 'MOVE', 'CREATE_FOLDER', 'SHARE_CREATE', 'SHARE_REVOKE', 'PERMISSION_GRANT', 'PERMISSION_REVOKE', 'USER_CREATE', 'USER_UPDATE', 'USER_DEACTIVATE', 'DEPARTMENT_CREATE', 'DEPARTMENT_UPDATE', 'STAR', 'UNSTAR', 'PURGE', 'TWO_FACTOR_ENABLE', 'TWO_FACTOR_DISABLE', 'PASSWORD_CHANGE', 'SESSION_REVOKE', 'SETTINGS_UPDATE', 'AUTO_CLEANUP') NOT NULL;
+
+-- CreateTable
+CREATE TABLE `sessions` (
+    `id` VARCHAR(191) NOT NULL,
+    `userId` VARCHAR(191) NOT NULL,
+    `userAgent` TEXT NULL,
+    `ip` VARCHAR(191) NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `lastSeenAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `revokedAt` DATETIME(3) NULL,
+
+    INDEX `sessions_userId_idx`(`userId`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `system_settings` (
+    `id` INTEGER NOT NULL DEFAULT 1,
+    `trashRetentionDays` INTEGER NULL,
+    `versionRetentionDays` INTEGER NULL,
+    `maxFileSizeBytes` BIGINT NULL,
+    `blockedExtensions` TEXT NULL,
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- AddForeignKey
+ALTER TABLE `sessions` ADD CONSTRAINT `sessions_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

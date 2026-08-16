@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import TopBar from "@/components/TopBar";
 import { useToast } from "@/components/ToastProvider";
-import type { MeUser } from "@/lib/types";
+import { useMe } from "@/lib/useMe";
 import { formatBytesStr, formatDate } from "@/lib/format";
 
 type AdminUser = {
@@ -30,7 +30,7 @@ type AuditLog = {
   user: { name: string; email: string } | null;
 };
 
-type Tab = "users" | "departments" | "analytics" | "audit";
+type Tab = "users" | "departments" | "analytics" | "settings" | "audit";
 
 const AVATAR_COLORS = ["#0f172a", "#7c3aed", "#0891b2", "#c2410c", "#15803d", "#be185d", "#4338ca"];
 function avatarColor(seed: string) {
@@ -40,7 +40,7 @@ function avatarColor(seed: string) {
 }
 
 export default function AdminPage() {
-  const [user, setUser] = useState<MeUser | null>(null);
+  const { user, refresh: refreshMe } = useMe();
   const [tab, setTab] = useState<Tab>("users");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -67,11 +67,10 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then((d) => setUser(d.user));
+    refreshMe();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- ilk yüklemede admin verilerini sunucudan çek
     loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!user) return null;
@@ -88,7 +87,7 @@ export default function AdminPage() {
         </p>
 
         <div className="mb-6 flex gap-1 border-b" style={{ borderColor: "var(--border)" }}>
-          {(["users", "departments", "analytics", "audit"] as Tab[]).map((t) => (
+          {(["users", "departments", "analytics", "settings", "audit"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -104,7 +103,9 @@ export default function AdminPage() {
                   ? "Departmanlar"
                   : t === "analytics"
                     ? "Depolama analitiği"
-                    : "Etkinlik günlüğü"}
+                    : t === "settings"
+                      ? "Sistem ayarları"
+                      : "Etkinlik günlüğü"}
             </button>
           ))}
         </div>
@@ -126,6 +127,7 @@ export default function AdminPage() {
         )}
         {!loading && !error && tab === "departments" && <DepartmentsTab departments={departments} reload={loadAll} />}
         {!loading && !error && tab === "analytics" && <AnalyticsTab users={users} departments={departments} />}
+        {!loading && !error && tab === "settings" && <SettingsTab />}
         {!loading && !error && tab === "audit" && <AuditTab logs={logs} />}
       </main>
     </div>
@@ -541,6 +543,175 @@ function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments:
             </p>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+type SystemSettingsData = {
+  trashRetentionDays: number | null;
+  versionRetentionDays: number | null;
+  maxFileSizeBytes: string | null;
+  blockedExtensions: string | null;
+};
+
+function SettingsTab() {
+  const toast = useToast();
+  const [settings, setSettings] = useState<SystemSettingsData | null>(null);
+  const [trashDays, setTrashDays] = useState("");
+  const [versionDays, setVersionDays] = useState("");
+  const [maxSizeMb, setMaxSizeMb] = useState("");
+  const [blockedExt, setBlockedExt] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [cleanupResult, setCleanupResult] = useState<string | null>(null);
+
+  function load() {
+    fetch("/api/admin/settings")
+      .then((r) => r.json())
+      .then((d: SystemSettingsData) => {
+        setSettings(d);
+        setTrashDays(d.trashRetentionDays?.toString() ?? "");
+        setVersionDays(d.versionRetentionDays?.toString() ?? "");
+        setMaxSizeMb(d.maxFileSizeBytes ? (Number(d.maxFileSizeBytes) / 1024 ** 2).toString() : "");
+        setBlockedExt(d.blockedExtensions ?? "");
+      });
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const res = await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        trashRetentionDays: trashDays ? Number(trashDays) : null,
+        versionRetentionDays: versionDays ? Number(versionDays) : null,
+        maxFileSizeBytes: maxSizeMb ? Math.round(Number(maxSizeMb) * 1024 ** 2) : null,
+        blockedExtensions: blockedExt.trim() || null,
+      }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Kaydedilemedi", "error");
+      return;
+    }
+    toast("Ayarlar kaydedildi", "success");
+    load();
+  }
+
+  async function runNow() {
+    setBusy(true);
+    setCleanupResult(null);
+    const res = await fetch("/api/admin/cleanup", { method: "POST" });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Çalıştırılamadı", "error");
+      return;
+    }
+    const d = await res.json();
+    setCleanupResult(`${d.purgedFolders} klasör, ${d.purgedFiles} dosya, ${d.purgedVersions} versiyon kalıcı silindi.`);
+    toast("Temizlik tamamlandı", "success");
+  }
+
+  if (!settings) return <div className="skeleton h-40 w-full" />;
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={save} className="card space-y-4 p-5">
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Otomatik veri temizleme
+        </h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+              Çöp kutusu saklama süresi (gün)
+            </span>
+            <input
+              type="number"
+              min={1}
+              placeholder="Kapalı (hiç silinmez)"
+              className="input"
+              value={trashDays}
+              onChange={(e) => setTrashDays(e.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+              Eski versiyon saklama süresi (gün)
+            </span>
+            <input
+              type="number"
+              min={1}
+              placeholder="Kapalı (hiç silinmez)"
+              className="input"
+              value={versionDays}
+              onChange={(e) => setVersionDays(e.target.value)}
+            />
+          </label>
+        </div>
+        <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+          Boş bırakılırsa o politika devre dışı kalır. Güncel (current) dosya versiyonu asla silinmez.
+        </p>
+
+        <h2 className="pt-2 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Dosya yükleme politikaları
+        </h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+              Maksimum dosya boyutu (MB)
+            </span>
+            <input
+              type="number"
+              min={1}
+              placeholder="Sınırsız"
+              className="input"
+              value={maxSizeMb}
+              onChange={(e) => setMaxSizeMb(e.target.value)}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+              Engellenen uzantılar
+            </span>
+            <input
+              type="text"
+              placeholder=".exe, .bat, .sh"
+              className="input"
+              value={blockedExt}
+              onChange={(e) => setBlockedExt(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <button disabled={busy} className="btn-primary">
+          Ayarları kaydet
+        </button>
+      </form>
+
+      <div className="card p-5">
+        <h2 className="mb-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Temizliği şimdi çalıştır
+        </h2>
+        <p className="mb-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Kaydedilmiş politikayı hemen uygular — beklemeden test etmek için. cPanel&apos;de bir Cron Job kurup{" "}
+          <code className="text-xs">POST /api/admin/cleanup</code> adresine <code className="text-xs">Authorization: Bearer CRON_SECRET</code>{" "}
+          ile günlük istek atarak otomatikleştirebilirsiniz (README&apos;ye bakın).
+        </p>
+        <button disabled={busy} className="btn-secondary" onClick={runNow}>
+          Şimdi çalıştır
+        </button>
+        {cleanupResult && (
+          <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
+            {cleanupResult}
+          </p>
+        )}
       </div>
     </div>
   );

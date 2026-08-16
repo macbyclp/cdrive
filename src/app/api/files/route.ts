@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { canAccessFolder, assertQuota } from "@/lib/access";
 import { writeFile } from "@/lib/storage";
 import { extractSearchText } from "@/lib/text-extract";
+import { assertFilePolicy } from "@/lib/policy";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 
@@ -28,6 +29,7 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(arrayBuffer);
     const size = BigInt(buffer.byteLength);
 
+    await assertFilePolicy(file.name, size);
     await assertQuota(user, size);
 
     // Aynı klasörde aynı isimde dosya varsa -> yeni versiyon olarak ekle

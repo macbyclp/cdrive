@@ -50,7 +50,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ requiresTwoFactor: true });
     }
 
-    await createSession({ userId: user.id, email: user.email, name: user.name, role: user.role });
+    await createSession(
+      { userId: user.id, email: user.email, name: user.name, role: user.role },
+      { ip, userAgent: req.headers.get("user-agent") }
+    );
     await logAudit({ userId: user.id, action: "LOGIN", ip });
     return NextResponse.json({ id: user.id, email: user.email, name: user.name, role: user.role });
   } catch (err) {

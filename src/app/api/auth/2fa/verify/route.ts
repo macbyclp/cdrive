@@ -31,7 +31,10 @@ export async function POST(req: Request) {
     }
 
     await clearPending2FA();
-    await createSession({ userId: user.id, email: user.email, name: user.name, role: user.role });
+    await createSession(
+      { userId: user.id, email: user.email, name: user.name, role: user.role },
+      { ip, userAgent: req.headers.get("user-agent") }
+    );
     await logAudit({ userId: user.id, action: "LOGIN", ip, detail: "2FA ile" });
     return NextResponse.json({ id: user.id, email: user.email, name: user.name, role: user.role });
   } catch (err) {
