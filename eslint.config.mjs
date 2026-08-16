@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // cPanel/Passenger'ın doğrudan çalıştırdığı CommonJS giriş dosyası — Next'in
+    // ESM tabanlı kod tabanının parçası değil.
+    "server.js",
   ]),
 ]);
 

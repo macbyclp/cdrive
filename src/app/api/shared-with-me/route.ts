@@ -17,7 +17,7 @@ export async function GET() {
       }),
     ]);
     return NextResponse.json({
-      files: filePerms.map((p) => ({ ...p.file, size: p.file.size.toString(), myPermission: p.permission })),
+      files: filePerms.map((p) => ({ ...p.file, size: p.file.size.toString(), searchText: undefined, myPermission: p.permission })),
       folders: folderPerms.map((p) => ({ ...p.folder, myPermission: p.permission })),
     });
   } catch (err) {

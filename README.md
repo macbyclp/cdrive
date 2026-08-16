@@ -9,7 +9,9 @@ Kurumsal dosya yönetim platformu — departmanlar arası klasör/dosya paylaş�
 - **Klasör/dosya yönetimi**: İç içe klasörler, çoklu dosya yükleme, yeniden adlandırma, taşıma, silme (soft-delete).
 - **Paylaşım**: Kullanıcıya e-posta ile Görüntüle/Düzenle izni verme; ayrıca süre/limit ayarlanabilen genel (herkese açık) indirme bağlantıları.
 - **Versiyonlama**: Aynı klasöre aynı isimle tekrar yükleme yeni versiyon oluşturur; eski versiyona geri dönülebilir.
-- **Arama**: Dosya adına göre, erişim yetkisiyle filtrelenmiş arama.
+- **Arama**: Dosya adına göre ve (metin/PDF dosyalarında) içeriğe göre tam metin arama, erişim yetkisiyle filtrelenmiş.
+- **Güvenlik**: Giriş denemelerinde IP bazlı hız sınırlama, 5 başarısız denemeden sonra hesap kilitleme (15 dk), isteğe bağlı TOTP tabanlı iki adımlı doğrulama (2FA), kendi hesap ayarlarından şifre değiştirme.
+- **Bildirimler**: Biriyle bir dosya/klasör paylaşıldığında uygulama içi bildirim (zil ikonu, okunmamış sayacı).
 - **Depolama kotası**: Kullanıcı ve departman bazlı, aşıldığında yükleme reddedilir; admin panelinden düzenlenebilir.
 - **Çöp kutusu**: Silinen dosya/klasörler geri getirilebilir veya kalıcı olarak silinebilir (purge).
 - **Son kullanılanlar & Favoriler**: Son açılan/indirilen dosyalar ve yıldızlanan öğeler için ayrı görünümler.
@@ -60,11 +62,28 @@ Kurumsal dosya yönetim platformu — departmanlar arası klasör/dosya paylaş�
 4. Node.js App arayüzünde **Startup File** olarak proje kökündeki `server.js`'i seçin (cPanel'in Passenger'ı `next start` komutunu değil, `process.env.PORT`'ta dinleyen bir `.js` giriş dosyası bekler — bu dosya projede hazır).
 5. Uygulamayı **Restart** edip alan adınızdan açın; hiç kullanıcı yoksa `/setup`'a yönlendirilecektir.
 
+## Testler
+
+Kritik iş mantığı (izin/erişim hesaplama, çöp kutusu kota muhasebesi, TOTP, format yardımcıları) için Vitest ile otomatik testler var. Entegrasyon testleri ayrı bir `cdrive_test` veritabanına karşı çalışır (`.env.test`), asla geliştirme/production verisine dokunmaz.
+
+```bash
+# Bir kere: ayrı test veritabanını oluşturup migration'ları uygulayın
+mysql -u root -p -e "CREATE DATABASE cdrive_test CHARACTER SET utf8mb4;"
+DATABASE_URL="mysql://KULLANICI:SIFRE@localhost:3306/cdrive_test" npx prisma migrate deploy
+
+npm test          # tek seferlik çalıştırma
+npm run test:watch # izleme modu
+```
+
 ## Dizin yapısı (özet)
 
-- `src/app/api/**` — REST API uç noktaları (auth, folders, files, share, permissions, admin, search)
+- `src/app/api/**` — REST API uç noktaları (auth, folders, files, share, permissions, admin, search, account, notifications, trash, stars)
 - `src/lib/access.ts` — klasör/dosya izin hesaplama mantığı (sahiplik, departman, açık izinler, kalıtım)
 - `src/lib/storage.ts` — dosyaların diske yazılıp okunması
+- `src/lib/totp.ts` — sıfır bağımlılıklı TOTP (RFC 6238) implementasyonu
+- `src/lib/text-extract.ts` — tam metin arama için dosya içeriği çıkarımı
 - `src/app/drive` — ana dosya tarayıcısı arayüzü
 - `src/app/admin` — yönetim paneli
+- `src/app/account` — kullanıcının kendi hesap ayarları (şifre, 2FA)
+- `tests/` — Vitest testleri (`unit/` DB gerektirmez, `integration/` ayrı test veritabanına karşı çalışır)
 - `prisma/schema.prisma` — veri modeli

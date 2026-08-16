@@ -19,7 +19,7 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  if (!payload && (pathname.startsWith("/drive") || pathname.startsWith("/admin"))) {
+  if (!payload && (pathname.startsWith("/drive") || pathname.startsWith("/admin") || pathname.startsWith("/account"))) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
@@ -42,5 +42,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/drive/:path*", "/admin/:path*", "/login", "/setup"],
+  matcher: ["/drive/:path*", "/admin/:path*", "/account/:path*", "/login", "/setup"],
 };

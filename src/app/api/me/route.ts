@@ -19,6 +19,7 @@ export async function GET() {
       department: user.department?.name ?? null,
       usedBytes: user.usedBytes.toString(),
       quotaBytes: user.quotaBytes.toString(),
+      twoFactorEnabled: user.twoFactorEnabled,
     },
   });
 }

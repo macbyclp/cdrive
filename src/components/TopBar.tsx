@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { MeUser } from "@/lib/types";
 import { formatBytesStr } from "@/lib/format";
 import ThemeToggle from "@/components/ThemeToggle";
+import NotificationBell from "@/components/NotificationBell";
 
 const AVATAR_COLORS = [
   "#0f172a", "#7c3aed", "#0891b2", "#c2410c", "#15803d", "#be185d", "#4338ca",
@@ -98,9 +99,10 @@ export default function TopBar({
           </a>
         )}
 
+        <NotificationBell />
         <ThemeToggle />
 
-        <div className="hidden items-center gap-2 sm:flex">
+        <a href="/account" className="hidden items-center gap-2 sm:flex" title="Hesap ayarları">
           <div
             className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
             style={{ background: avatarColor(user.email) }}
@@ -115,7 +117,7 @@ export default function TopBar({
               {user.role}
             </div>
           </div>
-        </div>
+        </a>
         <button onClick={logout} className="btn-ghost">
           Çıkış
         </button>

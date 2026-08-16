@@ -72,6 +72,23 @@ export async function POST(req: Request) {
       targetId: body.targetId,
       detail: `${targetUser.email} -> ${body.permission}`,
     });
+
+    const targetName =
+      body.targetType === "file"
+        ? (await prisma.file.findUnique({ where: { id: body.targetId }, select: { name: true } }))?.name
+        : (await prisma.folder.findUnique({ where: { id: body.targetId }, select: { name: true } }))?.name;
+    if (targetName && targetUser.id !== user.id) {
+      await prisma.notification.create({
+        data: {
+          userId: targetUser.id,
+          type: "SHARE_GRANTED",
+          message: `${user.name}, "${targetName}" ${body.targetType === "file" ? "dosyasını" : "klasörünü"} seninle paylaştı`,
+          targetType: body.targetType,
+          targetId: body.targetId,
+        },
+      });
+    }
+
     return NextResponse.json(grant);
   } catch (err) {
     return errorResponse(err);

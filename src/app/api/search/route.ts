@@ -11,16 +11,33 @@ export async function GET(req: Request) {
     const q = (searchParams.get("q") ?? "").trim();
     if (q.length < 1) return NextResponse.json({ files: [] });
 
-    const candidates = await prisma.file.findMany({
-      where: {
-        deletedAt: null,
-        // Not: MySQL'in varsayılan koleksiyon düzeni (utf8mb4_*_ci) zaten büyük/küçük
-        // harf duyarsız karşılaştırma yapar; Postgres'teki gibi ayrı bir `mode` seçeneği yok.
-        name: { contains: q },
-      },
-      take: 200,
-      orderBy: { updatedAt: "desc" },
-    });
+    // MySQL doğal dil modu tam metin araması özel karakterlerde hata verebilir;
+    // sadece harf/rakam/boşluk bırakıp terimleri normalize ediyoruz.
+    const ftsQuery = q.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
+
+    const [byName, byContent] = await Promise.all([
+      prisma.file.findMany({
+        where: {
+          deletedAt: null,
+          // Not: MySQL'in varsayılan koleksiyon düzeni (utf8mb4_*_ci) zaten büyük/küçük
+          // harf duyarsız karşılaştırma yapar; Postgres'teki gibi ayrı bir `mode` seçeneği yok.
+          name: { contains: q },
+        },
+        take: 100,
+        orderBy: { updatedAt: "desc" },
+      }),
+      ftsQuery.length >= 3
+        ? prisma.file.findMany({
+            where: { deletedAt: null, searchText: { search: ftsQuery } },
+            take: 100,
+            orderBy: { updatedAt: "desc" },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const byId = new Map(byName.map((f) => [f.id, f]));
+    for (const f of byContent) if (!byId.has(f.id)) byId.set(f.id, f);
+    const candidates = [...byId.values()];
 
     const visible: typeof candidates = [];
     for (const f of candidates) {
@@ -34,7 +51,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({
-      files: visible.slice(0, 50).map((f) => ({ ...f, size: f.size.toString() })),
+      files: visible.slice(0, 50).map((f) => ({ ...f, size: f.size.toString(), searchText: undefined })),
     });
   } catch (err) {
     return errorResponse(err);

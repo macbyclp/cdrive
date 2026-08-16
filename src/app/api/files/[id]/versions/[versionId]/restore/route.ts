@@ -38,7 +38,7 @@ export async function POST(
       targetId: id,
       detail: `v${version.versionNo} geri yüklendi`,
     });
-    return NextResponse.json({ ...updated, size: updated.size.toString() });
+    return NextResponse.json({ ...updated, size: updated.size.toString(), searchText: undefined });
   } catch (err) {
     return errorResponse(err);
   }

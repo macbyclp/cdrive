@@ -107,5 +107,5 @@ export async function POST(req: Request) {
 }
 
 function serializeFile(f: { size: bigint; [k: string]: unknown }) {
-  return { ...f, size: f.size.toString() };
+  return { ...f, size: f.size.toString(), searchText: undefined };
 }

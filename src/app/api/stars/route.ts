@@ -22,7 +22,7 @@ export async function GET() {
       }),
     ]);
     return NextResponse.json({
-      files: fileStars.map((s) => ({ ...s.file, size: s.file.size.toString() })),
+      files: fileStars.map((s) => ({ ...s.file, size: s.file.size.toString(), searchText: undefined })),
       folders: folderStars.map((s) => s.folder),
     });
   } catch (err) {

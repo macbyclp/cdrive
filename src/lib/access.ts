@@ -55,7 +55,13 @@ export async function filePermissionLevel(user: User, fileId: string): Promise<P
     where: { fileId_userId: { fileId, userId: user.id } },
   });
 
-  const folderLevel = await folderPermissionLevel(user, file.folderId);
+  // ÖNEMLİ: folderPermissionLevel(user, null) kasıtlı olarak "EDIT" döner ama bu
+  // sadece "kullanıcı kendi KÖKÜNDE yeni bir şey oluşturabilir mi" sorusu içindir.
+  // file.folderId null ise dosya birinin kökündedir — ama HANGİ kullanıcının
+  // olduğu burada bilinmiyor; o kısayolu burada çağırmak sahiplik/paylaşım fark
+  // etmeksizin herkese EDIT verirdi (gerçek bir IDOR açığıydı, testlerle bulundu
+  // ve düzeltildi — bkz. 2026-08-16 günlüğü).
+  const folderLevel = file.folderId ? await folderPermissionLevel(user, file.folderId) : null;
 
   const levels = [direct?.permission, folderLevel].filter(Boolean) as Permission[];
   if (levels.length === 0) return null;

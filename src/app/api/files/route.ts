@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canAccessFolder, assertQuota } from "@/lib/access";
 import { writeFile } from "@/lib/storage";
+import { extractSearchText } from "@/lib/text-extract";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 
@@ -35,6 +36,7 @@ export async function POST(req: Request) {
     });
 
     const storageKey = await writeFile(buffer);
+    const searchText = await extractSearchText(buffer, file.type || "application/octet-stream");
 
     if (existing) {
       const lastVersion = await prisma.fileVersion.findFirst({
@@ -54,7 +56,7 @@ export async function POST(req: Request) {
       const sizeDelta = size - existing.size;
       const updated = await prisma.file.update({
         where: { id: existing.id },
-        data: { size, mimeType: file.type || existing.mimeType, currentVersionId: version.id },
+        data: { size, mimeType: file.type || existing.mimeType, currentVersionId: version.id, searchText },
       });
       await prisma.user.update({
         where: { id: user.id },
@@ -71,6 +73,7 @@ export async function POST(req: Request) {
         size,
         folderId,
         ownerId: user.id,
+        searchText,
       },
     });
     const version = await prisma.fileVersion.create({
@@ -88,6 +91,6 @@ export async function POST(req: Request) {
   }
 }
 
-function serialize(f: { size: bigint; [k: string]: unknown }) {
-  return { ...f, size: f.size.toString() };
+function serialize(f: { size: bigint; searchText?: unknown; [k: string]: unknown }) {
+  return { ...f, size: f.size.toString(), searchText: undefined };
 }

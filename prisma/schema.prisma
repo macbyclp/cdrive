@@ -1,7 +1,8 @@
 // Cdrive — kurumsal dosya yönetim platformu veritabanı şeması
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextIndex", "fullTextSearch"]
 }
 
 datasource db {
@@ -43,6 +44,13 @@ enum AuditAction {
   STAR
   UNSTAR
   PURGE
+  TWO_FACTOR_ENABLE
+  TWO_FACTOR_DISABLE
+  PASSWORD_CHANGE
+}
+
+enum NotificationType {
+  SHARE_GRANTED
 }
 
 model Department {
@@ -68,6 +76,12 @@ model User {
   usedBytes    BigInt   @default(0)
   createdAt    DateTime @default(now())
 
+  // Güvenlik: 2FA (TOTP) ve başarısız giriş kilitleme
+  twoFactorSecret      String?
+  twoFactorEnabled     Boolean   @default(false)
+  failedLoginAttempts  Int       @default(0)
+  lockedUntil          DateTime?
+
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
 
@@ -80,6 +94,7 @@ model User {
   auditLogs    AuditLog[]
   fileStars    FileStar[]
   folderStars  FolderStar[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -128,6 +143,9 @@ model File {
   currentVersionId String? @unique
   currentVersion   FileVersion? @relation("CurrentVersion", fields: [currentVersionId], references: [id])
 
+  // Yüklenirken çıkarılan düz metin içeriği (pdf/metin dosyaları) — tam metin aramada kullanılır.
+  searchText String? @db.Text
+
   versions    FileVersion[]     @relation("FileVersions")
   permissions FilePermission[]
   shareLinks  ShareLink[]
@@ -136,6 +154,7 @@ model File {
   @@index([folderId])
   @@index([ownerId])
   @@index([name])
+  @@fulltext([searchText])
   @@map("files")
 }
 
@@ -241,4 +260,19 @@ model AuditLog {
   @@index([createdAt])
   @@index([userId])
   @@map("audit_logs")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  message   String
+  targetType String?
+  targetId   String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, read])
+  @@map("notifications")
 }

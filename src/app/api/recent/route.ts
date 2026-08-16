@@ -35,7 +35,9 @@ export async function GET() {
     const byId = new Map(files.map((f) => [f.id, f]));
     const ordered = orderedIds.map((id) => byId.get(id)).filter((f): f is (typeof files)[number] => !!f);
 
-    return NextResponse.json({ files: ordered.map((f) => ({ ...f, size: f.size.toString() })) });
+    return NextResponse.json({
+      files: ordered.map((f) => ({ ...f, size: f.size.toString(), searchText: undefined })),
+    });
   } catch (err) {
     return errorResponse(err);
   }

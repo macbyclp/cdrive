@@ -6,6 +6,7 @@ export type MeUser = {
   department: string | null;
   usedBytes: string;
   quotaBytes: string;
+  twoFactorEnabled: boolean;
 };
 
 export type FolderItem = {

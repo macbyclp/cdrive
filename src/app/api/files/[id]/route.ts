@@ -65,7 +65,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       targetId: id,
       detail: file.name,
     });
-    return NextResponse.json({ ...file, size: file.size.toString() });
+    return NextResponse.json({ ...file, size: file.size.toString(), searchText: undefined });
   } catch (err) {
     return errorResponse(err);
   }

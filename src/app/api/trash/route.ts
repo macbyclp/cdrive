@@ -23,7 +23,7 @@ export async function GET() {
 
     return NextResponse.json({
       folders,
-      files: files.map((f) => ({ ...f, size: f.size.toString() })),
+      files: files.map((f) => ({ ...f, size: f.size.toString(), searchText: undefined })),
     });
   } catch (err) {
     return errorResponse(err);
