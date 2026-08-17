@@ -544,7 +544,11 @@ function DriveInner() {
   const selectionCount = selected.size;
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div
+      className="flex min-h-screen flex-col"
+      data-skin={user.uiSkin === "archive" ? "archive" : undefined}
+      style={{ background: "var(--background)" }}
+    >
       <TopBar user={user} onSearch={doSearch} onMenuClick={() => setSidebarOpen(true)} />
 
       <div className="flex flex-1">
@@ -904,7 +908,7 @@ function DriveInner() {
               {folders.map((f) => (
                 <div
                   key={f.id}
-                  className="group flex flex-wrap items-center gap-3 border-b px-4 py-3 transition-colors last:border-0"
+                  className="archive-tab group flex flex-wrap items-center gap-3 border-b px-4 py-3 transition-colors last:border-0"
                   style={{
                     borderColor: "var(--border)",
                     background: dropTargetId === f.id && canDropOn(f.id) ? "var(--accent-soft)" : undefined,
@@ -1355,6 +1359,7 @@ function CardShell({
   onCardDragOver,
   onCardDragLeave,
   onCardDrop,
+  archiveTab,
 }: {
   onOpen?: () => void;
   menuItems: RowMenuItem[];
@@ -1371,10 +1376,12 @@ function CardShell({
   onCardDragOver?: (e: React.DragEvent) => void;
   onCardDragLeave?: (e: React.DragEvent) => void;
   onCardDrop?: (e: React.DragEvent) => void;
+  /** Sadece klasör kartları için: "Kurumsal Arşiv Dosya Dolabı" temasında (data-skin="archive") üstte asma dosya sekmesi gösterir. */
+  archiveTab?: boolean;
 }) {
   return (
     <div
-      className="group relative flex flex-col items-center rounded-xl border p-4 text-center transition-all"
+      className={`group relative flex flex-col items-center rounded-xl border p-4 text-center transition-all ${archiveTab ? "archive-tab" : ""}`}
       style={{
         borderColor: isDropTarget ? "var(--accent)" : "var(--border)",
         background: isDropTarget ? "var(--accent-soft)" : "var(--surface)",
@@ -1471,6 +1478,7 @@ function FolderCard({
       onCardDragOver={onCardDragOver}
       onCardDragLeave={onCardDragLeave}
       onCardDrop={onCardDrop}
+      archiveTab
     >
       <span
         className="flex h-14 w-14 items-center justify-center rounded-xl text-2xl"

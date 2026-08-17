@@ -130,6 +130,7 @@ model SystemSettings {
   versionRetentionDays Int? // null = eski dosya versiyonları otomatik silinmez
   maxFileSizeBytes     BigInt? // null = sınır yok
   blockedExtensions    String? @db.Text // virgülle ayrılmış, örn ".exe,.bat,.sh"
+  uiSkin               String   @default("modern") // "modern" | "archive" — Sürücü sayfasının görsel dili, admin panelinden seçilir
   updatedAt            DateTime @updatedAt
 
   @@map("system_settings")

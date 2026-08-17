@@ -60,6 +60,85 @@
   --shadow-lg: 0 24px 48px -12px rgb(0 0 0 / 0.6), 0 8px 16px -8px rgb(0 0 0 / 0.35);
 }
 
+/*
+ * "Kurumsal Arşiv Dosya Dolabı" — Impeccable /impeccable init + karar sayfası
+ * sürecinde seçilen alternatif görsel dil (bkz. PRODUCT.md, DESIGN.md).
+ * Admin panelinden (Sistem ayarları) açılıp kapatılır; mevcut "modern" tema
+ * kaldırılmadı, ikisi de daima kullanılabilir durumda kalır.
+ * Metal ofis dosya dolabı çekmeceleri, kraft kağıt asma dosyalar, renkli
+ * sekme etiketleri — koyu zeytin yeşili + pirinç/bakır vurgu + kraft zemin.
+ */
+[data-skin="archive"] {
+  --background: #eee7d6;
+  --foreground: #2b2620;
+
+  --surface: #f6f1e4;
+  --surface-muted: #e6ddc7;
+  --surface-hover: #ddd2b5;
+  --border: #b7a983;
+  --text-primary: #2b2620;
+  --text-secondary: #5c5340;
+  --text-tertiary: #8a7d5f;
+
+  --accent: #7a6a2e;
+  --accent-foreground: #f6f1e4;
+  --accent-hover: #5f5222;
+  --accent-soft: #e3d9b4;
+  --accent-soft-foreground: #5f5222;
+
+  --danger: #8b2f1f;
+  --danger-hover: #6f2418;
+  --success: #3d5c2e;
+  --ring: rgb(122 106 46 / 0.25);
+
+  --shadow-sm: 0 1px 2px rgb(43 38 32 / 0.12);
+  --shadow-md: 0 8px 20px -6px rgb(43 38 32 / 0.28), 0 2px 6px -2px rgb(43 38 32 / 0.14);
+  --shadow-lg: 0 20px 40px -12px rgb(43 38 32 / 0.4), 0 8px 16px -8px rgb(43 38 32 / 0.2);
+}
+/* data-theme="dark", <html>'de; data-skin="archive" ise ayrı bir alt elementte
+   (Sürücü sayfasının wrapper'ında) — bu yüzden aynı-eleman seçici değil, torun
+   seçici gerekiyor. */
+[data-theme="dark"] [data-skin="archive"] {
+  --background: #1c1a14;
+  --foreground: #e6ddc7;
+
+  --surface: #26221a;
+  --surface-muted: #302b20;
+  --surface-hover: #3a3426;
+  --border: #4a4230;
+  --text-primary: #e6ddc7;
+  --text-secondary: #b7a983;
+  --text-tertiary: #8a7d5f;
+
+  --accent: #c9a961;
+  --accent-foreground: #1c1a14;
+  --accent-hover: #ddc584;
+  --accent-soft: rgb(201 169 97 / 0.16);
+  --accent-soft-foreground: #ddc584;
+
+  --danger: #d97757;
+  --danger-hover: #e6926f;
+  --success: #8fae6f;
+  --ring: rgb(201 169 97 / 0.3);
+}
+
+/* Klasörleri "asma dosya" gibi göstermek için üstte kesik bir sekme (tab) —
+   sadece arşiv temasında; modern temada hiçbir etkisi yok. */
+[data-skin="archive"] .archive-tab {
+  position: relative;
+}
+[data-skin="archive"] .archive-tab::before {
+  content: "";
+  position: absolute;
+  top: -0.4rem;
+  left: 0.75rem;
+  width: 2.25rem;
+  height: 0.55rem;
+  background: var(--accent);
+  border-radius: 0.2rem 0.2rem 0 0;
+  opacity: 0.85;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

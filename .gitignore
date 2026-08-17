@@ -46,3 +46,11 @@ deploy.log
 *.tsbuildinfo
 next-env.d.ts
 .commit-msg.txt
+
+# Impeccable skill — bu oturuma özgü karar/inceleme artefaktları, tasarım kararları
+# PRODUCT.md/DESIGN.md dosyalarında kalıcı olarak kayıtlı
+.impeccable/
+# Impeccable kurulumunun bıraktığı, bu makineye özgü mutlak yol içeren hook dosyaları
+# (başka bir makinede/kullanıcıda anlamsız, kullanıcı adını sızdırır)
+.claude/settings.local.json
+.codex/hooks.json

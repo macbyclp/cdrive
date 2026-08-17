@@ -9,10 +9,13 @@ export async function GET() {
     // yetmez, ör. hesap ayarlarından uzaktan kapatılmış bir oturum burada
     // reddedilmeli.
     const sessionUser = await requireUser();
-    const user = await prisma.user.findUnique({
-      where: { id: sessionUser.id },
-      include: { department: true },
-    });
+    const [user, settings] = await Promise.all([
+      prisma.user.findUnique({ where: { id: sessionUser.id }, include: { department: true } }),
+      // uiSkin sistem geneli bir görünüm ayarıdır (admin panelinden), her oturum
+      // açmış kullanıcının (admin olmasa da) bilmesi gerekir — /api/me zaten her
+      // sayfa yüklemesinde çağrıldığı için en ucuz taşıma noktası burası.
+      prisma.systemSettings.findUnique({ where: { id: 1 }, select: { uiSkin: true } }),
+    ]);
     if (!user || !user.active) {
       await clearSessionCookie();
       return NextResponse.json({ user: null });
@@ -27,6 +30,7 @@ export async function GET() {
         usedBytes: user.usedBytes.toString(),
         quotaBytes: user.quotaBytes.toString(),
         twoFactorEnabled: user.twoFactorEnabled,
+        uiSkin: settings?.uiSkin ?? "modern",
       },
     });
   } catch (err) {

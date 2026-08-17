@@ -7,6 +7,7 @@ export type MeUser = {
   usedBytes: string;
   quotaBytes: string;
   twoFactorEnabled: boolean;
+  uiSkin: "modern" | "archive";
 };
 
 export type FolderItem = {

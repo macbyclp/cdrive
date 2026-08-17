@@ -554,6 +554,7 @@ type SystemSettingsData = {
   versionRetentionDays: number | null;
   maxFileSizeBytes: string | null;
   blockedExtensions: string | null;
+  uiSkin: "modern" | "archive";
 };
 
 function SettingsTab() {
@@ -563,6 +564,7 @@ function SettingsTab() {
   const [versionDays, setVersionDays] = useState("");
   const [maxSizeMb, setMaxSizeMb] = useState("");
   const [blockedExt, setBlockedExt] = useState("");
+  const [uiSkin, setUiSkin] = useState<"modern" | "archive">("modern");
   const [busy, setBusy] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
@@ -575,7 +577,28 @@ function SettingsTab() {
         setVersionDays(d.versionRetentionDays?.toString() ?? "");
         setMaxSizeMb(d.maxFileSizeBytes ? (Number(d.maxFileSizeBytes) / 1024 ** 2).toString() : "");
         setBlockedExt(d.blockedExtensions ?? "");
+        setUiSkin(d.uiSkin ?? "modern");
       });
+  }
+
+  async function saveSkin(skin: "modern" | "archive") {
+    setUiSkin(skin);
+    const res = await fetch(withBasePath("/api/admin/settings"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uiSkin: skin }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Kaydedilemedi", "error");
+      return;
+    }
+    toast(
+      skin === "archive"
+        ? "Arayüz görünümü \"Kurumsal Arşiv Dosya Dolabı\" olarak ayarlandı"
+        : "Arayüz görünümü \"Modern\" olarak ayarlandı",
+      "success"
+    );
   }
 
   useEffect(() => {
@@ -624,6 +647,62 @@ function SettingsTab() {
 
   return (
     <div className="space-y-6">
+      <div className="card space-y-4 p-5">
+        <div>
+          <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            Arayüz görünümü
+          </h2>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Sürücü sayfasının görsel dilini seç — tüm kullanıcılar için geçerli olur. İkisi de tam
+            işlevsel, sadece görünüm değişir.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => saveSkin("modern")}
+            className="rounded-xl border p-4 text-left transition-colors"
+            style={
+              uiSkin === "modern"
+                ? { borderColor: "var(--accent)", background: "var(--accent-soft)" }
+                : { borderColor: "var(--border)" }
+            }
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🗂️</span>
+              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                Modern
+              </span>
+              {uiSkin === "modern" && <span className="badge">Aktif</span>}
+            </div>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+              Mevcut varsayılan görünüm — indigo/mor vurgu, düz kartlar.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => saveSkin("archive")}
+            className="rounded-xl border p-4 text-left transition-colors"
+            style={
+              uiSkin === "archive"
+                ? { borderColor: "var(--accent)", background: "var(--accent-soft)" }
+                : { borderColor: "var(--border)" }
+            }
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🗄️</span>
+              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                Kurumsal Arşiv Dosya Dolabı
+              </span>
+              {uiSkin === "archive" && <span className="badge">Aktif</span>}
+            </div>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+              Kraft/pirinç tonlarında, klasörler asma dosya sekmesi gibi görünür.
+            </p>
+          </button>
+        </div>
+      </div>
+
       <form onSubmit={save} className="card space-y-4 p-5">
         <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
           Otomatik veri temizleme
