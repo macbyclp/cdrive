@@ -23,9 +23,9 @@ export function formatDate(iso: string) {
 export type OfficeDocType = "word" | "cell" | "slide";
 
 const OFFICE_EXT_TYPE: Record<string, OfficeDocType> = {
-  doc: "word", docx: "word", docm: "word", odt: "word", rtf: "word", txt: "word",
-  xls: "cell", xlsx: "cell", xlsm: "cell", ods: "cell", csv: "cell",
-  ppt: "slide", pptx: "slide", ppsx: "slide", pptm: "slide", odp: "slide",
+  doc: "word", docx: "word", docm: "word", odt: "word", rtf: "word", txt: "word", ott: "word", dotx: "word",
+  xls: "cell", xlsx: "cell", xlsm: "cell", ods: "cell", csv: "cell", ots: "cell", xltx: "cell",
+  ppt: "slide", pptx: "slide", ppsx: "slide", pptm: "slide", odp: "slide", otp: "slide", potx: "slide",
 };
 
 export function extOf(fileName: string) {
