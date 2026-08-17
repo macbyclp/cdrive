@@ -5,6 +5,7 @@ import { canAccessFolder, assertQuota } from "@/lib/access";
 import { writeFile } from "@/lib/storage";
 import { extractSearchText } from "@/lib/text-extract";
 import { assertFilePolicy } from "@/lib/policy";
+import { saveNewFileVersion } from "@/lib/file-versions";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 
@@ -37,36 +38,15 @@ export async function POST(req: Request) {
       where: { folderId, name: file.name, deletedAt: null },
     });
 
-    const storageKey = await writeFile(buffer);
-    const searchText = await extractSearchText(buffer, file.type || "application/octet-stream");
-
     if (existing) {
-      const lastVersion = await prisma.fileVersion.findFirst({
-        where: { fileId: existing.id },
-        orderBy: { versionNo: "desc" },
+      const { file: updated } = await saveNewFileVersion(existing, buffer, user.id, {
+        mimeType: file.type || existing.mimeType,
       });
-      const versionNo = (lastVersion?.versionNo ?? 0) + 1;
-      const version = await prisma.fileVersion.create({
-        data: {
-          fileId: existing.id,
-          versionNo,
-          storageKey,
-          size,
-          uploadedById: user.id,
-        },
-      });
-      const sizeDelta = size - existing.size;
-      const updated = await prisma.file.update({
-        where: { id: existing.id },
-        data: { size, mimeType: file.type || existing.mimeType, currentVersionId: version.id, searchText },
-      });
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { usedBytes: { increment: sizeDelta > 0n ? sizeDelta : 0n } },
-      });
-      await logAudit({ userId: user.id, action: "UPLOAD", targetType: "file", targetId: existing.id, detail: `v${versionNo}: ${file.name}` });
       return NextResponse.json(serialize(updated));
     }
+
+    const storageKey = await writeFile(buffer);
+    const searchText = await extractSearchText(buffer, file.type || "application/octet-stream");
 
     const created = await prisma.file.create({
       data: {

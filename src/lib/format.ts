@@ -20,6 +20,24 @@ export function formatDate(iso: string) {
   });
 }
 
+export type OfficeDocType = "word" | "cell" | "slide";
+
+const OFFICE_EXT_TYPE: Record<string, OfficeDocType> = {
+  doc: "word", docx: "word", docm: "word", odt: "word", rtf: "word", txt: "word",
+  xls: "cell", xlsx: "cell", xlsm: "cell", ods: "cell", csv: "cell",
+  ppt: "slide", pptx: "slide", ppsx: "slide", pptm: "slide", odp: "slide",
+};
+
+export function extOf(fileName: string) {
+  const i = fileName.lastIndexOf(".");
+  return i === -1 ? "" : fileName.slice(i + 1).toLowerCase();
+}
+
+/** Dosya adının uzantısına göre OnlyOffice belge tipi (word/cell/slide) — desteklenmiyorsa null. */
+export function officeDocType(fileName: string): OfficeDocType | null {
+  return OFFICE_EXT_TYPE[extOf(fileName)] ?? null;
+}
+
 export type PreviewKind = "image" | "pdf" | "text" | "none";
 
 export function previewKind(mime: string): PreviewKind {

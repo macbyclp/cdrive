@@ -12,7 +12,7 @@ import { InputDialog, ConfirmDialog } from "@/components/Dialogs";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import type { Crumb, FileItem, FolderItem } from "@/lib/types";
-import { badgeColorForMime, formatBytesStr, formatDate, iconForMime, previewKind } from "@/lib/format";
+import { badgeColorForMime, formatBytesStr, formatDate, iconForMime, officeDocType, previewKind } from "@/lib/format";
 
 type View = "root" | "shared" | "search" | "recent" | "starred" | "trash";
 type ViewMode = "list" | "grid";
@@ -278,6 +278,15 @@ function DriveInner() {
     } else {
       setPreviewTarget({ id: f.id, name: f.name, mimeType: f.mimeType });
     }
+  }
+
+  function openOffice(f: FileItem) {
+    window.open(`/office/${f.id}`, "_blank");
+  }
+
+  /** Word/Excel/PowerPoint dosyaları için menüye eklenecek "Office ile aç" öğesi (uygunsa), aksi halde boş dizi. */
+  function officeMenuItem(f: FileItem): RowMenuItem[] {
+    return officeDocType(f.name) ? [{ label: "Office ile aç", onClick: () => openOffice(f) }] : [];
   }
 
   async function submitMoveFolder(folder: FolderItem, destFolderId: string | null) {
@@ -753,6 +762,7 @@ function DriveInner() {
                         ]
                       : [
                           { label: "İndir", onClick: () => downloadFile(f) },
+                          ...officeMenuItem(f),
                           { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
                           { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
                           ...(view === "root"
@@ -950,6 +960,11 @@ function DriveInner() {
                         <button className="btn-ghost" onClick={() => downloadFile(f)}>
                           İndir
                         </button>
+                        {officeDocType(f.name) && (
+                          <button className="btn-ghost" onClick={() => openOffice(f)}>
+                            Office ile aç
+                          </button>
+                        )}
                         <button className="btn-ghost" onClick={() => setShareTarget({ type: "file", id: f.id, name: f.name })}>
                           Paylaş
                         </button>
@@ -982,6 +997,7 @@ function DriveInner() {
                             ]
                           : [
                               { label: "İndir", onClick: () => downloadFile(f) },
+                              ...officeMenuItem(f),
                               { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
                               { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
                               ...(view === "root"

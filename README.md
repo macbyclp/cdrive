@@ -25,6 +25,7 @@ Kurumsal dosya yönetim platformu — departmanlar arası klasör/dosya paylaş�
 - **Otomatik veri temizleme politikası**: Admin panelinden çöp kutusu ve eski dosya versiyonları için saklama süresi (gün) belirleme; cPanel Cron Job ile otomatikleştirilebilir (bkz. aşağıda).
 - **Dosya yükleme politikaları**: Admin panelinden sistem geneli maksimum dosya boyutu ve engellenen dosya uzantıları tanımlama.
 - **Admin paneli**: Kullanıcı/departman yönetimi, depolama analitiği (departman/kullanıcı bazlı kullanım grafikleri), tüm sistem etkinlik günlüğü (giriş, yükleme, silme, paylaşım vb.), sistem ayarları (temizleme politikası + dosya politikaları).
+- **Office belge düzenleme (opsiyonel)**: Ayrı bir OnlyOffice Document Server'a bağlanarak Word/Excel/PowerPoint dosyalarını tarayıcıda gerçek zamanlı düzenleme; kaydetme yeni bir dosya versiyonu olarak geri döner (bkz. aşağıda).
 
 ## Teknoloji
 
@@ -82,6 +83,33 @@ butonuyla elle tetiklenir.
 
 `CRON_SECRET` tanımlı değilse bu uç nokta yalnızca oturum açmış bir admin tarafından çağrılabilir
 (cron için Authorization başlığı zorunlu değildir, ama önerilir).
+
+## Office belge düzenleme (OnlyOffice — opsiyonel)
+
+Word/Excel/PowerPoint dosyalarını tarayıcıda gerçek düzenleyici arayüzüyle açmak için Cdrive,
+**ayrı bir sunucuda** çalışan bir [OnlyOffice Document Server](https://github.com/ONLYOFFICE/DocumentServer)'a
+bağlanır. Bu, cPanel paylaşımlı hosting'de çalışmaz (Docker gerektirir) — Docker destekleyen
+ayrı bir VPS'iniz olmalı. Bu özellik olmadan Cdrive'ın geri kalanı normal çalışmaya devam eder;
+sadece dosya menüsündeki "Office ile aç" seçeneği görünmez (`ONLYOFFICE_URL`/`APP_URL` boşsa).
+
+**Nasıl çalışır:** Document Server, Cdrive'a normal bir tarayıcı gibi oturum çereziyle değil,
+her düzenleme oturumu için üretilen kısa ömürlü (15 dk) bir token ile bağlanır — dosya
+içeriğini bu token'lı bir uç noktadan indirir, kullanıcı kaydettiğinde güncellenmiş belgeyi
+yine bu token'lı bir callback'e gönderir; Cdrive bunu normal bir versiyon yükleme gibi işler
+(kota/dosya politikaları da uygulanır).
+
+1. `deploy/onlyoffice/docker-compose.yml`'i VPS'inize kopyalayıp içindeki `JWT_SECRET`'ı
+   rastgele bir değerle değiştirin, `docker compose up -d` ile başlatın.
+2. VPS'te bir ters proxy ile Document Server'a HTTPS + bir alan adı verin (ör. `office.alan-adiniz.com`).
+3. Cdrive'ın `.env`'ine ekleyin:
+   - `APP_URL` — Cdrive'ın kendi herkese açık HTTPS adresi (Document Server bunu kullanarak Cdrive'a bağlanır).
+   - `ONLYOFFICE_URL` — Document Server'ın HTTPS adresi.
+   - `ONLYOFFICE_JWT_SECRET` — docker-compose.yml'deki `JWT_SECRET` ile **aynı** değer.
+4. Cdrive'ı yeniden başlatın. Desteklenen bir dosyada (docx/xlsx/pptx vb.) artık "Office ile aç"
+   seçeneği görünür.
+
+> Bu iki servis birbirine internet üzerinden HTTPS ile bağlanabilmelidir (ikisi de aynı VPS'te
+> olabilir ya da farklı sunucularda — önemli olan karşılıklı erişilebilirlik ve geçerli TLS).
 
 ## Testler
 
