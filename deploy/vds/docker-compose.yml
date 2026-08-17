@@ -34,6 +34,10 @@ services:
   cdrive:
     build:
       context: ./app
+      # basePath derleme zamanında sabitlenir (subdomain kullanıyoruz, alt-yol
+      # değil, bu yüzden boş) — sadece `environment:` altına yazmak yetmez.
+      args:
+        NEXT_BASE_PATH: ""
     container_name: cdrive-app
     restart: unless-stopped
     depends_on:

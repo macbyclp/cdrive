@@ -14,6 +14,12 @@ COPY . .
 # Build sırasında gerçek DATABASE_URL'e ihtiyaç yok (Prisma generate şemayı
 # okur, veritabanına bağlanmaz) ama prisma.config.ts/schema onu bekleyebilir.
 ENV DATABASE_URL="mysql://build:build@localhost:3306/build"
+# ÖNEMLİ: Next.js basePath DERLEME ZAMANINDA sabitlenir, container runtime'da
+# verilen ortam değişkeniyle DEĞİŞTİRİLEMEZ — bu yüzden burada bir build-arg
+# olarak alıp ENV'e yazıyoruz (docker-compose.yml'deki `build.args` ile verilir;
+# verilmezse next.config.ts varsayılan olarak "/cdrive" kullanır).
+ARG NEXT_BASE_PATH=""
+ENV NEXT_BASE_PATH=$NEXT_BASE_PATH
 RUN npx prisma generate
 RUN npm run build
 
