@@ -94,6 +94,11 @@
   --shadow-sm: 0 1px 2px rgb(43 38 32 / 0.12);
   --shadow-md: 0 8px 20px -6px rgb(43 38 32 / 0.28), 0 2px 6px -2px rgb(43 38 32 / 0.14);
   --shadow-lg: 0 20px 40px -12px rgb(43 38 32 / 0.4), 0 8px 16px -8px rgb(43 38 32 / 0.2);
+
+  /* Kraft kağıt lif dokusu — SVG feTurbulence ile üretilmiş, harici dosya/istek
+     yok. Sadece rengi değil, zeminin KENDİSİNİ (dokusuz düz renk değil, hafif
+     pürüzlü kağıt) değiştiriyor — "sadece renk değişti" izlenimini kırmak için. */
+  --paper-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
 }
 /* data-theme="dark", <html>'de; data-skin="archive" ise ayrı bir alt elementte
    (Sürücü sayfasının wrapper'ında) — bu yüzden aynı-eleman seçici değil, torun
@@ -122,21 +127,42 @@
   --ring: rgb(201 169 97 / 0.3);
 }
 
-/* Klasörleri "asma dosya" gibi göstermek için üstte kesik bir sekme (tab) —
-   sadece arşiv temasında; modern temada hiçbir etkisi yok. */
+/* Zeminin kendisi kağıt gibi pürüzlü — düz renk değil, gerçek bir doku. */
+[data-skin="archive"] {
+  background-image: var(--paper-texture);
+  background-color: var(--background);
+}
+
+/* Kart/panel köşeleri: modern temanın yuvarlak (rounded-xl/0.875rem) diline
+   karşı, dosya kağıdının keskin/az yuvarlak köşesi — form dili de değişiyor,
+   sadece renk değil. */
+[data-skin="archive"] .card,
+[data-skin="archive"] .input,
+[data-skin="archive"] .btn-primary,
+[data-skin="archive"] .btn-secondary {
+  border-radius: 0.25rem;
+}
+
+/* Klasörleri gerçek bir "asma dosya" sekmesi gibi göstermek — düz bir
+   dikdörtgen değil, üstü eğik kesilmiş bir trapezoid (gerçek manila klasör
+   sekmesinin siluetiyle aynı), kağıt dokusuyla aynı zeminden çıkıyormuş gibi
+   hafif gölgeli. Sadece arşiv temasında; modern temada hiçbir etkisi yok. */
 [data-skin="archive"] .archive-tab {
   position: relative;
+  border-radius: 0.25rem !important;
 }
 [data-skin="archive"] .archive-tab::before {
   content: "";
   position: absolute;
-  top: -0.4rem;
+  top: -0.6rem;
   left: 0.75rem;
-  width: 2.25rem;
-  height: 0.55rem;
+  width: 3rem;
+  height: 0.75rem;
   background: var(--accent);
-  border-radius: 0.2rem 0.2rem 0 0;
-  opacity: 0.85;
+  background-image: var(--paper-texture);
+  clip-path: polygon(8% 100%, 22% 0, 78% 0, 92% 100%);
+  box-shadow: 0 -1px 0 rgb(0 0 0 / 0.15) inset;
+  opacity: 0.92;
 }
 
 @theme inline {

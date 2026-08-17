@@ -547,7 +547,7 @@ function DriveInner() {
     <div
       className="flex min-h-screen flex-col"
       data-skin={user.uiSkin === "archive" ? "archive" : undefined}
-      style={{ background: "var(--background)" }}
+      style={{ backgroundColor: "var(--background)" }}
     >
       <TopBar user={user} onSearch={doSearch} onMenuClick={() => setSidebarOpen(true)} />
 
@@ -821,6 +821,7 @@ function DriveInner() {
                 <FolderCard
                   key={f.id}
                   folder={f}
+                  archive={user.uiSkin === "archive"}
                   selectable={canBulk}
                   selected={isSelected("folder", f.id)}
                   onToggleSelect={() => toggleSelect("folder", f.id)}
@@ -951,9 +952,9 @@ function DriveInner() {
                   >
                     <span
                       className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg"
-                      style={{ background: "var(--accent-soft)" }}
+                      style={{ background: user.uiSkin === "archive" ? "transparent" : "var(--accent-soft)" }}
                     >
-                      📁
+                      <FolderGlyph archive={user.uiSkin === "archive"} />
                     </span>
                     <span className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                       {f.name}
@@ -1267,6 +1268,27 @@ function DriveInner() {
   );
 }
 
+/**
+ * Klasör simgesi — "Kurumsal Arşiv Dosya Dolabı" temasında (uiSkin==="archive")
+ * düz 📁 emojisi yerine gerçek bir manila klasör siluetini (üstte belirgin
+ * sekmeli) SVG olarak çizer; sadece renk değil, ŞEKLİN kendisi de değişir.
+ */
+function FolderGlyph({ archive, size = 20 }: { archive?: boolean; size?: number }) {
+  if (!archive) return <>📁</>;
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      <path
+        d="M3 8h6.5l1.8 2H21v10.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8z"
+        fill="var(--accent-soft)"
+        stroke="var(--accent)"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+      <path d="M3 8V5.5a1 1 0 0 1 1-1h5.2l2 2.5H3.9" fill="var(--accent)" opacity="0.55" />
+    </svg>
+  );
+}
+
 function SideLink({
   active,
   onClick,
@@ -1445,6 +1467,7 @@ function FolderCard({
   onCardDragOver,
   onCardDragLeave,
   onCardDrop,
+  archive,
 }: {
   folder: FolderItem;
   onOpen?: () => void;
@@ -1461,6 +1484,7 @@ function FolderCard({
   onCardDragOver?: (e: React.DragEvent) => void;
   onCardDragLeave?: (e: React.DragEvent) => void;
   onCardDrop?: (e: React.DragEvent) => void;
+  archive?: boolean;
 }) {
   return (
     <CardShell
@@ -1482,9 +1506,9 @@ function FolderCard({
     >
       <span
         className="flex h-14 w-14 items-center justify-center rounded-xl text-2xl"
-        style={{ background: "var(--accent-soft)" }}
+        style={{ background: archive ? "transparent" : "var(--accent-soft)" }}
       >
-        📁
+        {archive ? <FolderGlyph archive size={40} /> : "📁"}
       </span>
       <span className="line-clamp-2 w-full text-sm font-medium break-words" style={{ color: "var(--text-primary)" }}>
         {folder.name}
