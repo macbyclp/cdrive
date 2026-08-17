@@ -57,6 +57,13 @@ export default function PreviewDialog({
             <img src={src} alt={fileName} className="mx-auto max-h-full max-w-full object-contain p-4" />
           )}
           {kind === "pdf" && <iframe src={src} title={fileName} className="h-full w-full border-0" />}
+          {kind === "video" && <video src={src} controls autoPlay className="mx-auto max-h-full max-w-full" />}
+          {kind === "audio" && (
+            <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
+              <span className="text-5xl">🎵</span>
+              <audio src={src} controls autoPlay className="w-full max-w-md" />
+            </div>
+          )}
           {kind === "text" && (
             <div className="p-4">
               {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}

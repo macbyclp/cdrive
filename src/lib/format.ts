@@ -38,11 +38,13 @@ export function officeDocType(fileName: string): OfficeDocType | null {
   return OFFICE_EXT_TYPE[extOf(fileName)] ?? null;
 }
 
-export type PreviewKind = "image" | "pdf" | "text" | "none";
+export type PreviewKind = "image" | "pdf" | "text" | "video" | "audio" | "none";
 
 export function previewKind(mime: string): PreviewKind {
   if (mime.startsWith("image/")) return "image";
   if (mime === "application/pdf") return "pdf";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.startsWith("audio/")) return "audio";
   if (
     mime.startsWith("text/") ||
     mime === "application/json" ||

@@ -55,6 +55,49 @@ export async function signOnlyOfficeJwt(payload: Record<string, unknown>) {
 }
 
 /**
+ * OnlyOffice Document Server'ın dönüştürme (ConvertService) API'siyle bir
+ * belgeyi başka bir formata (ör. docx → pdf) çevirir. `sourceUrl`, Document
+ * Server'ın kendisinin indirebileceği herkese açık bir adres olmalı (aynı
+ * office/content uç noktası, editör açmak için kullanılanla aynı token'lı URL).
+ * Document Server "async:false" ile bile bazen hemen bitirmeyebiliyor —
+ * `endConvert` true olana kadar kısa aralıklarla tekrar denenir.
+ */
+export async function convertDocument(opts: {
+  sourceUrl: string;
+  fromExt: string;
+  toExt: string;
+  key: string;
+}): Promise<string> {
+  const base = process.env.ONLYOFFICE_URL?.replace(/\/$/, "");
+  if (!base) throw new Error("ONLYOFFICE_URL tanımlı değil");
+
+  const payload: Record<string, unknown> = {
+    async: false,
+    filetype: opts.fromExt,
+    outputtype: opts.toExt,
+    key: opts.key,
+    title: `belge.${opts.fromExt}`,
+    url: opts.sourceUrl,
+  };
+  const jwt = await signOnlyOfficeJwt(payload);
+  if (jwt) payload.token = jwt;
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const res = await fetch(`${base}/ConvertService.ashx`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`Document Server dönüştürme isteği başarısız (${res.status})`);
+    const data = (await res.json()) as { endConvert?: boolean; fileUrl?: string; error?: number };
+    if (data.error) throw new Error(`Document Server dönüştürme hatası (kod ${data.error})`);
+    if (data.endConvert && data.fileUrl) return data.fileUrl;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  throw new Error("Dönüştürme zaman aşımına uğradı");
+}
+
+/**
  * Document Server'dan gelen callback isteğinin JWT imzasını doğrular.
  * ONLYOFFICE_JWT_SECRET tanımlı değilse doğrulama atlanır (geliştirme ortamı) —
  * production'da bu değişkenin MUTLAKA ayarlanması önerilir (README'ye bakın).

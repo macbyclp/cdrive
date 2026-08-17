@@ -12,9 +12,9 @@ import { InputDialog, ConfirmDialog } from "@/components/Dialogs";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import type { Crumb, FileItem, FolderItem } from "@/lib/types";
-import { badgeColorForMime, formatBytesStr, formatDate, iconForMime, officeDocType, previewKind } from "@/lib/format";
+import { badgeColorForMime, extOf, formatBytesStr, formatDate, iconForMime, officeDocType, previewKind } from "@/lib/format";
 
-type View = "root" | "shared" | "search" | "recent" | "starred" | "trash";
+type View = "root" | "shared" | "search" | "recent" | "starred" | "trash" | "media";
 type ViewMode = "list" | "grid";
 const VIEW_MODE_KEY = "cdrive-view-mode";
 type PendingAction =
@@ -48,9 +48,11 @@ function DriveInner() {
           ? "starred"
           : params.get("view") === "trash"
             ? "trash"
-            : params.get("q")
-              ? "search"
-              : "root";
+            : params.get("view") === "media"
+              ? "media"
+              : params.get("q")
+                ? "search"
+                : "root";
   const q = params.get("q") ?? "";
   const canBulk = view === "root";
 
@@ -69,6 +71,8 @@ function DriveInner() {
   const [starredFileIds, setStarredFileIds] = useState<Set<string>>(new Set());
   const [starredFolderIds, setStarredFolderIds] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
+  const newMenuRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [draggedItem, setDraggedItem] = useState<{ type: "file" | "folder"; id: string } | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null | undefined>(undefined);
@@ -128,6 +132,12 @@ function DriveInner() {
         setFolders(data.folders ?? []);
         setFiles(data.files ?? []);
         setBreadcrumb([]);
+      } else if (view === "media") {
+        const res = await fetch("/api/media");
+        const data = await res.json();
+        setFolders([]);
+        setFiles(data.files ?? []);
+        setBreadcrumb([]);
       } else {
         const qs = folderId ? `?parentId=${folderId}` : "";
         const res = await fetch(`/api/folders${qs}`);
@@ -163,13 +173,40 @@ function DriveInner() {
     router.push(id ? `/drive?folder=${id}` : "/drive");
   }
 
-  function goView(v: "shared" | "recent" | "starred" | "trash") {
+  function goView(v: "shared" | "recent" | "starred" | "trash" | "media") {
     router.push(`/drive?view=${v}`);
   }
 
   function doSearch(query: string) {
     if (!query.trim()) router.push("/drive");
     else router.push(`/drive?q=${encodeURIComponent(query)}`);
+  }
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (newMenuRef.current && !newMenuRef.current.contains(e.target as Node)) setNewMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  async function createBlankDoc(kind: "docx" | "xlsx" | "pptx") {
+    setNewMenuOpen(false);
+    const res = await fetch("/api/files/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, folderId }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Belge oluşturulamadı", "error");
+      return;
+    }
+    const file = await res.json();
+    toast(`"${file.name}" oluşturuldu`, "success");
+    load();
+    refreshMe();
+    window.open(`/office/${file.id}`, "_blank");
   }
 
   async function createFolder(name: string) {
@@ -287,6 +324,31 @@ function DriveInner() {
   /** Word/Excel/PowerPoint dosyaları için menüye eklenecek "Office ile aç" öğesi (uygunsa), aksi halde boş dizi. */
   function officeMenuItem(f: FileItem): RowMenuItem[] {
     return officeDocType(f.name) ? [{ label: "Office ile aç", onClick: () => openOffice(f) }] : [];
+  }
+
+  async function convertToPdf(f: FileItem) {
+    toast(`"${f.name}" PDF'e dönüştürülüyor…`);
+    const res = await fetch(`/api/files/${f.id}/convert`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toExt: "pdf" }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Dönüştürülemedi", "error");
+      return;
+    }
+    const created = await res.json();
+    toast(`"${created.name}" oluşturuldu`, "success");
+    load();
+    refreshMe();
+  }
+
+  /** docx/xlsx/pptx gibi dosyalar için "PDF'e dönüştür" menü öğesi (uygunsa), aksi halde boş dizi. */
+  function convertMenuItem(f: FileItem): RowMenuItem[] {
+    return officeDocType(f.name) && extOf(f.name) !== "pdf"
+      ? [{ label: "PDF'e dönüştür", onClick: () => convertToPdf(f) }]
+      : [];
   }
 
   async function submitMoveFolder(folder: FolderItem, destFolderId: string | null) {
@@ -498,6 +560,7 @@ function DriveInner() {
             <SideLink active={view === "root"} onClick={() => goFolder(null)} label="Sürücüm" icon="🗂️" />
             <SideLink active={view === "recent"} onClick={() => goView("recent")} label="Son kullanılanlar" icon="🕒" />
             <SideLink active={view === "starred"} onClick={() => goView("starred")} label="Yıldızlılar" icon="⭐" />
+            <SideLink active={view === "media"} onClick={() => goView("media")} label="Medya" icon="🎬" />
             <SideLink active={view === "shared"} onClick={() => goView("shared")} label="Benimle paylaşılanlar" icon="🤝" />
             <SideLink active={view === "trash"} onClick={() => goView("trash")} label="Çöp kutusu" icon="🗑️" />
           </nav>
@@ -595,6 +658,11 @@ function DriveInner() {
               Yıldızlılar
             </h1>
           )}
+          {view === "media" && (
+            <h1 className="mb-4 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+              Medya
+            </h1>
+          )}
           {view === "trash" && (
             <div className="mb-4">
               <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -609,9 +677,57 @@ function DriveInner() {
           <div className="mb-5 flex items-center justify-between gap-2">
             {view === "root" ? (
               <div className="flex gap-2">
-                <button className="btn-secondary" onClick={() => setPending({ kind: "new-folder" })}>
-                  + Yeni klasör
-                </button>
+                <div className="relative" ref={newMenuRef}>
+                  <button className="btn-secondary" onClick={() => setNewMenuOpen((o) => !o)}>
+                    + Yeni
+                  </button>
+                  {newMenuOpen && (
+                    <div
+                      className="absolute left-0 top-full z-30 mt-1 w-52 overflow-hidden rounded-lg border py-1 shadow-lg"
+                      style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+                    >
+                      <button
+                        className="block w-full px-3 py-2 text-left text-sm hover:opacity-80"
+                        style={{ color: "var(--text-primary)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        onClick={() => {
+                          setNewMenuOpen(false);
+                          setPending({ kind: "new-folder" });
+                        }}
+                      >
+                        📁 Klasör
+                      </button>
+                      <button
+                        className="block w-full px-3 py-2 text-left text-sm hover:opacity-80"
+                        style={{ color: "var(--text-primary)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        onClick={() => createBlankDoc("docx")}
+                      >
+                        📄 Word belgesi
+                      </button>
+                      <button
+                        className="block w-full px-3 py-2 text-left text-sm hover:opacity-80"
+                        style={{ color: "var(--text-primary)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        onClick={() => createBlankDoc("xlsx")}
+                      >
+                        📊 Excel tablosu
+                      </button>
+                      <button
+                        className="block w-full px-3 py-2 text-left text-sm hover:opacity-80"
+                        style={{ color: "var(--text-primary)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        onClick={() => createBlankDoc("pptx")}
+                      >
+                        📽️ PowerPoint sunumu
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button className="btn-primary" onClick={() => fileInputRef.current?.click()}>
                   ⬆ Dosya yükle
                 </button>
@@ -674,7 +790,7 @@ function DriveInner() {
           {!loading && folders.length === 0 && files.length === 0 && (
             <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-16 text-center" style={{ borderColor: "var(--border)" }}>
               <span className="text-3xl">
-                {view === "shared" ? "🤝" : view === "search" ? "🔍" : view === "recent" ? "🕒" : view === "starred" ? "⭐" : view === "trash" ? "🗑️" : "📂"}
+                {view === "shared" ? "🤝" : view === "search" ? "🔍" : view === "recent" ? "🕒" : view === "starred" ? "⭐" : view === "trash" ? "🗑️" : view === "media" ? "🎬" : "📂"}
               </span>
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 {view === "shared"
@@ -687,7 +803,9 @@ function DriveInner() {
                         ? "Henüz yıldızladığınız bir şey yok."
                         : view === "trash"
                           ? "Çöp kutusu boş."
-                          : "Bu klasör boş."}
+                          : view === "media"
+                            ? "Henüz erişebildiğiniz bir video/müzik dosyası yok."
+                            : "Bu klasör boş."}
               </p>
             </div>
           )}
@@ -763,6 +881,7 @@ function DriveInner() {
                       : [
                           { label: "İndir", onClick: () => downloadFile(f) },
                           ...officeMenuItem(f),
+                          ...convertMenuItem(f),
                           { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
                           { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
                           ...(view === "root"
@@ -965,6 +1084,11 @@ function DriveInner() {
                             Office ile aç
                           </button>
                         )}
+                        {officeDocType(f.name) && extOf(f.name) !== "pdf" && (
+                          <button className="btn-ghost" onClick={() => convertToPdf(f)}>
+                            PDF&apos;e dönüştür
+                          </button>
+                        )}
                         <button className="btn-ghost" onClick={() => setShareTarget({ type: "file", id: f.id, name: f.name })}>
                           Paylaş
                         </button>
@@ -998,6 +1122,7 @@ function DriveInner() {
                           : [
                               { label: "İndir", onClick: () => downloadFile(f) },
                               ...officeMenuItem(f),
+                              ...convertMenuItem(f),
                               { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
                               { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
                               ...(view === "root"

@@ -26,6 +26,9 @@ Kurumsal dosya yönetim platformu — departmanlar arası klasör/dosya paylaş�
 - **Dosya yükleme politikaları**: Admin panelinden sistem geneli maksimum dosya boyutu ve engellenen dosya uzantıları tanımlama.
 - **Admin paneli**: Kullanıcı/departman yönetimi, depolama analitiği (departman/kullanıcı bazlı kullanım grafikleri), tüm sistem etkinlik günlüğü (giriş, yükleme, silme, paylaşım vb.), sistem ayarları (temizleme politikası + dosya politikaları).
 - **Office belge düzenleme (opsiyonel)**: Ayrı bir OnlyOffice Document Server'a bağlanarak Word/Excel/PowerPoint dosyalarını tarayıcıda gerçek zamanlı düzenleme; kaydetme yeni bir dosya versiyonu olarak geri döner (bkz. aşağıda).
+- **Yeni boş belge oluşturma**: "+ Yeni" menüsünden doğrudan Cdrive içinde boş bir Word/Excel/PowerPoint dosyası oluşturma (OnlyOffice gerektirmez — sadece sonradan düzenlemek için gerekir).
+- **Format dönüştürme (opsiyonel)**: docx/xlsx/pptx gibi belgeleri PDF'e dönüştürme — sonuç, orijinali değiştirmeden ayrı bir dosya olarak kaydedilir (OnlyOffice Document Server gerektirir).
+- **Medya galerisi**: Erişilebilen tüm video/müzik dosyaları için ayrı bir "Medya" görünümü; video/ses dosyaları artık tarayıcıda doğrudan oynatılabilir (indirmeye gerek yok).
 
 ## Teknoloji
 
