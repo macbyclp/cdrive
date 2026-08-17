@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "migrate": "prisma migrate deploy",
+    "deploy": "prisma migrate deploy && next build"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
