@@ -11,7 +11,7 @@ import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 
 const schema = z.object({
-  kind: z.enum(["docx", "xlsx", "pptx"]),
+  kind: z.enum(["docx", "xlsx", "pptx", "txt"]),
   folderId: z.string().nullable().optional(),
 });
 

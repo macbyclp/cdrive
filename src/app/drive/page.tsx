@@ -262,7 +262,7 @@ function DriveInner() {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [view, selected]);
 
-  async function createBlankDoc(kind: "docx" | "xlsx" | "pptx") {
+  async function createBlankDoc(kind: "docx" | "xlsx" | "pptx" | "txt") {
     setNewMenuOpen(false);
     const res = await fetch(withBasePath("/api/files/create"), {
       method: "POST",
@@ -938,6 +938,15 @@ function DriveInner() {
                         onClick={() => createBlankDoc("pptx")}
                       >
                         📽️ PowerPoint sunumu
+                      </button>
+                      <button
+                        className="block w-full px-3 py-2 text-left text-sm hover:opacity-80"
+                        style={{ color: "var(--text-primary)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        onClick={() => createBlankDoc("txt")}
+                      >
+                        📝 Metin dosyası
                       </button>
                     </div>
                   )}

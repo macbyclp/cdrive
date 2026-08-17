@@ -7,7 +7,7 @@ import PptxGenJS from "pptxgenjs";
  * Document Server'a bağımlı DEĞİL — belge OnlyOffice olmadan da oluşturulup
  * indirilebilir; sadece tarayıcıda DÜZENLEMEK için Document Server gerekir.
  */
-export type BlankKind = "docx" | "xlsx" | "pptx";
+export type BlankKind = "docx" | "xlsx" | "pptx" | "txt";
 
 export const BLANK_KIND_INFO: Record<BlankKind, { label: string; mimeType: string; defaultName: string }> = {
   docx: {
@@ -24,6 +24,11 @@ export const BLANK_KIND_INFO: Record<BlankKind, { label: string; mimeType: strin
     label: "PowerPoint sunumu",
     mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     defaultName: "Adsız sunum.pptx",
+  },
+  txt: {
+    label: "Metin dosyası",
+    mimeType: "text/plain",
+    defaultName: "Adsız dosya.txt",
   },
 };
 
@@ -46,8 +51,13 @@ async function blankPptxBuffer(): Promise<Buffer> {
   return out as Buffer;
 }
 
+function blankTxtBuffer(): Buffer {
+  return Buffer.from("", "utf-8");
+}
+
 export async function generateBlankFile(kind: BlankKind): Promise<Buffer> {
   if (kind === "docx") return blankDocxBuffer();
   if (kind === "xlsx") return blankXlsxBuffer();
+  if (kind === "txt") return blankTxtBuffer();
   return blankPptxBuffer();
 }
