@@ -4,18 +4,13 @@ import { use, useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { useMe } from "@/lib/useMe";
 import { withBasePath } from "@/lib/basePath";
+import "@/lib/onlyoffice-client";
 
 type OfficeConfig = {
   script: string;
   config: Record<string, unknown>;
   fileName: string;
 };
-
-declare global {
-  interface Window {
-    DocsAPI?: { DocEditor: new (id: string, config: Record<string, unknown>) => unknown };
-  }
-}
 
 export default function OfficePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);

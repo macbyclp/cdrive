@@ -6,6 +6,7 @@ import TopBar from "@/components/TopBar";
 import ShareDialog from "@/components/ShareDialog";
 import VersionsDialog from "@/components/VersionsDialog";
 import PreviewDialog from "@/components/PreviewDialog";
+import OfficeEditorDialog from "@/components/OfficeEditorDialog";
 import MoveDialog from "@/components/MoveDialog";
 import RowMenu, { type RowMenuItem } from "@/components/RowMenu";
 import { InputDialog, ConfirmDialog } from "@/components/Dialogs";
@@ -67,6 +68,7 @@ function DriveInner() {
   const [shareTarget, setShareTarget] = useState<{ type: "file" | "folder"; id: string; name: string } | null>(null);
   const [versionsTarget, setVersionsTarget] = useState<{ id: string; name: string } | null>(null);
   const [previewTarget, setPreviewTarget] = useState<{ id: string; name: string; mimeType: string } | null>(null);
+  const [officeTarget, setOfficeTarget] = useState<{ id: string; name: string } | null>(null);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [viewMode, setViewModeState] = useState<ViewMode>("list");
   const [starredFileIds, setStarredFileIds] = useState<Set<string>>(new Set());
@@ -311,7 +313,9 @@ function DriveInner() {
   }
 
   function openFile(f: FileItem) {
-    if (previewKind(f.mimeType) === "none") {
+    if (officeDocType(f.name)) {
+      openOffice(f);
+    } else if (previewKind(f.mimeType) === "none") {
       downloadFile(f);
     } else {
       setPreviewTarget({ id: f.id, name: f.name, mimeType: f.mimeType });
@@ -319,7 +323,7 @@ function DriveInner() {
   }
 
   function openOffice(f: FileItem) {
-    window.open(withBasePath(`/office/${f.id}`), "_blank");
+    setOfficeTarget({ id: f.id, name: f.name });
   }
 
   /** Word/Excel/PowerPoint dosyaları için menüye eklenecek "Office ile aç" öğesi (uygunsa), aksi halde boş dizi. */
@@ -1171,6 +1175,17 @@ function DriveInner() {
           fileName={previewTarget.name}
           mimeType={previewTarget.mimeType}
           onClose={() => setPreviewTarget(null)}
+        />
+      )}
+      {officeTarget && (
+        <OfficeEditorDialog
+          fileId={officeTarget.id}
+          fileName={officeTarget.name}
+          onClose={() => setOfficeTarget(null)}
+          onSaved={() => {
+            load();
+            refreshMe();
+          }}
         />
       )}
 
