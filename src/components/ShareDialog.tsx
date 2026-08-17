@@ -5,6 +5,7 @@ import { useToast } from "@/components/ToastProvider";
 import { withBasePath } from "@/lib/basePath";
 
 type Grant = { id: string; permission: "VIEW" | "EDIT"; user: { id: string; name: string; email: string } };
+type Template = { id: string; name: string; permission: "VIEW" | "EDIT"; members: { user: unknown; group: unknown }[] };
 type Link = {
   id: string;
   token: string;
@@ -36,6 +37,9 @@ export default function ShareDialog({
   const toast = useToast();
   const [grants, setGrants] = useState<Grant[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templateId, setTemplateId] = useState("");
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [email, setEmail] = useState("");
   const [permission, setPermission] = useState<"VIEW" | "EDIT">("VIEW");
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +63,29 @@ export default function ShareDialog({
       const l = await fetch(withBasePath(`/api/share?fileId=${targetId}`)).then((r) => r.json());
       setLinks(l);
     }
+    const t = await fetch(withBasePath("/api/admin/permission-templates")).then((r) => (r.ok ? r.json() : []));
+    setTemplates(t);
     setLoading(false);
+  }
+
+  async function applyTemplate() {
+    if (!templateId) return;
+    setApplyingTemplate(true);
+    const res = await fetch(withBasePath(`/api/permission-templates/${templateId}/apply`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetType, targetId }),
+    });
+    setApplyingTemplate(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Şablon uygulanamadı", "error");
+      return;
+    }
+    const d = await res.json();
+    toast(`Şablon uygulandı — ${d.applied} kullanıcıya izin verildi`, "success");
+    setTemplateId("");
+    load();
   }
 
   useEffect(() => {
@@ -193,6 +219,22 @@ export default function ShareDialog({
           </button>
         </form>
         {error && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+        {templates.length > 0 && (
+          <div className="mb-3 flex gap-2">
+            <select className="input flex-1" value={templateId} onChange={(e) => setTemplateId(e.target.value)}>
+              <option value="">İzin şablonu uygula…</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.permission === "EDIT" ? "Düzenle" : "Görüntüle"}, {t.members.length} üye)
+                </option>
+              ))}
+            </select>
+            <button disabled={!templateId || applyingTemplate} className="btn-secondary shrink-0 text-xs" onClick={applyTemplate}>
+              Uygula
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="mb-6 mt-3 space-y-2">

@@ -64,7 +64,7 @@ describe("canAccessFolder — sahiplik ve kalıtım", () => {
   });
 
   it("MANAGER, kendi departmanındaki klasörlere EDIT erişimine sahiptir", async () => {
-    const dept = await prisma.department.create({ data: { name: `dept-${Date.now()}` } });
+    const dept = await prisma.department.create({ data: { name: `dept-${Date.now()}-${Math.random().toString(36).slice(2)}` } });
     departmentIds.push(dept.id);
     const owner = await createTestUser();
     const manager = await createTestUser({ role: "MANAGER", departmentId: dept.id });
@@ -75,8 +75,8 @@ describe("canAccessFolder — sahiplik ve kalıtım", () => {
   });
 
   it("MANAGER, farklı departmanın klasörüne erişemez", async () => {
-    const deptA = await prisma.department.create({ data: { name: `dept-a-${Date.now()}` } });
-    const deptB = await prisma.department.create({ data: { name: `dept-b-${Date.now()}` } });
+    const deptA = await prisma.department.create({ data: { name: `dept-a-${Date.now()}-${Math.random().toString(36).slice(2)}` } });
+    const deptB = await prisma.department.create({ data: { name: `dept-b-${Date.now()}-${Math.random().toString(36).slice(2)}` } });
     departmentIds.push(deptA.id, deptB.id);
     const owner = await createTestUser();
     const manager = await createTestUser({ role: "MANAGER", departmentId: deptB.id });

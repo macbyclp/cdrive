@@ -9,6 +9,7 @@ import PreviewDialog from "@/components/PreviewDialog";
 import OfficeEditorDialog from "@/components/OfficeEditorDialog";
 import TagDialog from "@/components/TagDialog";
 import ActivityDialog from "@/components/ActivityDialog";
+import CommentsDialog from "@/components/CommentsDialog";
 import MoveDialog from "@/components/MoveDialog";
 import RowMenu, { type RowMenuItem } from "@/components/RowMenu";
 import { InputDialog, ConfirmDialog } from "@/components/Dialogs";
@@ -77,6 +78,7 @@ function DriveInner() {
   const [activityTarget, setActivityTarget] = useState<{ type: "file" | "folder"; id: string; name: string } | null>(
     null
   );
+  const [commentTarget, setCommentTarget] = useState<{ id: string; name: string } | null>(null);
   const [searchFilters, setSearchFilters] = useState({
     type: "",
     dateFrom: "",
@@ -95,6 +97,8 @@ function DriveInner() {
   const [draggedItem, setDraggedItem] = useState<{ type: "file" | "folder"; id: string } | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const zipInputRef = useRef<HTMLInputElement>(null);
+  const [zipUploading, setZipUploading] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
@@ -312,6 +316,29 @@ function DriveInner() {
     refreshMe();
   }
 
+  async function uploadZip(fileList: FileList | null) {
+    const zipFile = fileList?.[0];
+    if (!zipFile) return;
+    setZipUploading(true);
+    const fd = new FormData();
+    fd.append("file", zipFile);
+    if (folderId) fd.append("folderId", folderId);
+    const res = await fetch(withBasePath("/api/files/zip-upload"), { method: "POST", body: fd });
+    setZipUploading(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Zip yüklenemedi", "error");
+      return;
+    }
+    const d = await res.json();
+    toast(
+      `Zip'ten ${d.filesCreated} dosya, ${d.foldersCreated} klasör çıkarıldı${d.skipped ? ` (${d.skipped} atlandı)` : ""}`,
+      "success"
+    );
+    load();
+    refreshMe();
+  }
+
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
@@ -434,6 +461,15 @@ function DriveInner() {
       {
         label: "Erişim geçmişi",
         onClick: () => setActivityTarget({ type, id: item.id, name: item.name }),
+      },
+    ];
+  }
+
+  function commentMenuItem(f: FileItem): RowMenuItem[] {
+    return [
+      {
+        label: "Yorumlar",
+        onClick: () => setCommentTarget({ id: f.id, name: f.name }),
       },
     ];
   }
@@ -911,6 +947,21 @@ function DriveInner() {
                   className="hidden"
                   onChange={(e) => uploadFiles(e.target.files)}
                 />
+                <button
+                  className="btn-secondary"
+                  disabled={zipUploading}
+                  onClick={() => zipInputRef.current?.click()}
+                  title="Bir .zip dosyasını klasör yapısıyla birlikte çıkart"
+                >
+                  {zipUploading ? "Çıkartılıyor…" : "📦 Zip olarak yükle"}
+                </button>
+                <input
+                  ref={zipInputRef}
+                  type="file"
+                  accept=".zip,application/zip"
+                  className="hidden"
+                  onChange={(e) => uploadZip(e.target.files)}
+                />
               </div>
             ) : (
               <div />
@@ -1062,6 +1113,7 @@ function DriveInner() {
                           { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
                           ...tagMenuItem("file", f),
                           ...activityMenuItem("file", f),
+                          ...commentMenuItem(f),
                           ...(view === "root"
                             ? [
                                 { label: "Taşı", onClick: () => setPending({ kind: "move-file" as const, file: f }) },
@@ -1295,6 +1347,9 @@ function DriveInner() {
                         <button className="btn-ghost" onClick={() => setActivityTarget({ type: "file", id: f.id, name: f.name })}>
                           Geçmiş
                         </button>
+                        <button className="btn-ghost" onClick={() => setCommentTarget({ id: f.id, name: f.name })}>
+                          Yorumlar
+                        </button>
                         {view === "root" && (
                           <>
                             <button className="btn-ghost" onClick={() => setPending({ kind: "move-file", file: f })}>
@@ -1327,6 +1382,7 @@ function DriveInner() {
                               { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
                               ...tagMenuItem("file", f),
                           ...activityMenuItem("file", f),
+                          ...commentMenuItem(f),
                               ...(view === "root"
                                 ? [
                                     { label: "Taşı", onClick: () => setPending({ kind: "move-file" as const, file: f }) },
@@ -1396,6 +1452,15 @@ function DriveInner() {
           targetId={activityTarget.id}
           targetName={activityTarget.name}
           onClose={() => setActivityTarget(null)}
+        />
+      )}
+      {commentTarget && user && (
+        <CommentsDialog
+          fileId={commentTarget.id}
+          fileName={commentTarget.name}
+          currentUserId={user.id}
+          isAdmin={user.role === "ADMIN"}
+          onClose={() => setCommentTarget(null)}
         />
       )}
 

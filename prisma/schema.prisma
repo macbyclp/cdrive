@@ -106,6 +106,9 @@ model User {
   folderStars  FolderStar[]
   notifications Notification[]
   sessions     Session[]
+  fileComments FileComment[]
+  groupMemberships GroupMember[]
+  templateMemberships PermissionTemplateMember[]
 
   @@map("users")
 }
@@ -190,6 +193,7 @@ model File {
   shareLinks  ShareLink[]
   stars       FileStar[]
   tags        FileTag[]
+  comments    FileComment[]
 
   @@index([folderId])
   @@index([ownerId])
@@ -350,4 +354,67 @@ model Notification {
 
   @@index([userId, read])
   @@map("notifications")
+}
+
+/// Bir dosya üzerine bırakılan yorumlar — ekip içi tartışma/geri bildirim için.
+model FileComment {
+  id        String   @id @default(cuid())
+  fileId    String
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([fileId])
+  @@map("file_comments")
+}
+
+/// Kullanıcı grupları — izin şablonlarında ve doğrudan paylaşımlarda "kime" sorusunu
+/// tek tek kullanıcı yerine bir grup adıyla cevaplamak için.
+model Group {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  members             GroupMember[]
+  templateMemberships PermissionTemplateMember[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id      String @id @default(cuid())
+  groupId String
+  group   Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("group_members")
+}
+
+/// Hazır izin şablonu: bir izin seviyesi + üye listesi (kullanıcı ve/veya grup) — bir
+/// dosya/klasöre tek tıkla uygulanır, üyeler değişse bile şablon adı sabit kalır.
+model PermissionTemplate {
+  id         String     @id @default(cuid())
+  name       String     @unique
+  permission Permission @default(VIEW)
+  createdAt  DateTime   @default(now())
+
+  members PermissionTemplateMember[]
+
+  @@map("permission_templates")
+}
+
+model PermissionTemplateMember {
+  id         String              @id @default(cuid())
+  templateId String
+  template   PermissionTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupId    String?
+  group      Group?              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("permission_template_members")
 }

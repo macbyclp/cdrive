@@ -31,7 +31,12 @@ type AuditLog = {
   user: { name: string; email: string } | null;
 };
 
-type Tab = "users" | "departments" | "analytics" | "settings" | "audit";
+type Tab = "users" | "departments" | "analytics" | "settings" | "audit" | "groups" | "templates";
+
+type GroupUser = { id: string; name: string; email: string };
+type Group = { id: string; name: string; members: GroupUser[] };
+type TemplateMember = { user: GroupUser | null; group: { id: string; name: string } | null };
+type Template = { id: string; name: string; permission: "VIEW" | "EDIT"; members: TemplateMember[] };
 
 const AVATAR_COLORS = ["#0f172a", "#7c3aed", "#0891b2", "#c2410c", "#15803d", "#be185d", "#4338ca"];
 function avatarColor(seed: string) {
@@ -46,6 +51,8 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,6 +67,10 @@ export default function AdminPage() {
       setDepartments(d);
       const l = await fetch(withBasePath("/api/admin/audit")).then((r) => (r.ok ? r.json() : []));
       setLogs(l);
+      const g = await fetch(withBasePath("/api/admin/groups")).then((r) => (r.ok ? r.json() : []));
+      setGroups(g);
+      const t = await fetch(withBasePath("/api/admin/permission-templates")).then((r) => (r.ok ? r.json() : []));
+      setTemplates(t);
     } catch {
       setError("Bu sayfayı görüntüleme yetkiniz yok.");
     } finally {
@@ -87,8 +98,8 @@ export default function AdminPage() {
           Kullanıcılar, departmanlar ve etkinlik günlüğü
         </p>
 
-        <div className="mb-6 flex gap-1 border-b" style={{ borderColor: "var(--border)" }}>
-          {(["users", "departments", "analytics", "settings", "audit"] as Tab[]).map((t) => (
+        <div className="mb-6 flex flex-wrap gap-1 border-b" style={{ borderColor: "var(--border)" }}>
+          {(["users", "departments", "groups", "templates", "analytics", "settings", "audit"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -102,11 +113,15 @@ export default function AdminPage() {
                 ? "Kullanıcılar"
                 : t === "departments"
                   ? "Departmanlar"
-                  : t === "analytics"
-                    ? "Depolama analitiği"
-                    : t === "settings"
-                      ? "Sistem ayarları"
-                      : "Etkinlik günlüğü"}
+                  : t === "groups"
+                    ? "Gruplar"
+                    : t === "templates"
+                      ? "İzin şablonları"
+                      : t === "analytics"
+                        ? "Depolama analitiği"
+                        : t === "settings"
+                          ? "Sistem ayarları"
+                          : "Etkinlik günlüğü"}
             </button>
           ))}
         </div>
@@ -127,6 +142,10 @@ export default function AdminPage() {
           <UsersTab users={users} departments={departments} reload={loadAll} currentUserId={user.id} />
         )}
         {!loading && !error && tab === "departments" && <DepartmentsTab departments={departments} reload={loadAll} />}
+        {!loading && !error && tab === "groups" && <GroupsTab groups={groups} reload={loadAll} />}
+        {!loading && !error && tab === "templates" && (
+          <TemplatesTab templates={templates} groups={groups} reload={loadAll} />
+        )}
         {!loading && !error && tab === "analytics" && <AnalyticsTab users={users} departments={departments} />}
         {!loading && !error && tab === "settings" && <SettingsTab />}
         {!loading && !error && tab === "audit" && <AuditTab logs={logs} />}
@@ -429,6 +448,260 @@ function DepartmentsTab({ departments, reload }: { departments: Department[]; re
         {departments.length === 0 && (
           <p className="p-4 text-sm" style={{ color: "var(--text-tertiary)" }}>
             Henüz departman yok.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GroupsTab({ groups, reload }: { groups: Group[]; reload: () => void }) {
+  const toast = useToast();
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [emailDrafts, setEmailDrafts] = useState<Record<string, string>>({});
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    const res = await fetch(withBasePath("/api/admin/groups"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Grup oluşturulamadı", "error");
+      return;
+    }
+    toast(`"${name}" grubu eklendi`, "success");
+    setName("");
+    reload();
+  }
+
+  async function remove(id: string, groupName: string) {
+    await fetch(withBasePath(`/api/admin/groups/${id}`), { method: "DELETE" });
+    toast(`"${groupName}" grubu silindi`);
+    reload();
+  }
+
+  async function addMember(groupId: string) {
+    const email = (emailDrafts[groupId] ?? "").trim();
+    if (!email) return;
+    const res = await fetch(withBasePath(`/api/admin/groups/${groupId}/members`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userEmail: email }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Eklenemedi", "error");
+      return;
+    }
+    setEmailDrafts((d) => ({ ...d, [groupId]: "" }));
+    reload();
+  }
+
+  async function removeMember(groupId: string, userId: string) {
+    await fetch(withBasePath(`/api/admin/groups/${groupId}/members/${userId}`), { method: "DELETE" });
+    reload();
+  }
+
+  return (
+    <div>
+      <form onSubmit={create} className="mb-6 flex gap-2">
+        <input className="input" placeholder="Grup adı (ör. Pazarlama)" value={name} onChange={(e) => setName(e.target.value)} />
+        <button disabled={busy} className="btn-primary shrink-0">
+          + Ekle
+        </button>
+      </form>
+      <div className="space-y-3">
+        {groups.map((g) => (
+          <div key={g.id} className="card p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                {g.name}
+              </h3>
+              <button className="btn-ghost text-xs text-red-600 dark:text-red-400" onClick={() => remove(g.id, g.name)}>
+                Grubu sil
+              </button>
+            </div>
+            <div className="mb-2 flex flex-wrap gap-1.5">
+              {g.members.map((m) => (
+                <span key={m.id} className="badge flex items-center gap-1">
+                  {m.name}
+                  <button className="text-red-600 dark:text-red-400" onClick={() => removeMember(g.id, m.id)}>
+                    ×
+                  </button>
+                </span>
+              ))}
+              {g.members.length === 0 && (
+                <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                  Henüz üye yok.
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                placeholder="kullanici@sirket.com"
+                className="input px-2 py-1 text-xs"
+                value={emailDrafts[g.id] ?? ""}
+                onChange={(e) => setEmailDrafts((d) => ({ ...d, [g.id]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addMember(g.id);
+                }}
+              />
+              <button className="btn-ghost text-xs" onClick={() => addMember(g.id)}>
+                Üye ekle
+              </button>
+            </div>
+          </div>
+        ))}
+        {groups.length === 0 && (
+          <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+            Henüz grup yok.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TemplatesTab({
+  templates,
+  groups,
+  reload,
+}: {
+  templates: Template[];
+  groups: Group[];
+  reload: () => void;
+}) {
+  const toast = useToast();
+  const [showNew, setShowNew] = useState(false);
+  const [name, setName] = useState("");
+  const [permission, setPermission] = useState<"VIEW" | "EDIT">("VIEW");
+  const [emails, setEmails] = useState("");
+  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  function toggleGroup(id: string) {
+    setSelectedGroups((s) => (s.includes(id) ? s.filter((g) => g !== id) : [...s, id]));
+  }
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    const userEmails = emails
+      .split(/[,\s]+/)
+      .map((e) => e.trim())
+      .filter(Boolean);
+    const res = await fetch(withBasePath("/api/admin/permission-templates"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, permission, userEmails, groupIds: selectedGroups }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Şablon oluşturulamadı", "error");
+      return;
+    }
+    toast(`"${name}" şablonu eklendi`, "success");
+    setName("");
+    setEmails("");
+    setSelectedGroups([]);
+    setShowNew(false);
+    reload();
+  }
+
+  async function remove(id: string, templateName: string) {
+    await fetch(withBasePath(`/api/admin/permission-templates/${id}`), { method: "DELETE" });
+    toast(`"${templateName}" şablonu silindi`);
+    reload();
+  }
+
+  return (
+    <div>
+      <div className="mb-4 flex justify-end">
+        <button className="btn-primary" onClick={() => setShowNew((s) => !s)}>
+          {showNew ? "Vazgeç" : "+ Yeni şablon"}
+        </button>
+      </div>
+
+      {showNew && (
+        <form onSubmit={create} className="card mb-6 space-y-3 p-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <input required placeholder="Şablon adı (ör. Sadece görüntüleme)" className="input" value={name} onChange={(e) => setName(e.target.value)} />
+            <select className="input" value={permission} onChange={(e) => setPermission(e.target.value as "VIEW" | "EDIT")}>
+              <option value="VIEW">Görüntüle</option>
+              <option value="EDIT">Düzenle</option>
+            </select>
+          </div>
+          <input
+            placeholder="E-posta adresleri (virgülle ayır)"
+            className="input"
+            value={emails}
+            onChange={(e) => setEmails(e.target.value)}
+          />
+          {groups.length > 0 && (
+            <div>
+              <span className="mb-1.5 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                Gruplar
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {groups.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    onClick={() => toggleGroup(g.id)}
+                    className="rounded-full border px-3 py-1 text-xs font-medium transition-colors"
+                    style={
+                      selectedGroups.includes(g.id)
+                        ? { background: "var(--accent)", color: "var(--accent-foreground)", borderColor: "var(--accent)" }
+                        : { background: "var(--surface)", color: "var(--text-secondary)", borderColor: "var(--border)" }
+                    }
+                  >
+                    {g.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <button disabled={busy} className="btn-primary">
+            Oluştur
+          </button>
+        </form>
+      )}
+
+      <div className="space-y-3">
+        {templates.map((t) => (
+          <div key={t.id} className="card flex items-start justify-between gap-3 p-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                  {t.name}
+                </h3>
+                <span className="badge">{t.permission === "EDIT" ? "Düzenle" : "Görüntüle"}</span>
+              </div>
+              <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                {t.members
+                  .map((m) => m.user?.name ?? (m.group ? `👥 ${m.group.name}` : null))
+                  .filter(Boolean)
+                  .join(", ") || "Üye yok"}
+              </p>
+            </div>
+            <button className="btn-ghost text-xs text-red-600 dark:text-red-400" onClick={() => remove(t.id, t.name)}>
+              Sil
+            </button>
+          </div>
+        ))}
+        {templates.length === 0 && (
+          <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+            Henüz şablon yok.
           </p>
         )}
       </div>
