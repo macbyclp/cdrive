@@ -12,7 +12,7 @@ import ActivityDialog from "@/components/ActivityDialog";
 import CommentsDialog from "@/components/CommentsDialog";
 import MoveDialog from "@/components/MoveDialog";
 import RowMenu, { type RowMenuItem } from "@/components/RowMenu";
-import { InputDialog, ConfirmDialog } from "@/components/Dialogs";
+import { InputDialog, ConfirmDialog, OfficeOpenModeDialog } from "@/components/Dialogs";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import type { Crumb, FileItem, FolderItem, Tag } from "@/lib/types";
@@ -72,6 +72,7 @@ function DriveInner() {
   const [versionsTarget, setVersionsTarget] = useState<{ id: string; name: string } | null>(null);
   const [previewTarget, setPreviewTarget] = useState<{ id: string; name: string; mimeType: string } | null>(null);
   const [officeTarget, setOfficeTarget] = useState<{ id: string; name: string } | null>(null);
+  const [officeChoiceTarget, setOfficeChoiceTarget] = useState<FileItem | null>(null);
   const [tagTarget, setTagTarget] = useState<{ type: "file" | "folder"; id: string; name: string; tags: Tag[] } | null>(
     null
   );
@@ -405,7 +406,7 @@ function DriveInner() {
 
   function openFile(f: FileItem) {
     if (officeDocType(f.name)) {
-      openOffice(f);
+      setOfficeChoiceTarget(f);
     } else if (previewKind(f.mimeType) === "none") {
       downloadFile(f);
     } else {
@@ -417,9 +418,13 @@ function DriveInner() {
     setOfficeTarget({ id: f.id, name: f.name });
   }
 
+  function openOfficeInTab(f: FileItem) {
+    window.open(withBasePath(`/office/${f.id}`), "_blank");
+  }
+
   /** Word/Excel/PowerPoint dosyaları için menüye eklenecek "Office ile aç" öğesi (uygunsa), aksi halde boş dizi. */
   function officeMenuItem(f: FileItem): RowMenuItem[] {
-    return officeDocType(f.name) ? [{ label: "Office ile aç", onClick: () => openOffice(f) }] : [];
+    return officeDocType(f.name) ? [{ label: "Office ile aç", onClick: () => setOfficeChoiceTarget(f) }] : [];
   }
 
   async function convertToPdf(f: FileItem) {
@@ -1323,7 +1328,7 @@ function DriveInner() {
                           İndir
                         </button>
                         {officeDocType(f.name) && (
-                          <button className="btn-ghost" onClick={() => openOffice(f)}>
+                          <button className="btn-ghost" onClick={() => setOfficeChoiceTarget(f)}>
                             Office ile aç
                           </button>
                         )}
@@ -1423,6 +1428,18 @@ function DriveInner() {
           fileName={previewTarget.name}
           mimeType={previewTarget.mimeType}
           onClose={() => setPreviewTarget(null)}
+        />
+      )}
+      {officeChoiceTarget && (
+        <OfficeOpenModeDialog
+          fileName={officeChoiceTarget.name}
+          onCancel={() => setOfficeChoiceTarget(null)}
+          onChoose={(mode) => {
+            const f = officeChoiceTarget;
+            setOfficeChoiceTarget(null);
+            if (mode === "popup") openOffice(f);
+            else openOfficeInTab(f);
+          }}
         />
       )}
       {officeTarget && (

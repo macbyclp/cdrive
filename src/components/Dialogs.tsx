@@ -55,6 +55,66 @@ export function InputDialog({
   );
 }
 
+/** Office belgesi açılırken "popup mu, yeni sekme mi" seçimi — iki büyük seçenek butonu. */
+export function OfficeOpenModeDialog({
+  fileName,
+  onChoose,
+  onCancel,
+}: {
+  fileName: string;
+  onChoose: (mode: "popup" | "tab") => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+      <div
+        className="dialog-panel w-full max-w-sm rounded-2xl border p-6"
+        style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
+      >
+        <h2 className="mb-1 text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+          Nasıl açılsın?
+        </h2>
+        <p className="mb-4 truncate text-sm" style={{ color: "var(--text-secondary)" }}>
+          {fileName}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            className="flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-colors hover:opacity-80"
+            style={{ borderColor: "var(--border)" }}
+            onClick={() => onChoose("popup")}
+          >
+            <span className="text-2xl">🗔</span>
+            <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+              Popup
+            </span>
+            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              Sayfa üzerinde tam ekran
+            </span>
+          </button>
+          <button
+            className="flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-colors hover:opacity-80"
+            style={{ borderColor: "var(--border)" }}
+            onClick={() => onChoose("tab")}
+          >
+            <span className="text-2xl">🗗</span>
+            <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+              Yeni sekme
+            </span>
+            <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+              Ayrı tarayıcı sekmesi
+            </span>
+          </button>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <button className="btn-ghost text-sm" onClick={onCancel}>
+            Vazgeç
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ConfirmDialog({
   title,
   description,

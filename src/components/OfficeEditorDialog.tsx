@@ -39,6 +39,14 @@ export default function OfficeEditorDialog({
   const editorRef = useRef<DocEditorInstance | null>(null);
 
   useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setConfirmDiscard(true);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
     fetch(withBasePath(`/api/files/${fileId}/office/config`))
       .then(async (r) => {
         const body = await r.json();
@@ -65,10 +73,10 @@ export default function OfficeEditorDialog({
   }
 
   return (
-    <div className="dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 sm:p-6">
+    <div className="dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60">
       <div
-        className="dialog-panel flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl border"
-        style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
+        className="dialog-panel flex h-screen w-screen flex-col overflow-hidden"
+        style={{ background: "var(--surface)" }}
       >
         <div
           className="flex shrink-0 items-center justify-between gap-3 border-b px-4 py-2.5"
