@@ -1,0 +1,58 @@
+# Cdrive'ın kendisini (MySQL dahil) OnlyOffice'in çalıştığı VDS'te ikinci bir
+# Docker uygulaması olarak barındırmak için. Aynı VDS'te ~/onlyoffice/ altında
+# çalışan OnlyOffice Document Server'a DOKUNMAZ, ayrı bir stack'tir.
+#
+# Kurulum:
+#   1. Bu dosyayı VDS'te bir klasöre kopyalayın (ör. ~/cdrive-deploy/docker-compose.yml).
+#   2. Aynı klasöre Cdrive'ın kaynak kodunu klonlayın: `git clone https://github.com/macbyclp/cdrive.git app`
+#      (build context'i "./app" — aşağıdaki `build.context` ile eşleşmeli.)
+#   3. Aşağıdaki TÜM "replace-with-..." değerlerini gerçek değerlerle değiştirin
+#      (MYSQL şifresi, SESSION_SECRET, ONLYOFFICE_JWT_SECRET — OnlyOffice'in
+#      kendi docker-compose.yml'indeki JWT_SECRET ile AYNI olmalı).
+#   4. `docker compose up -d --build` ile başlatın (ilk build birkaç dakika sürer).
+#   5. Ana Caddy'ye (bkz. ../onlyoffice/ klasöründeki not) bir site daha ekleyin:
+#      `cdrive.calapverdi.tr { reverse_proxy localhost:3001 }` ve `systemctl reload caddy`.
+
+services:
+  cdrive-db:
+    image: mysql:8.4
+    container_name: cdrive-mysql
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=replace-with-a-strong-password
+      - MYSQL_DATABASE=cdrive
+      - MYSQL_USER=cdrive
+      - MYSQL_PASSWORD=replace-with-a-strong-password
+    volumes:
+      - cdrive_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-preplace-with-a-strong-password"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  cdrive:
+    build:
+      context: ./app
+    container_name: cdrive-app
+    restart: unless-stopped
+    depends_on:
+      cdrive-db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=mysql://cdrive:replace-with-a-strong-password@cdrive-db:3306/cdrive
+      - SESSION_SECRET=replace-with-a-long-random-string
+      - NEXT_BASE_PATH=
+      - APP_URL=https://cdrive.calapverdi.tr
+      - ONLYOFFICE_URL=https://office.calapverdi.tr
+      - ONLYOFFICE_JWT_SECRET=replace-with-the-same-value-as-onlyoffice-compose
+      - STORAGE_ROOT=/app/storage
+      - PORT=3000
+    volumes:
+      - cdrive_storage:/app/storage
+    ports:
+      - "3001:3000"
+
+volumes:
+  cdrive_db_data:
+  cdrive_storage:

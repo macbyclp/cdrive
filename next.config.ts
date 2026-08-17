@@ -9,6 +9,11 @@ const basePath = process.env.NEXT_BASE_PATH ?? "/cdrive";
 
 const nextConfig: NextConfig = {
   basePath,
+  // VDS/Docker deploy'unda (bkz. deploy/vds/) Dockerfile bu çıktıyı kullanır —
+  // sadece gerekli node_modules'i içeren küçük, bağımsız bir server.js üretir.
+  // cPanel/Passenger deploy'unu (kendi server.js'imiz) ETKİLEMEZ, sadece ekstra
+  // bir çıktı klasörüdür (.next/standalone).
+  output: "standalone",
   // src/lib/basePath.ts (istemci tarafı fetch/window.open/href sarmalayıcısı)
   // basePath'i process.env.NEXT_PUBLIC_BASE_PATH üzerinden okuyor — basePath
   // "NEXT_PUBLIC_" önekiyle başlamadığı için Next.js'in otomatik client-env

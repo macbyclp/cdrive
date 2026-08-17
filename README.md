@@ -70,6 +70,26 @@ Kurumsal dosya yönetim platformu — departmanlar arası klasör/dosya paylaş�
 4. Node.js App arayüzünde **Startup File** olarak proje kökündeki `server.js`'i seçin (cPanel'in Passenger'ı `next start` komutunu değil, `process.env.PORT`'ta dinleyen bir `.js` giriş dosyası bekler — bu dosya projede hazır).
 5. Uygulamayı **Restart** edip alan adınızdan açın; hiç kullanıcı yoksa `/setup`'a yönlendirilecektir.
 
+> **Bilinen sorun**: Bazı paylaşımlı hosting sağlayıcıları (CloudLinux/LVE tabanlı) Node.js
+> process'lerine düşük bir bellek limiti koyar. Bu durumda hem `prisma migrate deploy` hem
+> `next build`, Rust/WASM tabanlı motorları (Prisma schema engine, Next.js Turbopack) yüklerken
+> `WebAssembly.instantiate(): Out of memory` hatasıyla başarısız olabilir — hosting sağlayıcınızdan
+> process bellek limitinin artırılmasını isteyin, ya da aşağıdaki **VDS/Docker** seçeneğini kullanın.
+
+## VDS/Docker'a deploy
+
+Paylaşımlı hosting'in bellek kısıtlamalarından tamamen kaçınmak isterseniz, Docker destekleyen
+herhangi bir VDS'e (aynı VDS'i OnlyOffice için kullanıyorsanız oraya da) `deploy/vds/docker-compose.yml`
+ile MySQL dahil komple bir Cdrive kurulumu yapabilirsiniz:
+
+1. VDS'te bir klasör oluşturun, `deploy/vds/docker-compose.yml`'i oraya kopyalayın, aynı klasöre
+   `git clone https://github.com/macbyclp/cdrive.git app` ile kaynak kodu çekin.
+2. `docker-compose.yml` içindeki tüm `replace-with-...` değerlerini gerçek değerlerle değiştirin
+   (`ONLYOFFICE_JWT_SECRET`, OnlyOffice'in kendi `docker-compose.yml`'indeki `JWT_SECRET` ile **aynı** olmalı).
+3. `docker compose up -d --build` (ilk build birkaç dakika sürer — `Dockerfile`, Next.js'in
+   `output: "standalone"` çıktısını kullanır, migration'ları her başlangıçta otomatik uygular).
+4. Önüne bir ters proxy (Caddy) ile HTTPS + alan adı verin: `cdrive.alanadiniz.com { reverse_proxy localhost:3001 }`.
+
 ## Otomatik veri temizleme (Cron Job)
 
 Admin panelindeki **Sistem ayarları** sekmesinden çöp kutusu ve eski dosya versiyonları için bir saklama
