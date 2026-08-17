@@ -94,22 +94,41 @@ temasının soğuk `rgb(15 23 42 / ...)` yerine).
 **The Warm Shadow Rule.** Bir gölge her zaman zeminin renk ailesinden türetilir; archive modunda
 hiçbir gölge saf/soğuk siyah olamaz.
 
+**Zemin dokusu:** `--paper-texture` — SVG `feTurbulence` ile üretilmiş, %5 opaklıkta gri-tonlama
+noise, data-URI olarak inline (harici dosya/ağ isteği yok). `[data-skin="archive"]` kök
+elementinin ve klasör sekmesinin `background-image`'i olarak uygulanır — zemin düz bir renk kodu
+değil, gerçekten pürüzlü bir kağıt yüzeyi.
+
 ## Shapes
 
-Kart/buton köşe yarıçapları modern temayla aynı (`0.625rem`/`0.875rem`) — form dili değişmiyor,
-sadece malzeme/renk değişiyor. Tek yeni şekil unsuru: **klasör sekmesi** — `.archive-tab::before`
-pseudo-element'i, klasör satırının/kartının sol üst köşesinden 0.4rem taşan, 2.25rem genişliğinde,
-üst köşeleri yuvarlatılmış (`0.2rem 0.2rem 0 0`) pirinç renkli bir dikdörtgen. Sadece klasörlerde
-kullanılır (dosyalarda değil) — "asma dosya" metaforu klasör/kategori kavramına ait.
+Form dili modern temadan bilinçli olarak AYRILIYOR — ilk sürümde sadece renk değişmişti (gerçek
+kullanıcı geri bildirimiyle düzeltildi, bkz. Don't listesi). Kart/buton/input köşe yarıçapı
+`0.25rem`'e düşürüldü (modern temanın `0.625rem`/`0.875rem`'ine karşı) — kağıt/dosya nesnesinin
+keskin köşesi, ekranın yumuşak "app" köşesi değil.
+
+### Named Rules
+**The Sharp Paper Rule.** Archive dünyasında hiçbir yüzey modern temanın yuvarlak köşesini
+(`≥0.5rem`) taşımaz; en fazla `0.25rem`.
+
+### Klasör sekmesi (imza şekli)
+`.archive-tab::before` pseudo-element'i: gerçek bir manila klasör sekmesinin siluetini taşıyan,
+üstten eğik kesilmiş bir trapezoid (`clip-path: polygon(8% 100%, 22% 0, 78% 0, 92% 100%)`),
+3rem genişlik, 0.75rem yükseklik, kart/satırın sol üst köşesinden 0.6rem taşıyor. Pirinç vurgu
+rengi + kağıt dokusu (`--paper-texture`) — düz dikdörtgen bir renk bloğu DEĞİL, dokulu bir yüzey.
+Sadece klasörlerde (dosyalarda değil) — "asma dosya" metaforu kategori/klasör kavramına ait.
 
 ## Components
 
-### Klasör satırı/kartı (sinyal bileşeni)
-- **Şekil:** Standart kart köşe yarıçapı + üstte `.archive-tab` sekme çıkıntısı.
-- **Arka plan:** Yüzey rengi (kraft/koyu zeytin).
-- **Sekme:** Pirinç vurgu renginde, %85 opaklıkta, sadece klasörlerde (`FolderCard`'a
-  `archiveTab` prop'u geçirilerek `CardShell`'de etkinleştirilir; liste görünümünde satır
-  `className`'ine doğrudan `archive-tab` eklenir).
+### Klasör simgesi (FolderGlyph — imza bileşeni)
+Modern temadaki 📁 emojisinin yerini, archive modunda özel çizilmiş bir SVG alır
+(`src/app/drive/page.tsx`, `FolderGlyph` fonksiyonu): manila klasör siluetini andıran bir gövde
+(`var(--accent-soft)` dolgu, `var(--accent)` kontur) + üstte belirgin bir sekme çıkıntısı
+(`var(--accent)`, %55 opaklık). Liste görünümünde 20px, ızgara görünümünde 40px. Bu, "sadece
+renk paleti değişti" izlenimini kıran en somut karar — ikon emoji değil, gerçek bir çizim.
+
+### Klasör satırı/kartı
+- **Şekil:** `0.25rem` köşe yarıçapı (bkz. The Sharp Paper Rule) + üstte `.archive-tab` sekmesi.
+- **Arka plan:** Yüzey rengi (kraft/koyu zeytin) + kağıt dokusu.
 - **Hover:** Kenarlık pirinç vurguya döner, gölge belirir (mevcut sistemle aynı davranış).
 
 ### Butonlar / Kartlar / Girdiler
