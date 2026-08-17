@@ -35,5 +35,7 @@ COPY --from=builder /app/prisma ./prisma
 
 EXPOSE 3000
 # Her başlangıçta migration'ları uygular (idempotent — zaten uygulanmışsa
-# atlar), sonra sunucuyu başlatır.
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node server.js"]
+# atlar), sonra sunucuyu başlatır. `./node_modules/.bin/prisma` sembolik
+# linkini KOPYALAMADIK (sadece hedef paketleri) — bu yüzden CLI'nin gerçek
+# giriş dosyasını doğrudan `node` ile çalıştırıyoruz.
+CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy && node server.js"]
