@@ -3,6 +3,7 @@
 import { use, useEffect, useRef, useState } from "react";
 import Script from "next/script";
 import { useMe } from "@/lib/useMe";
+import { withBasePath } from "@/lib/basePath";
 
 type OfficeConfig = {
   script: string;
@@ -30,7 +31,7 @@ export default function OfficePage({ params }: { params: Promise<{ id: string }>
   }, []);
 
   useEffect(() => {
-    fetch(`/api/files/${id}/office/config`)
+    fetch(withBasePath(`/api/files/${id}/office/config`))
       .then(async (r) => {
         const body = await r.json();
         if (!r.ok) throw new Error(body.error ?? "Editör açılamadı");
@@ -66,7 +67,7 @@ export default function OfficePage({ params }: { params: Promise<{ id: string }>
           <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
             {error}
           </p>
-          <a href="/drive" className="btn-secondary">
+          <a href={withBasePath("/drive")} className="btn-secondary">
             Sürücüme dön
           </a>
         </div>

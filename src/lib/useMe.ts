@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MeUser } from "@/lib/types";
+import { withBasePath } from "@/lib/basePath";
 
 /**
  * /api/me'yi çeker; oturum yoksa veya sunucuda "revoke" edilmişse (ör.
@@ -14,7 +15,7 @@ export function useMe() {
   const [user, setUser] = useState<MeUser | null>(null);
 
   const refresh = useCallback(() => {
-    fetch("/api/me")
+    fetch(withBasePath("/api/me"))
       .then((r) => r.json())
       .then((d) => {
         if (!d.user) {

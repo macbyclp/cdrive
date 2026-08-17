@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { withBasePath } from "@/lib/basePath";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -13,7 +14,7 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch("/api/setup")
+    fetch(withBasePath("/api/setup"))
       .then((r) => r.json())
       .then((d) => {
         if (!d.needsSetup) router.replace("/login");
@@ -25,7 +26,7 @@ export default function SetupPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await fetch("/api/setup", {
+    const res = await fetch(withBasePath("/api/setup"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, email, password }),

@@ -5,6 +5,7 @@ import TopBar from "@/components/TopBar";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import { formatBytesStr, formatDate } from "@/lib/format";
+import { withBasePath } from "@/lib/basePath";
 
 type AdminUser = {
   id: string;
@@ -52,12 +53,12 @@ export default function AdminPage() {
     setError(null);
     try {
       const [u, d] = await Promise.all([
-        fetch("/api/admin/users").then((r) => (r.ok ? r.json() : Promise.reject(r))),
-        fetch("/api/admin/departments").then((r) => (r.ok ? r.json() : Promise.reject(r))),
+        fetch(withBasePath("/api/admin/users")).then((r) => (r.ok ? r.json() : Promise.reject(r))),
+        fetch(withBasePath("/api/admin/departments")).then((r) => (r.ok ? r.json() : Promise.reject(r))),
       ]);
       setUsers(u);
       setDepartments(d);
-      const l = await fetch("/api/admin/audit").then((r) => (r.ok ? r.json() : []));
+      const l = await fetch(withBasePath("/api/admin/audit")).then((r) => (r.ok ? r.json() : []));
       setLogs(l);
     } catch {
       setError("Bu sayfayı görüntüleme yetkiniz yok.");
@@ -156,7 +157,7 @@ function UsersTab({
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/admin/users", {
+    const res = await fetch(withBasePath("/api/admin/users"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, departmentId: form.departmentId || null }),
@@ -174,7 +175,7 @@ function UsersTab({
   }
 
   async function update(id: string, data: Record<string, unknown>, message?: string) {
-    const res = await fetch(`/api/admin/users/${id}`, {
+    const res = await fetch(withBasePath(`/api/admin/users/${id}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -342,7 +343,7 @@ function DepartmentsTab({ departments, reload }: { departments: Department[]; re
     e.preventDefault();
     if (!name.trim()) return;
     setBusy(true);
-    const res = await fetch("/api/admin/departments", {
+    const res = await fetch(withBasePath("/api/admin/departments"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
@@ -401,7 +402,7 @@ function DepartmentsTab({ departments, reload }: { departments: Department[]; re
                     toast("Geçerli bir kota (GB) gir", "error");
                     return;
                   }
-                  const res = await fetch(`/api/admin/departments/${d.id}`, {
+                  const res = await fetch(withBasePath(`/api/admin/departments/${d.id}`), {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ quotaBytes: Math.round(gb * 1024 ** 3) }),
@@ -566,7 +567,7 @@ function SettingsTab() {
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
   function load() {
-    fetch("/api/admin/settings")
+    fetch(withBasePath("/api/admin/settings"))
       .then((r) => r.json())
       .then((d: SystemSettingsData) => {
         setSettings(d);
@@ -584,7 +585,7 @@ function SettingsTab() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const res = await fetch("/api/admin/settings", {
+    const res = await fetch(withBasePath("/api/admin/settings"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -607,7 +608,7 @@ function SettingsTab() {
   async function runNow() {
     setBusy(true);
     setCleanupResult(null);
-    const res = await fetch("/api/admin/cleanup", { method: "POST" });
+    const res = await fetch(withBasePath("/api/admin/cleanup"), { method: "POST" });
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));

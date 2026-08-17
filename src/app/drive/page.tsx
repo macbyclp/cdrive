@@ -13,6 +13,7 @@ import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import type { Crumb, FileItem, FolderItem } from "@/lib/types";
 import { badgeColorForMime, extOf, formatBytesStr, formatDate, iconForMime, officeDocType, previewKind } from "@/lib/format";
+import { withBasePath } from "@/lib/basePath";
 
 type View = "root" | "shared" | "search" | "recent" | "starred" | "trash" | "media";
 type ViewMode = "list" | "grid";
@@ -90,7 +91,7 @@ function DriveInner() {
   }
 
   const loadStars = useCallback(() => {
-    fetch("/api/stars/ids")
+    fetch(withBasePath("/api/stars/ids"))
       .then((r) => r.json())
       .then((d) => {
         setStarredFileIds(new Set(d.fileIds ?? []));
@@ -103,44 +104,44 @@ function DriveInner() {
     setError(null);
     try {
       if (view === "search") {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+        const res = await fetch(withBasePath(`/api/search?q=${encodeURIComponent(q)}`));
         const data = await res.json();
         setFolders([]);
         setFiles(data.files ?? []);
         setBreadcrumb([]);
       } else if (view === "shared") {
-        const res = await fetch("/api/shared-with-me");
+        const res = await fetch(withBasePath("/api/shared-with-me"));
         const data = await res.json();
         setFolders(data.folders ?? []);
         setFiles(data.files ?? []);
         setBreadcrumb([]);
       } else if (view === "recent") {
-        const res = await fetch("/api/recent");
+        const res = await fetch(withBasePath("/api/recent"));
         const data = await res.json();
         setFolders([]);
         setFiles(data.files ?? []);
         setBreadcrumb([]);
       } else if (view === "starred") {
-        const res = await fetch("/api/stars");
+        const res = await fetch(withBasePath("/api/stars"));
         const data = await res.json();
         setFolders(data.folders ?? []);
         setFiles(data.files ?? []);
         setBreadcrumb([]);
       } else if (view === "trash") {
-        const res = await fetch("/api/trash");
+        const res = await fetch(withBasePath("/api/trash"));
         const data = await res.json();
         setFolders(data.folders ?? []);
         setFiles(data.files ?? []);
         setBreadcrumb([]);
       } else if (view === "media") {
-        const res = await fetch("/api/media");
+        const res = await fetch(withBasePath("/api/media"));
         const data = await res.json();
         setFolders([]);
         setFiles(data.files ?? []);
         setBreadcrumb([]);
       } else {
         const qs = folderId ? `?parentId=${folderId}` : "";
-        const res = await fetch(`/api/folders${qs}`);
+        const res = await fetch(withBasePath(`/api/folders${qs}`));
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
           throw new Error(d.error ?? "Yüklenemedi");
@@ -192,7 +193,7 @@ function DriveInner() {
 
   async function createBlankDoc(kind: "docx" | "xlsx" | "pptx") {
     setNewMenuOpen(false);
-    const res = await fetch("/api/files/create", {
+    const res = await fetch(withBasePath("/api/files/create"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ kind, folderId }),
@@ -206,12 +207,12 @@ function DriveInner() {
     toast(`"${file.name}" oluşturuldu`, "success");
     load();
     refreshMe();
-    window.open(`/office/${file.id}`, "_blank");
+    window.open(withBasePath(`/office/${file.id}`), "_blank");
   }
 
   async function createFolder(name: string) {
     setPending(null);
-    const res = await fetch("/api/folders", {
+    const res = await fetch(withBasePath("/api/folders"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, parentId: folderId }),
@@ -232,7 +233,7 @@ function DriveInner() {
       const fd = new FormData();
       fd.append("file", file);
       if (folderId) fd.append("folderId", folderId);
-      const res = await fetch("/api/files", { method: "POST", body: fd });
+      const res = await fetch(withBasePath("/api/files"), { method: "POST", body: fd });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         toast(`${file.name}: ${d.error ?? "yüklenemedi"}`, "error");
@@ -255,7 +256,7 @@ function DriveInner() {
   async function submitRenameFolder(folder: FolderItem, name: string) {
     setPending(null);
     if (name === folder.name) return;
-    await fetch(`/api/folders/${folder.id}`, {
+    await fetch(withBasePath(`/api/folders/${folder.id}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
@@ -265,7 +266,7 @@ function DriveInner() {
 
   async function confirmDeleteFolder(folder: FolderItem) {
     setPending(null);
-    const res = await fetch(`/api/folders/${folder.id}`, { method: "DELETE" });
+    const res = await fetch(withBasePath(`/api/folders/${folder.id}`), { method: "DELETE" });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       toast(d.error ?? "Silinemedi", "error");
@@ -279,7 +280,7 @@ function DriveInner() {
   async function submitRenameFile(file: FileItem, name: string) {
     setPending(null);
     if (name === file.name) return;
-    await fetch(`/api/files/${file.id}`, {
+    await fetch(withBasePath(`/api/files/${file.id}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
@@ -289,7 +290,7 @@ function DriveInner() {
 
   async function confirmDeleteFile(file: FileItem) {
     setPending(null);
-    const res = await fetch(`/api/files/${file.id}`, { method: "DELETE" });
+    const res = await fetch(withBasePath(`/api/files/${file.id}`), { method: "DELETE" });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       toast(d.error ?? "Silinemedi", "error");
@@ -301,11 +302,11 @@ function DriveInner() {
   }
 
   function downloadFile(f: FileItem) {
-    window.open(`/api/files/${f.id}`, "_blank");
+    window.open(withBasePath(`/api/files/${f.id}`), "_blank");
   }
 
   function downloadFolderZip(f: FolderItem) {
-    window.open(`/api/folders/${f.id}/download`, "_blank");
+    window.open(withBasePath(`/api/folders/${f.id}/download`), "_blank");
     toast("Zip indirmesi başladı", "success");
   }
 
@@ -318,7 +319,7 @@ function DriveInner() {
   }
 
   function openOffice(f: FileItem) {
-    window.open(`/office/${f.id}`, "_blank");
+    window.open(withBasePath(`/office/${f.id}`), "_blank");
   }
 
   /** Word/Excel/PowerPoint dosyaları için menüye eklenecek "Office ile aç" öğesi (uygunsa), aksi halde boş dizi. */
@@ -328,7 +329,7 @@ function DriveInner() {
 
   async function convertToPdf(f: FileItem) {
     toast(`"${f.name}" PDF'e dönüştürülüyor…`);
-    const res = await fetch(`/api/files/${f.id}/convert`, {
+    const res = await fetch(withBasePath(`/api/files/${f.id}/convert`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ toExt: "pdf" }),
@@ -353,7 +354,7 @@ function DriveInner() {
 
   async function submitMoveFolder(folder: FolderItem, destFolderId: string | null) {
     setPending(null);
-    const res = await fetch(`/api/folders/${folder.id}`, {
+    const res = await fetch(withBasePath(`/api/folders/${folder.id}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ parentId: destFolderId }),
@@ -369,7 +370,7 @@ function DriveInner() {
 
   async function submitMoveFile(file: FileItem, destFolderId: string | null) {
     setPending(null);
-    const res = await fetch(`/api/files/${file.id}`, {
+    const res = await fetch(withBasePath(`/api/files/${file.id}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ folderId: destFolderId }),
@@ -428,7 +429,7 @@ function DriveInner() {
   // --- Yıldızlama ---
   async function toggleStar(type: "file" | "folder", id: string, currentlyStarred: boolean) {
     const method = currentlyStarred ? "DELETE" : "POST";
-    await fetch("/api/stars", {
+    await fetch(withBasePath("/api/stars"), {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetType: type, targetId: id }),
@@ -453,14 +454,14 @@ function DriveInner() {
 
   // --- Çöp kutusu ---
   async function restoreFolder(folder: FolderItem) {
-    await fetch(`/api/trash/restore/folder/${folder.id}`, { method: "POST" });
+    await fetch(withBasePath(`/api/trash/restore/folder/${folder.id}`), { method: "POST" });
     toast(`"${folder.name}" geri getirildi`, "success");
     load();
     refreshMe();
   }
 
   async function restoreFile(file: FileItem) {
-    await fetch(`/api/trash/restore/file/${file.id}`, { method: "POST" });
+    await fetch(withBasePath(`/api/trash/restore/file/${file.id}`), { method: "POST" });
     toast(`"${file.name}" geri getirildi`, "success");
     load();
     refreshMe();
@@ -468,14 +469,14 @@ function DriveInner() {
 
   async function purgeFolder(folder: FolderItem) {
     setPending(null);
-    await fetch(`/api/trash/purge/folder/${folder.id}`, { method: "DELETE" });
+    await fetch(withBasePath(`/api/trash/purge/folder/${folder.id}`), { method: "DELETE" });
     toast("Kalıcı olarak silindi");
     load();
   }
 
   async function purgeFile(file: FileItem) {
     setPending(null);
-    await fetch(`/api/trash/purge/file/${file.id}`, { method: "DELETE" });
+    await fetch(withBasePath(`/api/trash/purge/file/${file.id}`), { method: "DELETE" });
     toast("Kalıcı olarak silindi");
     load();
   }
@@ -501,8 +502,8 @@ function DriveInner() {
   async function bulkDelete() {
     setPending(null);
     const { selFolders, selFiles } = selectedItems();
-    for (const f of selFolders) await fetch(`/api/folders/${f.id}`, { method: "DELETE" });
-    for (const f of selFiles) await fetch(`/api/files/${f.id}`, { method: "DELETE" });
+    for (const f of selFolders) await fetch(withBasePath(`/api/folders/${f.id}`), { method: "DELETE" });
+    for (const f of selFiles) await fetch(withBasePath(`/api/files/${f.id}`), { method: "DELETE" });
     toast(`${selFolders.length + selFiles.length} öğe çöp kutusuna taşındı`);
     setSelected(new Set());
     load();
@@ -513,14 +514,14 @@ function DriveInner() {
     setPending(null);
     const { selFolders, selFiles } = selectedItems();
     for (const f of selFolders) {
-      await fetch(`/api/folders/${f.id}`, {
+      await fetch(withBasePath(`/api/folders/${f.id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ parentId: destFolderId }),
       });
     }
     for (const f of selFiles) {
-      await fetch(`/api/files/${f.id}`, {
+      await fetch(withBasePath(`/api/files/${f.id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ folderId: destFolderId }),

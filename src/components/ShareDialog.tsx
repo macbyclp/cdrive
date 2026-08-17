@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ToastProvider";
+import { withBasePath } from "@/lib/basePath";
 
 type Grant = { id: string; permission: "VIEW" | "EDIT"; user: { id: string; name: string; email: string } };
 type Link = {
@@ -52,10 +53,10 @@ export default function ShareDialog({
 
   async function load() {
     setLoading(true);
-    const g = await fetch(`/api/permissions?targetType=${targetType}&targetId=${targetId}`).then((r) => r.json());
+    const g = await fetch(withBasePath(`/api/permissions?targetType=${targetType}&targetId=${targetId}`)).then((r) => r.json());
     setGrants(g);
     if (targetType === "file") {
-      const l = await fetch(`/api/share?fileId=${targetId}`).then((r) => r.json());
+      const l = await fetch(withBasePath(`/api/share?fileId=${targetId}`)).then((r) => r.json());
       setLinks(l);
     }
     setLoading(false);
@@ -71,7 +72,7 @@ export default function ShareDialog({
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const res = await fetch("/api/permissions", {
+    const res = await fetch(withBasePath("/api/permissions"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetType, targetId, userEmail: email, permission }),
@@ -88,7 +89,7 @@ export default function ShareDialog({
   }
 
   async function revokeAccess(userId: string) {
-    await fetch("/api/permissions", {
+    await fetch(withBasePath("/api/permissions"), {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetType, targetId, userId }),
@@ -104,7 +105,7 @@ export default function ShareDialog({
     }
     setBusy(true);
     const expiresInHours = EXPIRY_OPTIONS[expiryIdx].hours;
-    await fetch("/api/share", {
+    await fetch(withBasePath("/api/share"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -125,13 +126,13 @@ export default function ShareDialog({
   }
 
   async function revokeLink(id: string) {
-    await fetch(`/api/share/revoke/${id}`, { method: "POST" });
+    await fetch(withBasePath(`/api/share/revoke/${id}`), { method: "POST" });
     toast("Bağlantı iptal edildi");
     load();
   }
 
   function copyLink(token: string) {
-    const url = `${window.location.origin}/s/${token}`;
+    const url = `${window.location.origin}${withBasePath(`/s/${token}`)}`;
     navigator.clipboard
       .writeText(url)
       .then(() => {
@@ -330,7 +331,7 @@ export default function ShareDialog({
               {links
                 .filter((l) => !l.revoked)
                 .map((l) => {
-                  const url = `${typeof window !== "undefined" ? window.location.origin : ""}/s/${l.token}`;
+                  const url = `${typeof window !== "undefined" ? window.location.origin : ""}${withBasePath(`/s/${l.token}`)}`;
                   const copied = copiedToken === l.token;
                   return (
                     <div

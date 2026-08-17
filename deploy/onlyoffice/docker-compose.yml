@@ -19,7 +19,7 @@
 
 services:
   onlyoffice-document-server:
-    image: onlyoffice/documentserver:8
+    image: onlyoffice/documentserver:latest
     container_name: cdrive-onlyoffice
     restart: unless-stopped
     ports:

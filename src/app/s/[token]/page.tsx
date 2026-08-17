@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { formatBytesStr, iconForMime } from "@/lib/format";
+import { withBasePath } from "@/lib/basePath";
 
 type Info = { name: string; mimeType: string; size: string; requiresPassword: boolean };
 
@@ -15,7 +16,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/share/${token}/info`)
+    fetch(withBasePath(`/api/share/${token}/info`))
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error ?? "Bağlantı bulunamadı");
@@ -28,7 +29,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
     e.preventDefault();
     setBusy(true);
     setPasswordError(null);
-    const res = await fetch(`/api/share/${token}/verify`, {
+    const res = await fetch(withBasePath(`/api/share/${token}/verify`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password }),
@@ -46,7 +47,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
     const url = info?.requiresPassword
       ? `/api/share/${token}?password=${encodeURIComponent(password)}`
       : `/api/share/${token}`;
-    window.location.href = url;
+    window.location.href = withBasePath(url);
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Crumb, FolderItem } from "@/lib/types";
+import { withBasePath } from "@/lib/basePath";
 
 export default function MoveDialog({
   itemName,
@@ -27,7 +28,7 @@ export default function MoveDialog({
     setError(null);
     try {
       const qs = folderId ? `?parentId=${folderId}` : "";
-      const res = await fetch(`/api/folders${qs}`);
+      const res = await fetch(withBasePath(`/api/folders${qs}`));
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error ?? "Yüklenemedi");

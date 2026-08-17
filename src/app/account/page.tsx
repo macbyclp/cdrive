@@ -5,6 +5,7 @@ import TopBar from "@/components/TopBar";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import type { MeUser } from "@/lib/types";
+import { withBasePath } from "@/lib/basePath";
 
 export default function AccountPage() {
   const { user, refresh } = useMe();
@@ -48,7 +49,7 @@ function PasswordCard() {
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const res = await fetch("/api/account/password", {
+    const res = await fetch(withBasePath("/api/account/password"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ currentPassword, newPassword }),
@@ -111,7 +112,7 @@ function TwoFactorCard({ user, onChange }: { user: MeUser; onChange: () => void 
   async function startSetup() {
     setError(null);
     setBusy(true);
-    const res = await fetch("/api/account/2fa/setup", { method: "POST" });
+    const res = await fetch(withBasePath("/api/account/2fa/setup"), { method: "POST" });
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -125,7 +126,7 @@ function TwoFactorCard({ user, onChange }: { user: MeUser; onChange: () => void 
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const res = await fetch("/api/account/2fa/enable", {
+    const res = await fetch(withBasePath("/api/account/2fa/enable"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code }),
@@ -146,7 +147,7 @@ function TwoFactorCard({ user, onChange }: { user: MeUser; onChange: () => void 
     e.preventDefault();
     setError(null);
     setBusy(true);
-    const res = await fetch("/api/account/2fa/disable", {
+    const res = await fetch(withBasePath("/api/account/2fa/disable"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password: disablePassword }),
@@ -269,7 +270,7 @@ function SessionsCard() {
   const [loading, setLoading] = useState(true);
 
   function load() {
-    fetch("/api/account/sessions")
+    fetch(withBasePath("/api/account/sessions"))
       .then((r) => r.json())
       .then((d) => {
         setSessions(d.sessions ?? []);
@@ -283,7 +284,7 @@ function SessionsCard() {
   }, []);
 
   async function revoke(sessionId: string) {
-    await fetch("/api/account/sessions/revoke", {
+    await fetch(withBasePath("/api/account/sessions/revoke"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId }),
@@ -293,7 +294,7 @@ function SessionsCard() {
   }
 
   async function revokeOthers() {
-    await fetch("/api/account/sessions/revoke-others", { method: "POST" });
+    await fetch(withBasePath("/api/account/sessions/revoke-others"), { method: "POST" });
     toast("Diğer tüm oturumlar sonlandırıldı", "success");
     load();
   }

@@ -6,6 +6,7 @@ import type { MeUser } from "@/lib/types";
 import { formatBytesStr } from "@/lib/format";
 import ThemeToggle from "@/components/ThemeToggle";
 import NotificationBell from "@/components/NotificationBell";
+import { withBasePath } from "@/lib/basePath";
 
 const AVATAR_COLORS = [
   "#0f172a", "#7c3aed", "#0891b2", "#c2410c", "#15803d", "#be185d", "#4338ca",
@@ -34,7 +35,7 @@ export default function TopBar({
   );
 
   async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await fetch(withBasePath("/api/auth/logout"), { method: "POST" });
     router.push("/login");
     router.refresh();
   }
@@ -50,7 +51,7 @@ export default function TopBar({
         </button>
       )}
 
-      <a href="/drive" className="flex shrink-0 items-center gap-2">
+      <a href={withBasePath("/drive")} className="flex shrink-0 items-center gap-2">
         <div
           className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white"
           style={{ background: "linear-gradient(135deg, var(--accent), #a78bfa)", boxShadow: "var(--shadow-sm)" }}
@@ -94,7 +95,7 @@ export default function TopBar({
         </div>
 
         {(user.role === "ADMIN" || user.role === "MANAGER") && (
-          <a href="/admin" className="btn-secondary hidden text-sm sm:inline-block">
+          <a href={withBasePath("/admin")} className="btn-secondary hidden text-sm sm:inline-block">
             Yönetim
           </a>
         )}
@@ -102,7 +103,7 @@ export default function TopBar({
         <NotificationBell />
         <ThemeToggle />
 
-        <a href="/account" className="hidden items-center gap-2 sm:flex" title="Hesap ayarları">
+        <a href={withBasePath("/account")} className="hidden items-center gap-2 sm:flex" title="Hesap ayarları">
           <div
             className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
             style={{ background: avatarColor(user.email) }}

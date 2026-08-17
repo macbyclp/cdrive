@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { withBasePath } from "@/lib/basePath";
 
 type Notification = {
   id: string;
@@ -30,7 +31,7 @@ export default function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null);
 
   function load() {
-    fetch("/api/notifications")
+    fetch(withBasePath("/api/notifications"))
       .then((r) => r.json())
       .then((d) => {
         setItems(d.notifications ?? []);
@@ -54,13 +55,13 @@ export default function NotificationBell() {
   }, []);
 
   async function markAllRead() {
-    await fetch("/api/notifications/read", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+    await fetch(withBasePath("/api/notifications/read"), { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
     load();
   }
 
   async function openNotification(n: Notification) {
     if (!n.read) {
-      await fetch("/api/notifications/read", {
+      await fetch(withBasePath("/api/notifications/read"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: n.id }),

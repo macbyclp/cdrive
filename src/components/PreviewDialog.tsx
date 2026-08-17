@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { previewKind } from "@/lib/format";
+import { withBasePath } from "@/lib/basePath";
 
 export default function PreviewDialog({
   fileId,
@@ -15,7 +16,7 @@ export default function PreviewDialog({
   onClose: () => void;
 }) {
   const kind = previewKind(mimeType);
-  const src = `/api/files/${fileId}?inline=1`;
+  const src = withBasePath(`/api/files/${fileId}?inline=1`);
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,7 +43,7 @@ export default function PreviewDialog({
             {fileName}
           </h2>
           <div className="flex shrink-0 items-center gap-2">
-            <a href={`/api/files/${fileId}`} className="btn-secondary text-xs">
+            <a href={withBasePath(`/api/files/${fileId}`)} className="btn-secondary text-xs">
               İndir
             </a>
             <button className="btn-ghost" onClick={onClose}>
@@ -89,7 +90,7 @@ export default function PreviewDialog({
               <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
                 Bu dosya türü için önizleme desteklenmiyor.
               </p>
-              <a href={`/api/files/${fileId}`} className="btn-primary">
+              <a href={withBasePath(`/api/files/${fileId}`)} className="btn-primary">
                 Dosyayı indir
               </a>
             </div>

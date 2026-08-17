@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatBytesStr, formatDate } from "@/lib/format";
 import { useToast } from "@/components/ToastProvider";
+import { withBasePath } from "@/lib/basePath";
 
 type Version = {
   id: string;
@@ -29,7 +30,7 @@ export default function VersionsDialog({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/files/${fileId}/versions`)
+    fetch(withBasePath(`/api/files/${fileId}/versions`))
       .then((r) => r.json())
       .then((v) => {
         setVersions(v);
@@ -39,7 +40,7 @@ export default function VersionsDialog({
 
   async function restore(versionId: string, versionNo: number) {
     setBusy(true);
-    await fetch(`/api/files/${fileId}/versions/${versionId}/restore`, { method: "POST" });
+    await fetch(withBasePath(`/api/files/${fileId}/versions/${versionId}/restore`), { method: "POST" });
     setBusy(false);
     toast(`v${versionNo} geri yüklendi`, "success");
     onRestored();

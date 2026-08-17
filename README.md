@@ -64,7 +64,7 @@ Kurumsal dosya yönetim platformu — departmanlar arası klasör/dosya paylaş�
 
 ## cPanel / paylaşımlı hosting'e deploy
 
-1. cPanel'de **Setup Node.js App** ile yeni bir uygulama oluşturun (Node.js 18+, application root = proje klasörü, application URL = alan adınız/alt dizin).
+1. cPanel'de **Setup Node.js App** ile yeni bir uygulama oluşturun (Node.js 18+, application root = proje klasörü, application URL = alan adınız/alt dizin — ör. `calapverdi.tr/cdrive`). **Application URL'e girdiğiniz alt-yol neyse, `.env`'deki `NEXT_BASE_PATH` de aynı olmalı** (ör. `/cdrive`) — aksi halde tüm sayfa/API istekleri 404 verir. Kökte barındıracaksanız (alt dizin yoksa) `NEXT_BASE_PATH`'i boş bırakın.
 2. cPanel'de bir **MySQL Database** ve kullanıcı oluşturup uygulamaya tam yetki verin; bağlantı bilgilerini `DATABASE_URL` olarak `.env`'e (veya Node.js App arayüzündeki "Environment variables" bölümüne) girin.
 3. cPanel'in sağladığı "Enter to the virtual environment" terminalinden: `npm install`, `npx prisma migrate deploy`, `npm run build`.
 4. Node.js App arayüzünde **Startup File** olarak proje kökündeki `server.js`'i seçin (cPanel'in Passenger'ı `next start` komutunu değil, `process.env.PORT`'ta dinleyen bir `.js` giriş dosyası bekler — bu dosya projede hazır).
