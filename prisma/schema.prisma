@@ -3,6 +3,12 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["fullTextIndex", "fullTextSearch"]
+  // "native" — Windows'ta yerel geliştirme için. "linux-musl-openssl-3.0.x" —
+  // Docker/VDS deploy'u (Dockerfile'daki Alpine runner image'ı OpenSSL 3.0.x
+  // ile geliyor; bu hedef olmadan Prisma "generic" bir motor üretiyor ve
+  // runtime'da "could not locate the Query Engine" hatasıyla patlıyor —
+  // gerçek Docker deploy'unda yakalandı).
+  binaryTargets   = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {
