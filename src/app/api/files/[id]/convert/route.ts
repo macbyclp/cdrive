@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { canAccessFile, canAccessFolder, assertQuota } from "@/lib/access";
 import { assertFilePolicy } from "@/lib/policy";
 import { writeFile } from "@/lib/storage";
+import { notifyIfQuotaWarning } from "@/lib/quota-notify";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 import {
@@ -123,6 +124,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
     const finalFile = await prisma.file.update({ where: { id: created.id }, data: { currentVersionId: version.id } });
     await prisma.user.update({ where: { id: user.id }, data: { usedBytes: { increment: size } } });
+    await notifyIfQuotaWarning(user.id);
     await logAudit({
       userId: user.id,
       action: "UPLOAD",

@@ -32,14 +32,16 @@ export async function GET(req: Request) {
         prisma.folder.findMany({
           where: { parentId, deletedAt: null },
           orderBy: { name: "asc" },
+          include: { tags: { include: { tag: true } } },
         }),
         prisma.file.findMany({
           where: { folderId: parentId, deletedAt: null },
           orderBy: { name: "asc" },
+          include: { tags: { include: { tag: true } } },
         }),
       ]);
       return NextResponse.json({
-        folders,
+        folders: folders.map(serializeFolder),
         files: files.map(serializeFile),
         breadcrumb: await breadcrumb(parentId),
       });
@@ -61,7 +63,11 @@ export async function GET(req: Request) {
             ],
           };
 
-    const folders = await prisma.folder.findMany({ where, orderBy: { name: "asc" } });
+    const folders = await prisma.folder.findMany({
+      where,
+      orderBy: { name: "asc" },
+      include: { tags: { include: { tag: true } } },
+    });
     const files = await prisma.file.findMany({
       where: {
         folderId: null,
@@ -69,8 +75,13 @@ export async function GET(req: Request) {
         ownerId: user.id,
       },
       orderBy: { name: "asc" },
+      include: { tags: { include: { tag: true } } },
     });
-    return NextResponse.json({ folders, files: files.map(serializeFile), breadcrumb: [] });
+    return NextResponse.json({
+      folders: folders.map(serializeFolder),
+      files: files.map(serializeFile),
+      breadcrumb: [],
+    });
   } catch (err) {
     return errorResponse(err);
   }
@@ -106,6 +117,16 @@ export async function POST(req: Request) {
   }
 }
 
-function serializeFile(f: { size: bigint; [k: string]: unknown }) {
-  return { ...f, size: f.size.toString(), searchText: undefined };
+type TagJoinRow = { tag: { id: string; name: string; color: string } };
+
+function flattenTags(tags?: TagJoinRow[]) {
+  return (tags ?? []).map((t) => t.tag);
+}
+
+function serializeFile(f: { size: bigint; tags?: TagJoinRow[]; [k: string]: unknown }) {
+  return { ...f, size: f.size.toString(), searchText: undefined, tags: flattenTags(f.tags) };
+}
+
+function serializeFolder(f: { tags?: TagJoinRow[]; [k: string]: unknown }) {
+  return { ...f, tags: flattenTags(f.tags) };
 }

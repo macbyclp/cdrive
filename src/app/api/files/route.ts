@@ -6,6 +6,7 @@ import { writeFile } from "@/lib/storage";
 import { extractSearchText } from "@/lib/text-extract";
 import { assertFilePolicy } from "@/lib/policy";
 import { saveNewFileVersion } from "@/lib/file-versions";
+import { notifyIfQuotaWarning } from "@/lib/quota-notify";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
       data: { currentVersionId: version.id },
     });
     await prisma.user.update({ where: { id: user.id }, data: { usedBytes: { increment: size } } });
+    await notifyIfQuotaWarning(user.id);
     await logAudit({ userId: user.id, action: "UPLOAD", targetType: "file", targetId: created.id, detail: file.name });
     return NextResponse.json(serialize(finalFile));
   } catch (err) {

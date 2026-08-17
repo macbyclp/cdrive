@@ -10,6 +10,8 @@ export type MeUser = {
   uiSkin: "modern" | "archive";
 };
 
+export type Tag = { id: string; name: string; color: string };
+
 export type FolderItem = {
   id: string;
   name: string;
@@ -18,6 +20,7 @@ export type FolderItem = {
   departmentId: string | null;
   createdAt: string;
   updatedAt: string;
+  tags?: Tag[];
 };
 
 export type FileItem = {
@@ -29,6 +32,7 @@ export type FileItem = {
   ownerId: string;
   createdAt: string;
   updatedAt: string;
+  tags?: Tag[];
 };
 
 export type Crumb = { id: string; name: string };

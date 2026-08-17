@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { writeFile } from "@/lib/storage";
 import { extractSearchText } from "@/lib/text-extract";
 import { logAudit } from "@/lib/audit";
+import { notifyIfQuotaWarning } from "@/lib/quota-notify";
 import type { File as PrismaFile } from "@prisma/client";
 
 /**
@@ -43,6 +44,7 @@ export async function saveNewFileVersion(
     where: { id: existing.ownerId },
     data: { usedBytes: { increment: sizeDelta > 0n ? sizeDelta : 0n } },
   });
+  await notifyIfQuotaWarning(existing.ownerId);
   await logAudit({
     userId: uploaderId,
     action: "UPLOAD",

@@ -6,6 +6,7 @@ import { canAccessFolder, assertQuota } from "@/lib/access";
 import { assertFilePolicy } from "@/lib/policy";
 import { writeFile } from "@/lib/storage";
 import { generateBlankFile, BLANK_KIND_INFO, type BlankKind } from "@/lib/blank-templates";
+import { notifyIfQuotaWarning } from "@/lib/quota-notify";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
       data: { currentVersionId: version.id },
     });
     await prisma.user.update({ where: { id: user.id }, data: { usedBytes: { increment: size } } });
+    await notifyIfQuotaWarning(user.id);
     await logAudit({ userId: user.id, action: "UPLOAD", targetType: "file", targetId: created.id, detail: `yeni: ${name}` });
 
     return NextResponse.json({ ...finalFile, size: finalFile.size.toString(), searchText: undefined });

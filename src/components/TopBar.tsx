@@ -72,8 +72,9 @@ export default function TopBar({
           }}
         >
           <input
+            id="cdrive-search-input"
             className="input"
-            placeholder="Dosya ara…"
+            placeholder="Dosya ara… (/ )"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />

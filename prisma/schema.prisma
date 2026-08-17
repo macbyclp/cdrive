@@ -60,6 +60,7 @@ enum AuditAction {
 
 enum NotificationType {
   SHARE_GRANTED
+  QUOTA_WARNING
 }
 
 model Department {
@@ -156,6 +157,7 @@ model Folder {
   files       File[]
   permissions FolderPermission[]
   stars       FolderStar[]
+  tags        FolderTag[]
 
   @@index([parentId])
   @@index([ownerId])
@@ -187,6 +189,7 @@ model File {
   permissions FilePermission[]
   shareLinks  ShareLink[]
   stars       FileStar[]
+  tags        FileTag[]
 
   @@index([folderId])
   @@index([ownerId])
@@ -217,6 +220,41 @@ model FolderStar {
 
   @@unique([userId, folderId])
   @@map("folder_stars")
+}
+
+/// Şirket genelinde paylaşılan bir etiket taksonomisi — herkes oluşturup dosya/klasöre uygulayabilir.
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#6366f1")
+  createdAt DateTime @default(now())
+
+  fileTags   FileTag[]
+  folderTags FolderTag[]
+
+  @@map("tags")
+}
+
+model FileTag {
+  id     String @id @default(cuid())
+  tagId  String
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, fileId])
+  @@map("file_tags")
+}
+
+model FolderTag {
+  id       String @id @default(cuid())
+  tagId    String
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  folderId String
+  folder   Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, folderId])
+  @@map("folder_tags")
 }
 
 model FileVersion {

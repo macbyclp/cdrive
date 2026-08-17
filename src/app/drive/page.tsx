@@ -7,12 +7,14 @@ import ShareDialog from "@/components/ShareDialog";
 import VersionsDialog from "@/components/VersionsDialog";
 import PreviewDialog from "@/components/PreviewDialog";
 import OfficeEditorDialog from "@/components/OfficeEditorDialog";
+import TagDialog from "@/components/TagDialog";
+import ActivityDialog from "@/components/ActivityDialog";
 import MoveDialog from "@/components/MoveDialog";
 import RowMenu, { type RowMenuItem } from "@/components/RowMenu";
 import { InputDialog, ConfirmDialog } from "@/components/Dialogs";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
-import type { Crumb, FileItem, FolderItem } from "@/lib/types";
+import type { Crumb, FileItem, FolderItem, Tag } from "@/lib/types";
 import { badgeColorForMime, extOf, formatBytesStr, formatDate, iconForMime, officeDocType, previewKind } from "@/lib/format";
 import { withBasePath } from "@/lib/basePath";
 
@@ -69,6 +71,19 @@ function DriveInner() {
   const [versionsTarget, setVersionsTarget] = useState<{ id: string; name: string } | null>(null);
   const [previewTarget, setPreviewTarget] = useState<{ id: string; name: string; mimeType: string } | null>(null);
   const [officeTarget, setOfficeTarget] = useState<{ id: string; name: string } | null>(null);
+  const [tagTarget, setTagTarget] = useState<{ type: "file" | "folder"; id: string; name: string; tags: Tag[] } | null>(
+    null
+  );
+  const [activityTarget, setActivityTarget] = useState<{ type: "file" | "folder"; id: string; name: string } | null>(
+    null
+  );
+  const [searchFilters, setSearchFilters] = useState({
+    type: "",
+    dateFrom: "",
+    dateTo: "",
+    minSizeMb: "",
+    maxSizeMb: "",
+  });
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [viewMode, setViewModeState] = useState<ViewMode>("list");
   const [starredFileIds, setStarredFileIds] = useState<Set<string>>(new Set());
@@ -106,7 +121,13 @@ function DriveInner() {
     setError(null);
     try {
       if (view === "search") {
-        const res = await fetch(withBasePath(`/api/search?q=${encodeURIComponent(q)}`));
+        const params = new URLSearchParams({ q });
+        if (searchFilters.type) params.set("type", searchFilters.type);
+        if (searchFilters.dateFrom) params.set("dateFrom", searchFilters.dateFrom);
+        if (searchFilters.dateTo) params.set("dateTo", searchFilters.dateTo);
+        if (searchFilters.minSizeMb) params.set("minSizeMb", searchFilters.minSizeMb);
+        if (searchFilters.maxSizeMb) params.set("maxSizeMb", searchFilters.maxSizeMb);
+        const res = await fetch(withBasePath(`/api/search?${params.toString()}`));
         const data = await res.json();
         setFolders([]);
         setFiles(data.files ?? []);
@@ -158,7 +179,7 @@ function DriveInner() {
     } finally {
       setLoading(false);
     }
-  }, [folderId, view, q]);
+  }, [folderId, view, q, searchFilters]);
 
   useEffect(() => {
     refreshMe();
@@ -192,6 +213,49 @@ function DriveInner() {
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
+
+  // --- Klavye kısayolları ---
+  useEffect(() => {
+    function isTypingTarget(el: EventTarget | null) {
+      if (!(el instanceof HTMLElement)) return false;
+      const tag = el.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || el.isContentEditable;
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return; // tarayıcı/OS kısayollarına karışma
+
+      if (e.key === "Escape") {
+        if (selected.size > 0) {
+          e.preventDefault();
+          setSelected(new Set());
+        }
+        return;
+      }
+
+      if (isTypingTarget(e.target)) return; // yazarken tetiklenmesin
+
+      if (e.key === "/") {
+        e.preventDefault();
+        document.getElementById("cdrive-search-input")?.focus();
+        return;
+      }
+      if (view !== "root") return;
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        setPending({ kind: "new-folder" });
+      } else if (e.key === "u" || e.key === "U") {
+        e.preventDefault();
+        fileInputRef.current?.click();
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selected.size > 0) {
+        e.preventDefault();
+        setPending({ kind: "bulk-delete" });
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [view, selected]);
 
   async function createBlankDoc(kind: "docx" | "xlsx" | "pptx") {
     setNewMenuOpen(false);
@@ -354,6 +418,24 @@ function DriveInner() {
     return officeDocType(f.name) && extOf(f.name) !== "pdf"
       ? [{ label: "PDF'e dönüştür", onClick: () => convertToPdf(f) }]
       : [];
+  }
+
+  function tagMenuItem(type: "file" | "folder", item: FileItem | FolderItem): RowMenuItem[] {
+    return [
+      {
+        label: "Etiketler",
+        onClick: () => setTagTarget({ type, id: item.id, name: item.name, tags: item.tags ?? [] }),
+      },
+    ];
+  }
+
+  function activityMenuItem(type: "file" | "folder", item: FileItem | FolderItem): RowMenuItem[] {
+    return [
+      {
+        label: "Erişim geçmişi",
+        onClick: () => setActivityTarget({ type, id: item.id, name: item.name }),
+      },
+    ];
   }
 
   async function submitMoveFolder(folder: FolderItem, destFolderId: string | null) {
@@ -648,9 +730,91 @@ function DriveInner() {
           )}
 
           {view === "search" && (
-            <h1 className="mb-4 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-              &quot;{q}&quot; için sonuçlar
-            </h1>
+            <div className="mb-4">
+              <h1 className="mb-3 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+                {q ? <>&quot;{q}&quot; için sonuçlar</> : "Filtrelenmiş sonuçlar"}
+              </h1>
+              <div className="flex flex-wrap items-end gap-3 rounded-xl border p-3" style={{ borderColor: "var(--border)" }}>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Tür
+                  </span>
+                  <select
+                    className="input"
+                    value={searchFilters.type}
+                    onChange={(e) => setSearchFilters((s) => ({ ...s, type: e.target.value }))}
+                  >
+                    <option value="">Hepsi</option>
+                    <option value="image">Resim</option>
+                    <option value="video">Video</option>
+                    <option value="audio">Ses</option>
+                    <option value="pdf">PDF</option>
+                    <option value="document">Word</option>
+                    <option value="spreadsheet">Excel</option>
+                    <option value="presentation">PowerPoint</option>
+                    <option value="archive">Arşiv (.zip)</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Başlangıç tarihi
+                  </span>
+                  <input
+                    type="date"
+                    className="input"
+                    value={searchFilters.dateFrom}
+                    onChange={(e) => setSearchFilters((s) => ({ ...s, dateFrom: e.target.value }))}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Bitiş tarihi
+                  </span>
+                  <input
+                    type="date"
+                    className="input"
+                    value={searchFilters.dateTo}
+                    onChange={(e) => setSearchFilters((s) => ({ ...s, dateTo: e.target.value }))}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Min. boyut (MB)
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input w-24"
+                    value={searchFilters.minSizeMb}
+                    onChange={(e) => setSearchFilters((s) => ({ ...s, minSizeMb: e.target.value }))}
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Maks. boyut (MB)
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input w-24"
+                    value={searchFilters.maxSizeMb}
+                    onChange={(e) => setSearchFilters((s) => ({ ...s, maxSizeMb: e.target.value }))}
+                  />
+                </label>
+                {(searchFilters.type ||
+                  searchFilters.dateFrom ||
+                  searchFilters.dateTo ||
+                  searchFilters.minSizeMb ||
+                  searchFilters.maxSizeMb) && (
+                  <button
+                    className="btn-ghost text-xs"
+                    onClick={() => setSearchFilters({ type: "", dateFrom: "", dateTo: "", minSizeMb: "", maxSizeMb: "" })}
+                  >
+                    Filtreleri temizle
+                  </button>
+                )}
+              </div>
+            </div>
           )}
           {view === "shared" && (
             <h1 className="mb-4 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -858,6 +1022,8 @@ function DriveInner() {
                       : [
                           { label: "Paylaş", onClick: () => setShareTarget({ type: "folder", id: f.id, name: f.name }) },
                           { label: "İndir (.zip)", onClick: () => downloadFolderZip(f) },
+                          ...tagMenuItem("folder", f),
+                          ...activityMenuItem("folder", f),
                           ...(view === "root"
                             ? [
                                 { label: "Taşı", onClick: () => setPending({ kind: "move-folder" as const, folder: f }) },
@@ -894,6 +1060,8 @@ function DriveInner() {
                           ...convertMenuItem(f),
                           { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
                           { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
+                          ...tagMenuItem("file", f),
+                          ...activityMenuItem("file", f),
                           ...(view === "root"
                             ? [
                                 { label: "Taşı", onClick: () => setPending({ kind: "move-file" as const, file: f }) },
@@ -963,6 +1131,7 @@ function DriveInner() {
                     <span className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                       {f.name}
                     </span>
+                    <TagDots tags={f.tags} />
                   </button>
                   {!isTrash && (
                     <StarButton starred={starredFolderIds.has(f.id)} onClick={() => toggleStar("folder", f.id, starredFolderIds.has(f.id))} />
@@ -991,6 +1160,15 @@ function DriveInner() {
                         <button className="btn-ghost" onClick={() => downloadFolderZip(f)}>
                           .zip
                         </button>
+                        <button
+                          className="btn-ghost"
+                          onClick={() => setTagTarget({ type: "folder", id: f.id, name: f.name, tags: f.tags ?? [] })}
+                        >
+                          Etiketler
+                        </button>
+                        <button className="btn-ghost" onClick={() => setActivityTarget({ type: "folder", id: f.id, name: f.name })}>
+                          Geçmiş
+                        </button>
                         {view === "root" && (
                           <>
                             <button className="btn-ghost" onClick={() => setPending({ kind: "move-folder", folder: f })}>
@@ -1018,6 +1196,8 @@ function DriveInner() {
                           : [
                               { label: "Paylaş", onClick: () => setShareTarget({ type: "folder", id: f.id, name: f.name }) },
                               { label: "İndir (.zip)", onClick: () => downloadFolderZip(f) },
+                              ...tagMenuItem("folder", f),
+                          ...activityMenuItem("folder", f),
                               ...(view === "root"
                                 ? [
                                     { label: "Taşı", onClick: () => setPending({ kind: "move-folder" as const, folder: f }) },
@@ -1061,6 +1241,7 @@ function DriveInner() {
                     <span className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                       {f.name}
                     </span>
+                    <TagDots tags={f.tags} />
                   </button>
                   {!isTrash && (
                     <StarButton starred={starredFileIds.has(f.id)} onClick={() => toggleStar("file", f.id, starredFileIds.has(f.id))} />
@@ -1105,6 +1286,15 @@ function DriveInner() {
                         <button className="btn-ghost" onClick={() => setVersionsTarget({ id: f.id, name: f.name })}>
                           Versiyonlar
                         </button>
+                        <button
+                          className="btn-ghost"
+                          onClick={() => setTagTarget({ type: "file", id: f.id, name: f.name, tags: f.tags ?? [] })}
+                        >
+                          Etiketler
+                        </button>
+                        <button className="btn-ghost" onClick={() => setActivityTarget({ type: "file", id: f.id, name: f.name })}>
+                          Geçmiş
+                        </button>
                         {view === "root" && (
                           <>
                             <button className="btn-ghost" onClick={() => setPending({ kind: "move-file", file: f })}>
@@ -1135,6 +1325,8 @@ function DriveInner() {
                               ...convertMenuItem(f),
                               { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
                               { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
+                              ...tagMenuItem("file", f),
+                          ...activityMenuItem("file", f),
                               ...(view === "root"
                                 ? [
                                     { label: "Taşı", onClick: () => setPending({ kind: "move-file" as const, file: f }) },
@@ -1186,6 +1378,24 @@ function DriveInner() {
             load();
             refreshMe();
           }}
+        />
+      )}
+      {tagTarget && (
+        <TagDialog
+          targetType={tagTarget.type}
+          targetId={tagTarget.id}
+          targetName={tagTarget.name}
+          currentTags={tagTarget.tags}
+          onClose={() => setTagTarget(null)}
+          onChanged={load}
+        />
+      )}
+      {activityTarget && (
+        <ActivityDialog
+          targetType={activityTarget.type}
+          targetId={activityTarget.id}
+          targetName={activityTarget.name}
+          onClose={() => setActivityTarget(null)}
         />
       )}
 
@@ -1301,6 +1511,18 @@ function FolderGlyph({ archive, size = 20 }: { archive?: boolean; size?: number 
       />
       <path d="M3 8V5.5a1 1 0 0 1 1-1h5.2l2 2.5H3.9" fill="var(--accent)" opacity="0.55" />
     </svg>
+  );
+}
+
+/** Etiketleri, dosya/klasör adının yanında küçük renkli noktalar olarak gösterir (yer kaplamasın diye tam metin değil). */
+function TagDots({ tags }: { tags?: Tag[] }) {
+  if (!tags || tags.length === 0) return null;
+  return (
+    <span className="flex shrink-0 items-center gap-0.5" title={tags.map((t) => t.name).join(", ")}>
+      {tags.slice(0, 5).map((t) => (
+        <span key={t.id} className="h-1.5 w-1.5 rounded-full" style={{ background: t.color }} />
+      ))}
+    </span>
   );
 }
 
@@ -1528,6 +1750,7 @@ function FolderCard({
       <span className="line-clamp-2 w-full text-sm font-medium break-words" style={{ color: "var(--text-primary)" }}>
         {folder.name}
       </span>
+      <TagDots tags={folder.tags} />
     </CardShell>
   );
 }
@@ -1579,6 +1802,7 @@ function FileCard({
       <span className="line-clamp-2 w-full text-sm font-medium break-words" style={{ color: "var(--text-primary)" }}>
         {file.name}
       </span>
+      <TagDots tags={file.tags} />
       <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
         {formatBytesStr(file.size)}
       </span>

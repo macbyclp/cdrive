@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `notifications` MODIFY `type` ENUM('SHARE_GRANTED', 'QUOTA_WARNING') NOT NULL;
