@@ -113,6 +113,11 @@ model User {
   canCreateOrders Boolean @default(false)
   canManageOrders Boolean @default(false)
 
+  // İlk giriş kurulumu — admin tarafından oluşturulan hesaplarda true başlar: kullanıcı ilk
+  // girişte kendi şifresini belirleyip bir avatar seçene kadar /onboarding'e yönlendirilir.
+  mustChangePassword Boolean @default(false)
+  avatarKey          String? // hazır avatar setinden seçilen anahtar (bkz. src/lib/avatars.ts), null = baş harf rozeti
+
   // Güvenlik: 2FA (TOTP) ve başarısız giriş kilitleme
   twoFactorSecret      String?
   twoFactorEnabled     Boolean   @default(false)

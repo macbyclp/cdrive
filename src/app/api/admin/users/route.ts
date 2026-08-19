@@ -48,6 +48,9 @@ export async function POST(req: Request) {
         role: body.role,
         departmentId: body.departmentId ?? null,
         quotaBytes: body.quotaBytes ? BigInt(body.quotaBytes) : undefined,
+        // Admin geçici bir şifre belirlediği için hesap ilk girişte /onboarding'e düşer —
+        // kullanıcı kendi şifresini belirleyip bir avatar seçmeden başka yere geçemez.
+        mustChangePassword: true,
       },
     });
     await logAudit({ userId: admin.id, action: "USER_CREATE", targetType: "user", targetId: user.id, detail: user.email });

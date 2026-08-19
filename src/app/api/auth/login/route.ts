@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     }
 
     await createSession(
-      { userId: user.id, email: user.email, name: user.name, role: user.role },
+      { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword },
       { ip, userAgent: req.headers.get("user-agent") }
     );
     await logAudit({ userId: user.id, action: "LOGIN", ip });

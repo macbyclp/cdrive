@@ -30,9 +30,10 @@ export async function GET() {
         usedBytes: user.usedBytes.toString(),
         quotaBytes: user.quotaBytes.toString(),
         twoFactorEnabled: user.twoFactorEnabled,
-        uiSkin: settings?.uiSkin ?? "modern",
+        uiSkin: (settings?.uiSkin as "modern" | "archive" | "panel") ?? "modern",
         canCreateOrders: user.canCreateOrders,
         canManageOrders: user.canManageOrders,
+        avatarKey: user.avatarKey,
       },
     });
   } catch (err) {

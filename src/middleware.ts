@@ -9,29 +9,39 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get("cdrive_session")?.value;
 
-  let payload: { role?: string } | null = null;
+  let payload: { role?: string; mustChangePassword?: boolean } | null = null;
   if (token) {
     try {
       const { payload: p } = await jwtVerify(token, secret);
-      payload = p as { role?: string };
+      payload = p as { role?: string; mustChangePassword?: boolean };
     } catch {
       payload = null;
     }
   }
 
-  if (
-    !payload &&
-    (pathname.startsWith("/drive") ||
-      pathname.startsWith("/admin") ||
-      pathname.startsWith("/account") ||
-      pathname.startsWith("/office") ||
-      pathname.startsWith("/orders") ||
-      pathname.startsWith("/accounting") ||
-      pathname.startsWith("/customers"))
-  ) {
+  const isProtected =
+    pathname.startsWith("/drive") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/account") ||
+    pathname.startsWith("/office") ||
+    pathname.startsWith("/orders") ||
+    pathname.startsWith("/accounting") ||
+    pathname.startsWith("/customers") ||
+    pathname.startsWith("/panel") ||
+    pathname.startsWith("/onboarding");
+
+  if (!payload && isProtected) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
+  }
+
+  // Admin tarafından oluşturulan hesaplar ilk girişte /onboarding'e (yeni şifre + avatar
+  // seçimi) yönlendirilir — tamamlanana kadar başka hiçbir korumalı sayfaya giremez.
+  if (payload?.mustChangePassword && isProtected && pathname !== "/onboarding") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/onboarding";
     return NextResponse.redirect(url);
   }
 
@@ -43,7 +53,7 @@ export async function middleware(req: NextRequest) {
 
   if (payload && (pathname === "/login" || pathname === "/setup")) {
     const url = req.nextUrl.clone();
-    url.pathname = "/drive";
+    url.pathname = payload.mustChangePassword ? "/onboarding" : "/drive";
     return NextResponse.redirect(url);
   }
 
@@ -51,5 +61,17 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/drive/:path*", "/admin/:path*", "/account/:path*", "/office/:path*", "/orders/:path*", "/accounting/:path*", "/customers/:path*", "/login", "/setup"],
+  matcher: [
+    "/drive/:path*",
+    "/admin/:path*",
+    "/account/:path*",
+    "/office/:path*",
+    "/orders/:path*",
+    "/accounting/:path*",
+    "/customers/:path*",
+    "/panel/:path*",
+    "/onboarding/:path*",
+    "/login",
+    "/setup",
+  ],
 };

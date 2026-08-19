@@ -6,17 +6,8 @@ import type { MeUser } from "@/lib/types";
 import { formatBytesStr } from "@/lib/format";
 import ThemeToggle from "@/components/ThemeToggle";
 import NotificationBell from "@/components/NotificationBell";
+import Avatar from "@/components/Avatar";
 import { withBasePath } from "@/lib/basePath";
-
-const AVATAR_COLORS = [
-  "#0f172a", "#7c3aed", "#0891b2", "#c2410c", "#15803d", "#be185d", "#4338ca",
-];
-
-function avatarColor(seed: string) {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
 
 export default function TopBar({
   user,
@@ -117,12 +108,7 @@ export default function TopBar({
         <ThemeToggle />
 
         <a href={withBasePath("/account")} className="hidden items-center gap-2 sm:flex" title="Hesap ayarları">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
-            style={{ background: avatarColor(user.email) }}
-          >
-            {user.name.slice(0, 1).toUpperCase()}
-          </div>
+          <Avatar name={user.name} email={user.email} avatarKey={user.avatarKey} size={32} />
           <div className="hidden text-sm md:block">
             <div className="font-medium leading-tight" style={{ color: "var(--text-primary)" }}>
               {user.name}

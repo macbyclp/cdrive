@@ -7,9 +7,10 @@ export type MeUser = {
   usedBytes: string;
   quotaBytes: string;
   twoFactorEnabled: boolean;
-  uiSkin: "modern" | "archive";
+  uiSkin: "modern" | "archive" | "panel";
   canCreateOrders: boolean;
   canManageOrders: boolean;
+  avatarKey: string | null;
 };
 
 export type Tag = { id: string; name: string; color: string };

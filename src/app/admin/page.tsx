@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import TopBar from "@/components/TopBar";
+import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import { formatBytesStr, formatDate } from "@/lib/format";
@@ -19,6 +20,8 @@ type AdminUser = {
   createdAt: string;
   canCreateOrders: boolean;
   canManageOrders: boolean;
+  avatarKey: string | null;
+  mustChangePassword: boolean;
 };
 
 type Department = { id: string; name: string; quotaBytes: string; _count: { users: number } };
@@ -39,13 +42,6 @@ type GroupUser = { id: string; name: string; email: string };
 type Group = { id: string; name: string; members: GroupUser[] };
 type TemplateMember = { user: GroupUser | null; group: { id: string; name: string } | null };
 type Template = { id: string; name: string; permission: "VIEW" | "EDIT"; members: TemplateMember[] };
-
-const AVATAR_COLORS = ["#0f172a", "#7c3aed", "#0891b2", "#c2410c", "#15803d", "#be185d", "#4338ca"];
-function avatarColor(seed: string) {
-  let hash = 0;
-  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
-  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
-}
 
 export default function AdminPage() {
   const { user, refresh: refreshMe } = useMe();
@@ -285,18 +281,18 @@ function UsersTab({
                 onClick={() => toggleExpanded(u.id)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left hover:opacity-90"
               >
-                <div
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
-                  style={{ background: avatarColor(u.email) }}
-                >
-                  {u.name.slice(0, 1).toUpperCase()}
-                </div>
+                <Avatar name={u.name} email={u.email} avatarKey={u.avatarKey} size={32} />
                 <div className="min-w-[10rem] flex-1">
                   <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                     {u.name}
                     {!u.active && (
                       <span className="ml-2 text-xs font-normal" style={{ color: "var(--danger)" }}>
                         (pasif)
+                      </span>
+                    )}
+                    {u.mustChangePassword && (
+                      <span className="ml-2 text-xs font-normal" style={{ color: "var(--warning, #b45309)" }}>
+                        (ilk giriş bekleniyor)
                       </span>
                     )}
                   </div>

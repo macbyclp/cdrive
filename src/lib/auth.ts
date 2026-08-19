@@ -16,6 +16,7 @@ export type SessionPayload = {
   name: string;
   role: Role;
   sessionId: string;
+  mustChangePassword: boolean;
 };
 
 export async function hashPassword(password: string) {

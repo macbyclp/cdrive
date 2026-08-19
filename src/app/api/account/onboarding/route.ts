@@ -1,0 +1,40 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { requireUser, hashPassword, createSession } from "@/lib/auth";
+import { AVATAR_PRESETS } from "@/lib/avatars";
+import { logAudit } from "@/lib/audit";
+import { errorResponse, clientIp } from "@/lib/api-helpers";
+
+const schema = z.object({
+  password: z.string().min(8),
+  avatarKey: z.enum(AVATAR_PRESETS.map((a) => a.key) as [string, ...string[]]),
+});
+
+/** İlk giriş kurulumu — admin tarafından açılan hesap kendi şifresini belirler ve bir avatar seçer. */
+export async function POST(req: Request) {
+  try {
+    const user = await requireUser();
+    const body = schema.parse(await req.json());
+
+    const passwordHash = await hashPassword(body.password);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, avatarKey: body.avatarKey, mustChangePassword: false },
+    });
+
+    await logAudit({ userId: user.id, action: "PASSWORD_CHANGE", detail: "İlk giriş kurulumu tamamlandı" });
+
+    // JWT'deki eski mustChangePassword=true bayrağı yeni oturum açılana kadar geçerli
+    // kalır — middleware'in hemen tekrar /onboarding'e atmaması için oturumu burada
+    // güncel (false) bayrakla yeniden imzalıyoruz.
+    await createSession(
+      { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: false },
+      { ip: clientIp(req), userAgent: req.headers.get("user-agent") }
+    );
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}
