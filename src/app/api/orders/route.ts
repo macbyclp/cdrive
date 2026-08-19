@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { canAccessOrders, canCreateOrder, canManageOrders, canAccessFile } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
-import { orderIncludeShape as includeShape, serializeOrder } from "@/lib/orders";
+import { orderIncludeShape as includeShape, serializeOrder, findOrCreateCustomer } from "@/lib/orders";
 
 /** Sipariş listesi — muhasebe tüm siparişleri görür, pazarlama sadece kendi oluşturduklarını. */
 export async function GET(req: Request) {
@@ -15,9 +15,18 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
+    const q = searchParams.get("q")?.trim();
+    const customerId = searchParams.get("customerId");
     const statusFilter = status && status !== "ALL" ? { status: status as "PENDING" | "APPROVED" | "INVOICED" | "CANCELLED" } : {};
+    const qFilter = q ? { customerName: { contains: q } } : {};
+    const customerFilter = customerId ? { customerId } : {};
 
-    const where = canManageOrders(user) ? statusFilter : { ...statusFilter, createdById: user.id };
+    const where = {
+      ...statusFilter,
+      ...qFilter,
+      ...customerFilter,
+      ...(canManageOrders(user) ? {} : { createdById: user.id }),
+    };
 
     const orders = await prisma.order.findMany({
       where,
@@ -42,6 +51,7 @@ const createSchema = z.object({
   notes: z.string().trim().max(4000).optional(),
   items: z.array(itemSchema).min(1).max(100),
   fileIds: z.array(z.string()).max(20).optional(),
+  dueDate: z.string().datetime().optional(),
 });
 
 export async function POST(req: Request) {
@@ -58,12 +68,16 @@ export async function POST(req: Request) {
       if (!ok) return NextResponse.json({ error: "Eklemek istediğiniz bir dosyaya erişiminiz yok" }, { status: 403 });
     }
 
+    const customer = await findOrCreateCustomer(body.customerName, body.customerContact);
+
     const order = await prisma.order.create({
       data: {
         customerName: body.customerName,
         customerContact: body.customerContact || null,
         notes: body.notes || null,
+        dueDate: body.dueDate ? new Date(body.dueDate) : null,
         createdById: user.id,
+        customerId: customer.id,
         items: { create: body.items },
         attachments: body.fileIds?.length ? { create: body.fileIds.map((fileId) => ({ fileId })) } : undefined,
       },

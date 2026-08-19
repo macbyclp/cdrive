@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { deleteFile } from "@/lib/storage";
 import { purgeFolderRecursive, purgeFile } from "@/lib/trash";
+import { notifyOverdueOrders } from "@/lib/order-reminders";
 
 export type CleanupResult = {
   purgedFolders: number;
   purgedFiles: number;
   purgedVersions: number;
+  overdueOrdersNotified: number;
 };
 
 /**
@@ -18,7 +20,7 @@ export type CleanupResult = {
  */
 export async function runCleanup(): Promise<CleanupResult> {
   const settings = await prisma.systemSettings.findUnique({ where: { id: 1 } });
-  const result: CleanupResult = { purgedFolders: 0, purgedFiles: 0, purgedVersions: 0 };
+  const result: CleanupResult = { purgedFolders: 0, purgedFiles: 0, purgedVersions: 0, overdueOrdersNotified: 0 };
 
   if (settings?.trashRetentionDays) {
     const cutoff = new Date(Date.now() - settings.trashRetentionDays * 86_400_000);
@@ -65,6 +67,8 @@ export async function runCleanup(): Promise<CleanupResult> {
       result.purgedVersions++;
     }
   }
+
+  result.overdueOrdersNotified = await notifyOverdueOrders();
 
   return result;
 }

@@ -14,9 +14,16 @@ type EditableOrder = {
   customerName: string;
   customerContact: string | null;
   notes: string | null;
+  dueDate?: string | null;
   items: { productName: string; quantity: number; unitPrice: string }[];
   attachments: { file: AttachedFile }[];
 };
+
+/** ISO tarih-saatini <input type="date"> için "YYYY-MM-DD"ye çevirir. */
+function toDateInputValue(iso?: string | null) {
+  if (!iso) return "";
+  return iso.slice(0, 10);
+}
 
 const emptyItem: ItemDraft = { productName: "", quantity: "1", unitPrice: "" };
 
@@ -35,6 +42,7 @@ export default function OrderDialog({
   const [customerName, setCustomerName] = useState(order?.customerName ?? "");
   const [customerContact, setCustomerContact] = useState(order?.customerContact ?? "");
   const [notes, setNotes] = useState(order?.notes ?? "");
+  const [dueDate, setDueDate] = useState(toDateInputValue(order?.dueDate));
   const [items, setItems] = useState<ItemDraft[]>(
     order?.items.length
       ? order.items.map((i) => ({ productName: i.productName, quantity: String(i.quantity), unitPrice: i.unitPrice }))
@@ -81,6 +89,7 @@ export default function OrderDialog({
       notes: notes.trim() || undefined,
       items: parsedItems,
       fileIds: attachments.map((f) => f.id),
+      dueDate: dueDate ? new Date(`${dueDate}T12:00:00`).toISOString() : isEdit ? null : undefined,
     };
 
     setBusy(true);
@@ -181,6 +190,15 @@ export default function OrderDialog({
             <p className="mt-2 text-right text-sm font-medium" style={{ color: "var(--text-primary)" }}>
               Toplam: {new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(total)}
             </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                Vade tarihi
+              </span>
+              <input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </label>
           </div>
 
           <label className="block">

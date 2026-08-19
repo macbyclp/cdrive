@@ -14,6 +14,7 @@ type OrderDetail = {
   notes: string | null;
   status: "PENDING" | "APPROVED" | "INVOICED" | "CANCELLED";
   accountingNote: string | null;
+  dueDate: string | null;
   createdAt: string;
   createdBy: { id: string; name: string; email: string };
   updatedBy: { id: string; name: string; email: string } | null;
@@ -144,6 +145,7 @@ export default function OrderDetailDialog({
           customerName: order.customerName,
           customerContact: order.customerContact,
           notes: order.notes,
+          dueDate: order.dueDate,
           items: order.items,
           attachments: order.attachments,
         }}
@@ -179,9 +181,21 @@ export default function OrderDetailDialog({
               </p>
             )}
           </div>
-          <button onClick={onClose} className="btn-ghost">
-            Kapat
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {order && (
+              <a
+                href={withBasePath(`/api/orders/${order.id}/invoice`)}
+                target="_blank"
+                rel="noreferrer"
+                className="btn-secondary text-xs"
+              >
+                Fatura/makbuz indir
+              </a>
+            )}
+            <button onClick={onClose} className="btn-ghost">
+              Kapat
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
@@ -199,6 +213,20 @@ export default function OrderDetailDialog({
                 {order.customerContact && (
                   <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
                     {order.customerContact}
+                  </span>
+                )}
+                {order.dueDate && (
+                  <span
+                    className="text-xs"
+                    style={{
+                      color:
+                        remaining > 0 && new Date(order.dueDate) < new Date() && order.status !== "CANCELLED"
+                          ? "var(--danger)"
+                          : "var(--text-tertiary)",
+                    }}
+                  >
+                    Vade: {formatDate(order.dueDate)}
+                    {remaining > 0 && new Date(order.dueDate) < new Date() && order.status !== "CANCELLED" && " (gecikmiş)"}
                   </span>
                 )}
               </div>

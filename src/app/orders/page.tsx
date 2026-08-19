@@ -17,6 +17,7 @@ type OrderRow = {
   createdBy: { id: string; name: string };
   items: { quantity: number; unitPrice: string }[];
   payments: { amount: string }[];
+  dueDate: string | null;
 };
 
 const STATUS_LABEL: Record<OrderRow["status"], string> = {
@@ -51,14 +52,24 @@ function OrdersPageInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"ALL" | OrderRow["status"]>("ALL");
+  const [q, setQ] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
+  const customerId = searchParams.get("customerId");
+
+  function buildQuery() {
+    const params = new URLSearchParams();
+    if (statusFilter !== "ALL") params.set("status", statusFilter);
+    if (q.trim()) params.set("q", q.trim());
+    if (customerId) params.set("customerId", customerId);
+    const qs = params.toString();
+    return qs ? `?${qs}` : "";
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const qs = statusFilter !== "ALL" ? `?status=${statusFilter}` : "";
-    const res = await fetch(withBasePath(`/api/orders${qs}`));
+    const res = await fetch(withBasePath(`/api/orders${buildQuery()}`));
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       setError(d.error ?? "Yüklenemedi");
@@ -67,7 +78,8 @@ function OrdersPageInner() {
     }
     setOrders(await res.json());
     setLoading(false);
-  }, [statusFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, q, customerId]);
 
   useEffect(() => {
     refreshMe();
@@ -89,6 +101,19 @@ function OrdersPageInner() {
   const canAccess = user.role === "ADMIN" || user.canCreateOrders || user.canManageOrders;
   const canCreate = user.role === "ADMIN" || user.canCreateOrders;
   const canManage = user.role === "ADMIN" || user.canManageOrders;
+
+  const summary = orders.reduce(
+    (acc, o) => {
+      if (o.status === "CANCELLED") return acc;
+      const total = o.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
+      const collected = o.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      acc.revenue += total;
+      acc.collected += collected;
+      acc.remaining += Math.max(0, total - collected);
+      return acc;
+    },
+    { revenue: 0, collected: 0, remaining: 0 }
+  );
 
   if (!canAccess) {
     return (
@@ -118,27 +143,80 @@ function OrdersPageInner() {
                 : "Oluşturduğunuz sipariş kayıtları burada listelenir."}
             </p>
           </div>
-          {canCreate && (
-            <button className="btn-primary" onClick={() => setShowCreate(true)}>
-              + Yeni sipariş
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <a href={withBasePath("/customers")} className="btn-secondary text-sm">
+              Müşteriler
+            </a>
+            <a href={withBasePath(`/api/orders/export${buildQuery()}`)} className="btn-secondary text-sm">
+              Excel&apos;e aktar
+            </a>
+            {canCreate && (
+              <button className="btn-primary" onClick={() => setShowCreate(true)}>
+                + Yeni sipariş
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="mb-4 flex gap-1 border-b" style={{ borderColor: "var(--border)" }}>
-          {TABS.map((t) => (
-            <button
-              key={t}
-              onClick={() => setStatusFilter(t)}
-              className="border-b-2 px-3 py-2 text-sm font-medium"
-              style={{
-                borderColor: statusFilter === t ? "var(--accent)" : "transparent",
-                color: statusFilter === t ? "var(--text-primary)" : "var(--text-secondary)",
-              }}
-            >
-              {t === "ALL" ? "Tümü" : STATUS_LABEL[t]}
-            </button>
-          ))}
+        {!loading && !error && orders.length > 0 && (
+          <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="card p-4">
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                Toplam ciro
+              </p>
+              <p className="mt-1 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+                {formatCurrencyTL(summary.revenue)}
+              </p>
+            </div>
+            <div className="card p-4">
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                Tahsil edilen
+              </p>
+              <p className="mt-1 text-xl font-semibold" style={{ color: "var(--success, #16a34a)" }}>
+                {formatCurrencyTL(summary.collected)}
+              </p>
+            </div>
+            <div className="card p-4">
+              <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                Bekleyen bakiye
+              </p>
+              <p className="mt-1 text-xl font-semibold" style={{ color: summary.remaining > 0 ? "var(--warning, #d97706)" : "var(--text-primary)" }}>
+                {formatCurrencyTL(summary.remaining)}
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex gap-1 border-b" style={{ borderColor: "var(--border)" }}>
+            {TABS.map((t) => (
+              <button
+                key={t}
+                onClick={() => setStatusFilter(t)}
+                className="border-b-2 px-3 py-2 text-sm font-medium"
+                style={{
+                  borderColor: statusFilter === t ? "var(--accent)" : "transparent",
+                  color: statusFilter === t ? "var(--text-primary)" : "var(--text-secondary)",
+                }}
+              >
+                {t === "ALL" ? "Tümü" : STATUS_LABEL[t]}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            {customerId && (
+              <button className="badge flex items-center gap-1" onClick={() => router.replace("/orders")}>
+                Müşteri filtresi aktif
+                <span className="text-red-600 dark:text-red-400">×</span>
+              </button>
+            )}
+            <input
+              className="input max-w-xs"
+              placeholder="Müşteri adıyla ara…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -166,6 +244,7 @@ function OrdersPageInner() {
             {orders.map((o) => {
               const total = o.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
               const collected = o.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+              const isOverdue = !!o.dueDate && collected < total && new Date(o.dueDate) < new Date() && o.status !== "CANCELLED";
               const paymentLabel = collected <= 0 ? "Ödenmedi" : collected < total ? "Kısmi ödendi" : "Ödendi";
               const paymentColor =
                 collected <= 0
@@ -200,6 +279,11 @@ function OrdersPageInner() {
                   {o.status !== "CANCELLED" && (
                     <span className="text-xs font-medium" style={{ color: paymentColor }}>
                       {paymentLabel}
+                    </span>
+                  )}
+                  {isOverdue && (
+                    <span className="rounded-full px-2 py-0.5 text-xs font-medium text-white" style={{ background: "var(--danger)" }}>
+                      Gecikmiş
                     </span>
                   )}
                 </button>

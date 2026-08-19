@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { canAccessOrders, canCreateOrder, canManageOrders, canAccessFile } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
-import { orderIncludeShape as includeShape, serializeOrder } from "@/lib/orders";
+import { orderIncludeShape as includeShape, serializeOrder, findOrCreateCustomer } from "@/lib/orders";
 
 async function loadOrder(id: string) {
   return prisma.order.findUnique({ where: { id }, include: includeShape });
@@ -43,6 +43,7 @@ const patchSchema = z.object({
   notes: z.string().trim().max(4000).optional(),
   items: z.array(itemSchema).min(1).max(100).optional(),
   fileIds: z.array(z.string()).max(20).optional(),
+  dueDate: z.string().datetime().nullable().optional(),
 });
 
 const STATUS_LABEL: Record<string, string> = {
@@ -67,7 +68,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       body.customerContact !== undefined ||
       body.notes !== undefined ||
       body.items !== undefined ||
-      body.fileIds !== undefined;
+      body.fileIds !== undefined ||
+      body.dueDate !== undefined;
 
     if (wantsStatusChange && !canManageOrders(user)) {
       return NextResponse.json({ error: "Durum değiştirme yetkiniz yok" }, { status: 403 });
@@ -95,6 +97,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (body.customerName !== undefined) data.customerName = body.customerName;
     if (body.customerContact !== undefined) data.customerContact = body.customerContact || null;
     if (body.notes !== undefined) data.notes = body.notes || null;
+    if (body.dueDate !== undefined) data.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+    if (body.customerName !== undefined) {
+      const customer = await findOrCreateCustomer(body.customerName, body.customerContact ?? existing.customerContact);
+      data.customerId = customer.id;
+    }
 
     await prisma.$transaction(async (tx) => {
       if (body.items) {

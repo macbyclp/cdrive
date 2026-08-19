@@ -935,7 +935,9 @@ function SettingsTab() {
       return;
     }
     const d = await res.json();
-    setCleanupResult(`${d.purgedFolders} klasör, ${d.purgedFiles} dosya, ${d.purgedVersions} versiyon kalıcı silindi.`);
+    setCleanupResult(
+      `${d.purgedFolders} klasör, ${d.purgedFiles} dosya, ${d.purgedVersions} versiyon kalıcı silindi; ${d.overdueOrdersNotified ?? 0} vadesi geçmiş sipariş hatırlatması gönderildi.`
+    );
     toast("Temizlik tamamlandı", "success");
   }
 

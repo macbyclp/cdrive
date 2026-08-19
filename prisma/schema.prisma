@@ -68,6 +68,7 @@ enum NotificationType {
   ORDER_CREATED
   ORDER_STATUS_CHANGED
   PAYMENT_RECORDED
+  ORDER_OVERDUE
 }
 
 enum PaymentMethod {
@@ -459,6 +460,7 @@ model Order {
   notes           String?     @db.Text
   status          OrderStatus @default(PENDING)
   accountingNote  String?     @db.Text // muhasebenin eklediği not (onay/red gerekçesi vb.)
+  dueDate         DateTime? // vade tarihi — geçip de bakiye kapanmadıysa hatırlatma tetiklenir
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -468,13 +470,34 @@ model Order {
   updatedById String?
   updatedBy   User?   @relation("OrderUpdatedBy", fields: [updatedById], references: [id])
 
+  // Müşteri her zaman customerName/customerContact'a serbest metin olarak da yazılır (sipariş
+  // anındaki anlık görüntü); customerId ise aynı isimdeki müşteriyi otomatik bulup/oluşturup
+  // bağlar — "Müşteriler" sayfasındaki toplu istatistikler ve geçmiş için kullanılır. Eski
+  // (bu alan eklenmeden önce oluşturulmuş) siparişlerde null kalabilir.
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
   items       OrderItem[]
   attachments OrderAttachment[]
   payments    Payment[]
 
   @@index([status])
   @@index([createdById])
+  @@index([customerId])
   @@map("orders")
+}
+
+/// Sipariş verirken isim eşleşmesiyle otomatik bulunan/oluşturulan müşteri kaydı — "Müşteriler"
+/// sayfasında toplam sipariş/ciro/tahsilat özetini ve geçmişini görmek için.
+model Customer {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  contact   String?
+  createdAt DateTime @default(now())
+
+  orders Order[]
+
+  @@map("customers")
 }
 
 model OrderItem {
