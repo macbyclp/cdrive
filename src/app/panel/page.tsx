@@ -210,7 +210,9 @@ export default function PanelPage() {
         >
           <nav className="space-y-1">
             <SideLink href="/panel" label="Genel Bakış" icon="📊" active />
-            <SideLink href="/drive" label="Sürücüm" icon="🗂️" />
+            {/* ?view=root: /drive'ın "panel aktifken parametresiz kök = /panel'e geri yönlendir"
+                mantığını burada bilerek atlatır, yoksa bu link kendi kendine geri döner. */}
+            <SideLink href="/drive?view=root" label="Sürücüm" icon="🗂️" />
             {(user.role === "ADMIN" || user.canCreateOrders) && <SideLink href="/orders" label="Satış" icon="🛒" />}
             {(user.role === "ADMIN" || user.canManageOrders) && <SideLink href="/accounting" label="Muhasebe" icon="🧾" />}
             {canOrders && <SideLink href="/customers" label="Müşteriler" icon="👥" />}
