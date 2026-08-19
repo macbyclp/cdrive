@@ -268,105 +268,133 @@ function UsersTab({
         {users.map((u) => {
           const usedPct = Math.min(100, Math.round((Number(u.usedBytes) / Math.max(Number(u.quotaBytes), 1)) * 100));
           return (
-            <div key={u.id} className="flex flex-wrap items-center gap-3 border-b px-4 py-3 last:border-0" style={{ borderColor: "var(--border)" }}>
-              <div
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
-                style={{ background: avatarColor(u.email) }}
-              >
-                {u.name.slice(0, 1).toUpperCase()}
-              </div>
-              <div className="min-w-[10rem] flex-1">
-                <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                  {u.name}
+            <div key={u.id} className="border-b px-4 py-4 last:border-0" style={{ borderColor: "var(--border)" }}>
+              <div className="mb-3 flex items-center gap-3">
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
+                  style={{ background: avatarColor(u.email) }}
+                >
+                  {u.name.slice(0, 1).toUpperCase()}
                 </div>
-                <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                  {u.email}
+                <div className="min-w-[10rem] flex-1">
+                  <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                    {u.name}
+                    {!u.active && (
+                      <span className="ml-2 text-xs font-normal" style={{ color: "var(--danger)" }}>
+                        (pasif)
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                    {u.email}
+                  </div>
                 </div>
-              </div>
-              <select
-                className="input w-36"
-                value={u.role}
-                disabled={u.id === currentUserId}
-                onChange={(e) => update(u.id, { role: e.target.value }, "Rol güncellendi")}
-              >
-                <option value="MEMBER">Üye</option>
-                <option value="MANAGER">Yönetici</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-              <select
-                className="input w-40"
-                value={u.department?.id ?? ""}
-                onChange={(e) => update(u.id, { departmentId: e.target.value || null }, "Departman güncellendi")}
-              >
-                <option value="">Departman yok</option>
-                {departments.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-
-              <div className="flex shrink-0 flex-col gap-1 text-xs" style={{ color: "var(--text-secondary)" }}>
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    className="h-3.5 w-3.5"
-                    checked={u.canCreateOrders}
-                    onChange={(e) => update(u.id, { canCreateOrders: e.target.checked }, "Sipariş oluşturma yetkisi güncellendi")}
-                  />
-                  Sipariş oluşturabilir
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    className="h-3.5 w-3.5"
-                    checked={u.canManageOrders}
-                    onChange={(e) => update(u.id, { canManageOrders: e.target.checked }, "Sipariş yönetme yetkisi güncellendi")}
-                  />
-                  Siparişleri yönetebilir
-                </label>
+                <button
+                  disabled={u.id === currentUserId}
+                  className={`btn-ghost shrink-0 ${u.active ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
+                  onClick={() => update(u.id, { active: !u.active }, u.active ? "Kullanıcı pasifleştirildi" : "Kullanıcı aktifleştirildi")}
+                >
+                  {u.active ? "Pasifleştir" : "Aktifleştir"}
+                </button>
               </div>
 
-              <div className="w-44 shrink-0">
-                <div className="mb-1 flex justify-between text-[11px]" style={{ color: "var(--text-secondary)" }}>
-                  <span>{formatBytesStr(u.usedBytes)}</span>
-                  <span>/ {formatBytesStr(u.quotaBytes)}</span>
-                </div>
-                <div className="mb-1.5 h-1.5 w-full rounded-full" style={{ background: "var(--surface-muted)" }}>
-                  <div
-                    className="h-1.5 rounded-full transition-all"
-                    style={{ width: `${usedPct}%`, background: usedPct > 90 ? "var(--danger)" : "var(--accent)" }}
-                  />
-                </div>
-                <div className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min={0.1}
-                    step={0.5}
-                    placeholder={quotaGb(u.quotaBytes)}
-                    className="input px-2 py-1 text-xs"
-                    value={quotaDrafts[u.id] ?? ""}
-                    onChange={(e) => setQuotaDrafts((d) => ({ ...d, [u.id]: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") saveQuota(u.id);
-                    }}
-                  />
-                  <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                    GB
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Rol
                   </span>
-                  <button className="btn-ghost text-xs" onClick={() => saveQuota(u.id)}>
-                    Kaydet
-                  </button>
+                  <select
+                    className="input w-full"
+                    value={u.role}
+                    disabled={u.id === currentUserId}
+                    onChange={(e) => update(u.id, { role: e.target.value }, "Rol güncellendi")}
+                  >
+                    <option value="MEMBER">Üye</option>
+                    <option value="MANAGER">Yönetici</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Departman
+                  </span>
+                  <select
+                    className="input w-full"
+                    value={u.department?.id ?? ""}
+                    onChange={(e) => update(u.id, { departmentId: e.target.value || null }, "Departman güncellendi")}
+                  >
+                    <option value="">Departman yok</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div className="block">
+                  <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Sipariş yetkisi
+                  </span>
+                  <div className="flex flex-col gap-1 pt-1.5 text-xs" style={{ color: "var(--text-primary)" }}>
+                    <label className="flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5"
+                        checked={u.canCreateOrders}
+                        onChange={(e) => update(u.id, { canCreateOrders: e.target.checked }, "Sipariş oluşturma yetkisi güncellendi")}
+                      />
+                      Oluşturabilir (pazarlama)
+                    </label>
+                    <label className="flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5"
+                        checked={u.canManageOrders}
+                        onChange={(e) => update(u.id, { canManageOrders: e.target.checked }, "Sipariş yönetme yetkisi güncellendi")}
+                      />
+                      Yönetebilir (muhasebe)
+                    </label>
+                  </div>
+                </div>
+
+                <div className="block">
+                  <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Depolama kotası
+                  </span>
+                  <div className="mb-1 flex justify-between text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                    <span>{formatBytesStr(u.usedBytes)}</span>
+                    <span>/ {formatBytesStr(u.quotaBytes)}</span>
+                  </div>
+                  <div className="mb-1.5 h-1.5 w-full rounded-full" style={{ background: "var(--surface-muted)" }}>
+                    <div
+                      className="h-1.5 rounded-full transition-all"
+                      style={{ width: `${usedPct}%`, background: usedPct > 90 ? "var(--danger)" : "var(--accent)" }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0.1}
+                      step={0.5}
+                      placeholder={quotaGb(u.quotaBytes)}
+                      className="input min-w-0 flex-1 px-2 py-1 text-xs"
+                      value={quotaDrafts[u.id] ?? ""}
+                      onChange={(e) => setQuotaDrafts((d) => ({ ...d, [u.id]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveQuota(u.id);
+                      }}
+                    />
+                    <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                      GB
+                    </span>
+                    <button className="btn-ghost shrink-0 text-xs" onClick={() => saveQuota(u.id)}>
+                      Kaydet
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              <button
-                disabled={u.id === currentUserId}
-                className={`btn-ghost ${u.active ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
-                onClick={() => update(u.id, { active: !u.active }, u.active ? "Kullanıcı pasifleştirildi" : "Kullanıcı aktifleştirildi")}
-              >
-                {u.active ? "Pasifleştir" : "Aktifleştir"}
-              </button>
             </div>
           );
         })}
