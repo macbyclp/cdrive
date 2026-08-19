@@ -173,6 +173,16 @@ function UsersTab({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [quotaDrafts, setQuotaDrafts] = useState<Record<string, string>>({});
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleExpanded(id: string) {
+    setExpanded((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function createUser(e: React.FormEvent) {
     e.preventDefault();
@@ -267,9 +277,14 @@ function UsersTab({
       <div className="card overflow-hidden">
         {users.map((u) => {
           const usedPct = Math.min(100, Math.round((Number(u.usedBytes) / Math.max(Number(u.quotaBytes), 1)) * 100));
+          const isOpen = expanded.has(u.id);
           return (
-            <div key={u.id} className="border-b px-4 py-4 last:border-0" style={{ borderColor: "var(--border)" }}>
-              <div className="mb-3 flex items-center gap-3">
+            <div key={u.id} className="border-b last:border-0" style={{ borderColor: "var(--border)" }}>
+              <button
+                type="button"
+                onClick={() => toggleExpanded(u.id)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:opacity-90"
+              >
                 <div
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
                   style={{ background: avatarColor(u.email) }}
@@ -289,14 +304,26 @@ function UsersTab({
                     {u.email}
                   </div>
                 </div>
-                <button
-                  disabled={u.id === currentUserId}
-                  className={`btn-ghost shrink-0 ${u.active ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
-                  onClick={() => update(u.id, { active: !u.active }, u.active ? "Kullanıcı pasifleştirildi" : "Kullanıcı aktifleştirildi")}
+                <span
+                  className="shrink-0 text-sm transition-transform"
+                  style={{ color: "var(--text-tertiary)", transform: isOpen ? "rotate(180deg)" : "none" }}
+                  aria-label={isOpen ? "Daralt" : "Genişlet"}
                 >
-                  {u.active ? "Pasifleştir" : "Aktifleştir"}
-                </button>
-              </div>
+                  ▾
+                </span>
+              </button>
+
+              {isOpen && (
+                <div className="px-4 pb-4">
+                  <div className="mb-3 flex justify-end">
+                    <button
+                      disabled={u.id === currentUserId}
+                      className={`btn-ghost text-xs ${u.active ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
+                      onClick={() => update(u.id, { active: !u.active }, u.active ? "Kullanıcı pasifleştirildi" : "Kullanıcı aktifleştirildi")}
+                    >
+                      {u.active ? "Pasifleştir" : "Aktifleştir"}
+                    </button>
+                  </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <label className="block">
@@ -395,6 +422,8 @@ function UsersTab({
                   </div>
                 </div>
               </div>
+                </div>
+              )}
             </div>
           );
         })}
