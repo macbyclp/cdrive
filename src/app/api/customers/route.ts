@@ -22,7 +22,19 @@ export async function GET() {
 
     const byCustomer = new Map<
       string,
-      { id: string; name: string; contact: string | null; orderCount: number; revenue: number; collected: number }
+      {
+        id: string;
+        name: string;
+        contact: string | null;
+        address: string | null;
+        taxNumber: string | null;
+        taxOffice: string | null;
+        phone: string | null;
+        email: string | null;
+        orderCount: number;
+        revenue: number;
+        collected: number;
+      }
     >();
     for (const o of orders) {
       if (!o.customer) continue;
@@ -32,6 +44,11 @@ export async function GET() {
         id: o.customer.id,
         name: o.customer.name,
         contact: o.customer.contact,
+        address: o.customer.address,
+        taxNumber: o.customer.taxNumber,
+        taxOffice: o.customer.taxOffice,
+        phone: o.customer.phone,
+        email: o.customer.email,
         orderCount: 0,
         revenue: 0,
         collected: 0,

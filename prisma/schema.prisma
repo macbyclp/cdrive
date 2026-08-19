@@ -60,6 +60,7 @@ enum AuditAction {
   ORDER_STATUS_UPDATE
   PAYMENT_RECORD
   PAYMENT_DELETE
+  CUSTOMER_AUTO_UPDATE
 }
 
 enum NotificationType {
@@ -499,6 +500,16 @@ model Customer {
   name      String   @unique
   contact   String?
   createdAt DateTime @default(now())
+
+  // Muhasebe bir siparişe resmi fatura eklediğinde faturadan otomatik okunup
+  // (OCR/metin çıkarımı, bkz. src/lib/invoice-extract.ts) doldurulan alanlar —
+  // sadece o an boş olan alanlar yazılır, elle girilmiş/onaylanmış veri asla
+  // otomatik ezilmez. Kullanıcı elle de düzenleyebilir (henüz UI'da yok).
+  address   String?  @db.Text
+  taxNumber String?
+  taxOffice String?
+  phone     String?
+  email     String?
 
   orders Order[]
 

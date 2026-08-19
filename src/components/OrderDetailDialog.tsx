@@ -138,7 +138,30 @@ export default function OrderDetailDialog({
       toast(d.error ?? "Eklenemedi", "error");
       return;
     }
-    toast("Belge eklendi", "success");
+    const d = await res.json().catch(() => null);
+    const extracted = d?.extractedInfo as
+      | { fileName: string; fields: Record<string, string | null> }
+      | undefined;
+    if (extracted) {
+      const FIELD_LABEL: Record<string, string> = {
+        address: "adres",
+        taxNumber: "vergi no",
+        taxOffice: "vergi dairesi",
+        phone: "telefon",
+        email: "e-posta",
+      };
+      const found = Object.entries(extracted.fields)
+        .filter(([, v]) => v)
+        .map(([k]) => FIELD_LABEL[k] ?? k);
+      toast(
+        found.length
+          ? `Belge eklendi — "${extracted.fileName}" faturasından müşteri bilgisine otomatik yazıldı: ${found.join(", ")}`
+          : "Belge eklendi",
+        "success"
+      );
+    } else {
+      toast("Belge eklendi", "success");
+    }
     load();
   }
 

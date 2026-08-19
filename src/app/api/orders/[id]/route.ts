@@ -6,6 +6,8 @@ import { canAccessOrders, canCreateOrder, canManageOrders, canAccessFile } from 
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 import { orderIncludeShape as includeShape, serializeOrder, findOrCreateCustomer } from "@/lib/orders";
+import { extractInvoiceFields, isExtractableMime } from "@/lib/invoice-extract";
+import { readFile } from "@/lib/storage";
 
 async function loadOrder(id: string) {
   return prisma.order.findUnique({ where: { id }, include: includeShape });
@@ -148,9 +150,63 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
     }
 
+    // Yeni eklenen fatura/belgelerden adres/vergi no/telefon vb. otomatik çekilir —
+    // sadece o an BOŞ olan Customer alanları doldurulur, elle girilmiş veri ezilmez.
+    // Best-effort: çıkarım başarısız olursa (bozuk dosya, desteklenmeyen tür, OCR hatası)
+    // sessizce yok sayılır, PATCH isteği asla bu yüzden başarısız olmaz.
+    let extractedSummary: { fileName: string; fields: Record<string, string> } | null = null;
+    if (body.fileIds) {
+      const existingFileIds = new Set(existing.attachments.map((a) => a.fileId));
+      const newFileIds = body.fileIds.filter((fid) => !existingFileIds.has(fid));
+      if (newFileIds.length && existing.customerId) {
+        extractedSummary = await tryExtractFromNewAttachments(newFileIds, existing.customerId, user.id);
+      }
+    }
+
     const updated = await loadOrder(id);
-    return NextResponse.json(serializeOrder(updated!));
+    return NextResponse.json({ ...serializeOrder(updated!), extractedInfo: extractedSummary });
   } catch (err) {
     return errorResponse(err);
   }
+}
+
+async function tryExtractFromNewAttachments(fileIds: string[], customerId: string, userId: string) {
+  const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+  if (!customer) return null;
+
+  for (const fileId of fileIds) {
+    try {
+      const file = await prisma.file.findUnique({ where: { id: fileId }, include: { currentVersion: true } });
+      if (!file?.currentVersion || !isExtractableMime(file.mimeType)) continue;
+
+      const buffer = await readFile(file.currentVersion.storageKey);
+      const fields = await extractInvoiceFields(buffer, file.mimeType);
+      if (!fields) continue;
+
+      // Sadece o an boş olan alanlar doldurulur — daha önce elle girilmiş/onaylanmış
+      // veri otomatik olarak asla ezilmez.
+      const patch: Record<string, string> = {};
+      if (fields.address && !customer.address) patch.address = fields.address;
+      if (fields.taxNumber && !customer.taxNumber) patch.taxNumber = fields.taxNumber;
+      if (fields.taxOffice && !customer.taxOffice) patch.taxOffice = fields.taxOffice;
+      if (fields.phone && !customer.phone) patch.phone = fields.phone;
+      if (fields.email && !customer.email) patch.email = fields.email;
+
+      if (Object.keys(patch).length === 0) continue;
+
+      await prisma.customer.update({ where: { id: customerId }, data: patch });
+      await logAudit({
+        userId,
+        action: "CUSTOMER_AUTO_UPDATE",
+        targetType: "customer",
+        targetId: customerId,
+        detail: `"${file.name}" faturasından otomatik çekildi: ${Object.keys(patch).join(", ")}`,
+      });
+      return { fileName: file.name, fields: patch };
+    } catch {
+      // Bu dosyada çıkarım başarısız oldu — diğer yeni ekleri denemeye devam et.
+      continue;
+    }
+  }
+  return null;
 }

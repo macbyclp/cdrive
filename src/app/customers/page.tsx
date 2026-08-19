@@ -10,6 +10,11 @@ type Customer = {
   id: string;
   name: string;
   contact: string | null;
+  address: string | null;
+  taxNumber: string | null;
+  taxOffice: string | null;
+  phone: string | null;
+  email: string | null;
   orderCount: number;
   revenue: number;
   collected: number;
@@ -108,6 +113,19 @@ export default function CustomersPage() {
                     {c.contact && (
                       <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
                         {c.contact}
+                      </div>
+                    )}
+                    {(c.address || c.taxNumber || c.taxOffice || c.phone || c.email) && (
+                      <div className="mt-0.5 text-xs" style={{ color: "var(--text-tertiary)" }} title="Faturadan otomatik çekildi">
+                        {[
+                          c.address,
+                          c.taxNumber && `VKN ${c.taxNumber}`,
+                          c.taxOffice,
+                          c.phone,
+                          c.email,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </div>
                     )}
                   </div>
