@@ -31,7 +31,7 @@ const schema = z.object({
   versionRetentionDays: z.number().int().positive().nullable().optional(),
   maxFileSizeBytes: z.number().positive().nullable().optional(),
   blockedExtensions: z.string().nullable().optional(),
-  uiSkin: z.enum(["modern", "archive"]).optional(),
+  uiSkin: z.enum(["modern", "archive", "panel"]).optional(),
 });
 
 export async function PATCH(req: Request) {

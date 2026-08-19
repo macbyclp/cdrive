@@ -107,6 +107,15 @@ function DriveInner() {
     if (stored === "list" || stored === "grid") setViewModeState(stored);
   }, []);
 
+  // "panel" arayüzü aktifse ve gerçekten /drive'ın kökündeyiz (dosya gezinme amacı olan
+  // folder/view/q parametreleri yoksa) ana ekran olarak /panel'e yönlendir. Derin bağlantılar
+  // (paylaşılan bir klasör linki, arama sonucu vb.) hep /drive'da kalmaya devam eder.
+  useEffect(() => {
+    if (user?.uiSkin === "panel" && !folderId && !params.get("view") && !params.get("q")) {
+      router.replace("/panel");
+    }
+  }, [user?.uiSkin, folderId, params, router]);
+
   function setViewMode(mode: ViewMode) {
     setViewModeState(mode);
     localStorage.setItem(VIEW_MODE_KEY, mode);

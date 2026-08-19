@@ -903,7 +903,7 @@ type SystemSettingsData = {
   versionRetentionDays: number | null;
   maxFileSizeBytes: string | null;
   blockedExtensions: string | null;
-  uiSkin: "modern" | "archive";
+  uiSkin: "modern" | "archive" | "panel";
 };
 
 function SettingsTab() {
@@ -913,7 +913,7 @@ function SettingsTab() {
   const [versionDays, setVersionDays] = useState("");
   const [maxSizeMb, setMaxSizeMb] = useState("");
   const [blockedExt, setBlockedExt] = useState("");
-  const [uiSkin, setUiSkin] = useState<"modern" | "archive">("modern");
+  const [uiSkin, setUiSkin] = useState<"modern" | "archive" | "panel">("modern");
   const [busy, setBusy] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
@@ -930,7 +930,7 @@ function SettingsTab() {
       });
   }
 
-  async function saveSkin(skin: "modern" | "archive") {
+  async function saveSkin(skin: "modern" | "archive" | "panel") {
     setUiSkin(skin);
     const res = await fetch(withBasePath("/api/admin/settings"), {
       method: "PATCH",
@@ -942,12 +942,13 @@ function SettingsTab() {
       toast(d.error ?? "Kaydedilemedi", "error");
       return;
     }
-    toast(
+    const label =
       skin === "archive"
-        ? "Arayüz görünümü \"Kurumsal Arşiv Dosya Dolabı\" olarak ayarlandı"
-        : "Arayüz görünümü \"Modern\" olarak ayarlandı",
-      "success"
-    );
+        ? "Kurumsal Arşiv Dosya Dolabı"
+        : skin === "panel"
+          ? "Panel (Genel Bakış)"
+          : "Modern";
+    toast(`Arayüz görünümü "${label}" olarak ayarlandı`, "success");
   }
 
   useEffect(() => {
@@ -1008,7 +1009,7 @@ function SettingsTab() {
             işlevsel, sadece görünüm değişir.
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <button
             type="button"
             onClick={() => saveSkin("modern")}
@@ -1049,6 +1050,27 @@ function SettingsTab() {
             </div>
             <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
               Kraft/pirinç tonlarında, klasörler asma dosya sekmesi gibi görünür.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => saveSkin("panel")}
+            className="rounded-xl border p-4 text-left transition-colors"
+            style={
+              uiSkin === "panel"
+                ? { borderColor: "var(--accent)", background: "var(--accent-soft)" }
+                : { borderColor: "var(--border)" }
+            }
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📊</span>
+              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                Panel (Genel Bakış)
+              </span>
+              {uiSkin === "panel" && <span className="badge">Aktif</span>}
+            </div>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+              Sürücü, gerçek verilerle özetleyen bir gösterge paneline (/panel) açılır.
             </p>
           </button>
         </div>
