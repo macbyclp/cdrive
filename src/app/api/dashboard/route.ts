@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { canAccessOrders, canManageOrders } from "@/lib/access";
+import { canManageOrders } from "@/lib/access";
 import { errorResponse } from "@/lib/api-helpers";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -23,15 +23,17 @@ function orderCollected(payments: { amount: unknown }[]) {
 
 /**
  * /panel gösterge panelinin tek toplama noktası — hepsi gerçek, hesaplanmış veri:
- * uydurma "ciro" ya da rastgele yüzdeler yok. Görünürlük siparişlerdeki mevcut kuralla
- * aynı: muhasebe/admin tümünü, sadece satış yetkisi olan yalnız kendi siparişlerini görür.
+ * uydurma "ciro" ya da rastgele yüzdeler yok. /panel artık herkesin ana ekranı (sadece
+ * sipariş yetkisi olanların değil), o yüzden burada 403 YOK — sipariş sistemine hiç
+ * erişimi olmayan bir kullanıcı (canCreateOrders/canManageOrders/ADMIN'in hiçbiri değil)
+ * "kendi oluşturduğu siparişler" filtresiyle sorgulanır, bu doğal olarak boş/sıfır
+ * gelir ve panel yine de boş durumlarla (skeleton yerine "Henüz sipariş yok" vb.) düzgün
+ * render olur. Görünürlük: muhasebe/admin tümünü, diğer herkes yalnız kendi siparişlerini
+ * (varsa) görür.
  */
 export async function GET() {
   try {
     const user = await requireUser();
-    if (!canAccessOrders(user)) {
-      return NextResponse.json({ error: "Bu bölüme erişiminiz yok" }, { status: 403 });
-    }
     const scoped = !canManageOrders(user);
     const where = scoped ? { createdById: user.id } : {};
 
