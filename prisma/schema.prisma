@@ -58,6 +58,8 @@ enum AuditAction {
   AUTO_CLEANUP
   ORDER_CREATE
   ORDER_STATUS_UPDATE
+  PAYMENT_RECORD
+  PAYMENT_DELETE
 }
 
 enum NotificationType {
@@ -65,6 +67,14 @@ enum NotificationType {
   QUOTA_WARNING
   ORDER_CREATED
   ORDER_STATUS_CHANGED
+  PAYMENT_RECORDED
+}
+
+enum PaymentMethod {
+  CASH // Nakit
+  BANK_TRANSFER // Havale/EFT
+  CREDIT_CARD // Kredi kartı
+  OTHER // Diğer
 }
 
 enum OrderStatus {
@@ -127,6 +137,7 @@ model User {
   templateMemberships PermissionTemplateMember[]
   ordersCreated Order[] @relation("OrderCreatedBy")
   ordersUpdated Order[] @relation("OrderUpdatedBy")
+  paymentsRecorded Payment[] @relation("PaymentRecordedBy")
 
   @@map("users")
 }
@@ -459,6 +470,7 @@ model Order {
 
   items       OrderItem[]
   attachments OrderAttachment[]
+  payments    Payment[]
 
   @@index([status])
   @@index([createdById])
@@ -485,4 +497,24 @@ model OrderAttachment {
 
   @@unique([orderId, fileId])
   @@map("order_attachments")
+}
+
+/// Bir siparişe karşı yapılan tahsilat kaydı — bir sipariş birden çok kısmi tahsilatla
+/// (parça parça ödeme) kapanabilir; kalan bakiye toplam - tahsilatlar toplamından hesaplanır.
+model Payment {
+  id      String        @id @default(cuid())
+  orderId String
+  order   Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount  Decimal       @db.Decimal(12, 2)
+  method  PaymentMethod @default(OTHER)
+  note    String?       @db.Text
+  paidAt  DateTime      @default(now()) // tahsilatın gerçekleştiği tarih (geçmişe dönük girilebilir)
+
+  recordedById String
+  recordedBy   User   @relation("PaymentRecordedBy", fields: [recordedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@map("payments")
 }

@@ -5,6 +5,7 @@ import { useToast } from "@/components/ToastProvider";
 import { withBasePath } from "@/lib/basePath";
 import { formatCurrencyTL, formatDate, iconForMime } from "@/lib/format";
 import OrderDialog from "@/components/OrderDialog";
+import PaymentDialog from "@/components/PaymentDialog";
 
 type OrderDetail = {
   id: string;
@@ -18,6 +19,21 @@ type OrderDetail = {
   updatedBy: { id: string; name: string; email: string } | null;
   items: { id: string; productName: string; quantity: number; unitPrice: string }[];
   attachments: { file: { id: string; name: string; mimeType: string } }[];
+  payments: {
+    id: string;
+    amount: string;
+    method: "CASH" | "BANK_TRANSFER" | "CREDIT_CARD" | "OTHER";
+    note: string | null;
+    paidAt: string;
+    recordedBy: { id: string; name: string };
+  }[];
+};
+
+const PAYMENT_METHOD_LABEL: Record<OrderDetail["payments"][number]["method"], string> = {
+  CASH: "Nakit",
+  BANK_TRANSFER: "Havale/EFT",
+  CREDIT_CARD: "Kredi kartı",
+  OTHER: "Diğer",
 };
 
 const STATUS_LABEL: Record<OrderDetail["status"], string> = {
@@ -53,6 +69,7 @@ export default function OrderDetailDialog({
   const [accountingNote, setAccountingNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
 
   function load() {
     fetch(withBasePath(`/api/orders/${orderId}`))
@@ -105,6 +122,20 @@ export default function OrderDetailDialog({
     load();
   }
 
+  async function removePayment(paymentId: string) {
+    setBusy(true);
+    const res = await fetch(withBasePath(`/api/orders/${orderId}/payments/${paymentId}`), { method: "DELETE" });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Silinemedi", "error");
+      return;
+    }
+    toast("Tahsilat kaydı silindi");
+    load();
+    onChanged();
+  }
+
   if (editing && order) {
     return (
       <OrderDialog
@@ -127,6 +158,8 @@ export default function OrderDetailDialog({
   }
 
   const total = order?.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0) ?? 0;
+  const collected = order?.payments.reduce((sum, p) => sum + Number(p.amount), 0) ?? 0;
+  const remaining = Math.max(0, total - collected);
   const isOwnerPending = order && order.createdBy.id === currentUserId && order.status === "PENDING";
 
   return (
@@ -210,6 +243,75 @@ export default function OrderDetailDialog({
                 <div className="flex justify-end border-t px-3 py-2 text-sm font-semibold" style={{ borderColor: "var(--border)", color: "var(--text-primary)" }}>
                   Toplam: {formatCurrencyTL(total)}
                 </div>
+              </div>
+
+              <div className="rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                    Tahsilat
+                  </p>
+                  {canManage && order.status !== "CANCELLED" && (
+                    <button className="btn-ghost text-xs" onClick={() => setShowPayment(true)}>
+                      + Tahsilat ekle
+                    </button>
+                  )}
+                </div>
+                <div className="mb-2 grid grid-cols-3 gap-2 text-center text-xs">
+                  <div>
+                    <p style={{ color: "var(--text-tertiary)" }}>Toplam</p>
+                    <p className="font-medium" style={{ color: "var(--text-primary)" }}>
+                      {formatCurrencyTL(total)}
+                    </p>
+                  </div>
+                  <div>
+                    <p style={{ color: "var(--text-tertiary)" }}>Tahsil edilen</p>
+                    <p className="font-medium" style={{ color: "var(--success, #16a34a)" }}>
+                      {formatCurrencyTL(collected)}
+                    </p>
+                  </div>
+                  <div>
+                    <p style={{ color: "var(--text-tertiary)" }}>Kalan</p>
+                    <p className="font-medium" style={{ color: remaining > 0 ? "var(--warning, #d97706)" : "var(--text-primary)" }}>
+                      {formatCurrencyTL(remaining)}
+                    </p>
+                  </div>
+                </div>
+                {order.payments.length === 0 ? (
+                  <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+                    Henüz tahsilat kaydedilmedi.
+                  </p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {order.payments.map((p) => (
+                      <li
+                        key={p.id}
+                        className="flex items-center justify-between rounded-lg border px-2.5 py-1.5 text-xs"
+                        style={{ borderColor: "var(--border)" }}
+                      >
+                        <div>
+                          <span className="font-medium" style={{ color: "var(--text-primary)" }}>
+                            {formatCurrencyTL(p.amount)}
+                          </span>{" "}
+                          <span style={{ color: "var(--text-secondary)" }}>
+                            · {PAYMENT_METHOD_LABEL[p.method]} · {p.recordedBy.name} · {formatDate(p.paidAt)}
+                          </span>
+                          {p.note && (
+                            <div style={{ color: "var(--text-tertiary)" }}>{p.note}</div>
+                          )}
+                        </div>
+                        {canManage && (
+                          <button
+                            disabled={busy}
+                            className="text-red-600 dark:text-red-400"
+                            onClick={() => removePayment(p.id)}
+                          >
+                            Sil
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               {order.notes && (
@@ -303,6 +405,18 @@ export default function OrderDetailDialog({
           </div>
         )}
       </div>
+
+      {showPayment && order && (
+        <PaymentDialog
+          orderId={order.id}
+          remaining={remaining}
+          onClose={() => setShowPayment(false)}
+          onSaved={() => {
+            load();
+            onChanged();
+          }}
+        />
+      )}
     </div>
   );
 }

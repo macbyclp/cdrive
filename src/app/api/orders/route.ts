@@ -5,23 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { canAccessOrders, canCreateOrder, canManageOrders, canAccessFile } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
-
-const includeShape = {
-  createdBy: { select: { id: true, name: true, email: true } },
-  updatedBy: { select: { id: true, name: true, email: true } },
-  items: true,
-  attachments: { include: { file: { select: { id: true, name: true, mimeType: true } } } },
-} as const;
-
-function serializeOrder(o: {
-  items: { unitPrice: unknown; [k: string]: unknown }[];
-  [k: string]: unknown;
-}) {
-  return {
-    ...o,
-    items: o.items.map((i) => ({ ...i, unitPrice: i.unitPrice!.toString() })),
-  };
-}
+import { orderIncludeShape as includeShape, serializeOrder } from "@/lib/orders";
 
 /** Sipariş listesi — muhasebe tüm siparişleri görür, pazarlama sadece kendi oluşturduklarını. */
 export async function GET(req: Request) {

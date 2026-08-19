@@ -16,6 +16,7 @@ type OrderRow = {
   createdAt: string;
   createdBy: { id: string; name: string };
   items: { quantity: number; unitPrice: string }[];
+  payments: { amount: string }[];
 };
 
 const STATUS_LABEL: Record<OrderRow["status"], string> = {
@@ -164,6 +165,14 @@ function OrdersPageInner() {
           <div className="card overflow-hidden">
             {orders.map((o) => {
               const total = o.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
+              const collected = o.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+              const paymentLabel = collected <= 0 ? "Ödenmedi" : collected < total ? "Kısmi ödendi" : "Ödendi";
+              const paymentColor =
+                collected <= 0
+                  ? "var(--text-tertiary)"
+                  : collected < total
+                    ? "var(--warning, #d97706)"
+                    : "var(--success, #16a34a)";
               return (
                 <button
                   key={o.id}
@@ -188,6 +197,11 @@ function OrdersPageInner() {
                   >
                     {STATUS_LABEL[o.status]}
                   </span>
+                  {o.status !== "CANCELLED" && (
+                    <span className="text-xs font-medium" style={{ color: paymentColor }}>
+                      {paymentLabel}
+                    </span>
+                  )}
                 </button>
               );
             })}
