@@ -26,6 +26,7 @@ export async function middleware(req: NextRequest) {
       pathname.startsWith("/account") ||
       pathname.startsWith("/office") ||
       pathname.startsWith("/orders") ||
+      pathname.startsWith("/accounting") ||
       pathname.startsWith("/customers"))
   ) {
     const url = req.nextUrl.clone();
@@ -50,5 +51,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/drive/:path*", "/admin/:path*", "/account/:path*", "/office/:path*", "/orders/:path*", "/customers/:path*", "/login", "/setup"],
+  matcher: ["/drive/:path*", "/admin/:path*", "/account/:path*", "/office/:path*", "/orders/:path*", "/accounting/:path*", "/customers/:path*", "/login", "/setup"],
 };

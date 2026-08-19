@@ -95,9 +95,15 @@ export default function TopBar({
           </div>
         </div>
 
-        {(user.role === "ADMIN" || user.canCreateOrders || user.canManageOrders) && (
+        {(user.role === "ADMIN" || user.canCreateOrders) && (
           <a href={withBasePath("/orders")} className="btn-secondary hidden text-sm sm:inline-block">
-            Siparişler
+            Satış
+          </a>
+        )}
+
+        {(user.role === "ADMIN" || user.canManageOrders) && (
+          <a href={withBasePath("/accounting")} className="btn-secondary hidden text-sm sm:inline-block">
+            Muhasebe
           </a>
         )}
 
@@ -107,7 +113,7 @@ export default function TopBar({
           </a>
         )}
 
-        <NotificationBell />
+        <NotificationBell canManageOrders={user.role === "ADMIN" || user.canManageOrders} />
         <ThemeToggle />
 
         <a href={withBasePath("/account")} className="hidden items-center gap-2 sm:flex" title="Hesap ayarları">

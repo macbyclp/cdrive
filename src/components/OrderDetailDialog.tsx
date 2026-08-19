@@ -6,6 +6,7 @@ import { withBasePath } from "@/lib/basePath";
 import { formatCurrencyTL, formatDate, iconForMime } from "@/lib/format";
 import OrderDialog from "@/components/OrderDialog";
 import PaymentDialog from "@/components/PaymentDialog";
+import FilePickerDialog from "@/components/FilePickerDialog";
 
 type OrderDetail = {
   id: string;
@@ -71,6 +72,7 @@ export default function OrderDetailDialog({
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showAttach, setShowAttach] = useState(false);
 
   function load() {
     fetch(withBasePath(`/api/orders/${orderId}`))
@@ -120,6 +122,23 @@ export default function OrderDetailDialog({
       return;
     }
     toast("Not kaydedildi", "success");
+    load();
+  }
+
+  async function addAttachments(files: { id: string; name: string; mimeType: string }[]) {
+    setBusy(true);
+    const res = await fetch(withBasePath(`/api/orders/${orderId}`), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileIds: files.map((f) => f.id) }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Eklenemedi", "error");
+      return;
+    }
+    toast("Belge eklendi", "success");
     load();
   }
 
@@ -353,24 +372,37 @@ export default function OrderDetailDialog({
                 </div>
               )}
 
-              {order.attachments.length > 0 && (
+              {(order.attachments.length > 0 || canManage) && (
                 <div>
-                  <p className="mb-1.5 text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                    Ek dosyalar
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {order.attachments.map((a) => (
-                      <a
-                        key={a.file.id}
-                        href={withBasePath(`/api/files/${a.file.id}`)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="badge flex items-center gap-1"
-                      >
-                        {iconForMime(a.file.mimeType)} {a.file.name}
-                      </a>
-                    ))}
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                      Ek dosyalar / resmi fatura
+                    </p>
+                    {canManage && (
+                      <button className="btn-ghost text-xs" onClick={() => setShowAttach(true)}>
+                        + Fatura/belge ekle
+                      </button>
+                    )}
                   </div>
+                  {order.attachments.length === 0 ? (
+                    <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+                      Henüz ek yok.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {order.attachments.map((a) => (
+                        <a
+                          key={a.file.id}
+                          href={withBasePath(`/api/files/${a.file.id}`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="badge flex items-center gap-1"
+                        >
+                          {iconForMime(a.file.mimeType)} {a.file.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -442,6 +474,17 @@ export default function OrderDetailDialog({
           onSaved={() => {
             load();
             onChanged();
+          }}
+        />
+      )}
+
+      {showAttach && order && (
+        <FilePickerDialog
+          initiallySelected={order.attachments.map((a) => a.file)}
+          onCancel={() => setShowAttach(false)}
+          onConfirm={(files) => {
+            setShowAttach(false);
+            addAttachments(files);
           }}
         />
       )}

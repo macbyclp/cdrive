@@ -23,7 +23,7 @@ function timeAgo(iso: string) {
   return `${Math.floor(hours / 24)} gün önce`;
 }
 
-export default function NotificationBell() {
+export default function NotificationBell({ canManageOrders = false }: { canManageOrders?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notification[]>([]);
@@ -69,7 +69,9 @@ export default function NotificationBell() {
       load();
     }
     setOpen(false);
-    if (n.targetType === "order" && n.targetId) router.push(`/orders?open=${n.targetId}`);
+    if (n.targetType === "order" && n.targetId) {
+      router.push(canManageOrders ? `/accounting?open=${n.targetId}` : `/orders?open=${n.targetId}`);
+    }
     else if (n.targetType === "folder" && n.targetId) router.push(`/drive?folder=${n.targetId}`);
     else router.push("/drive?view=shared");
   }

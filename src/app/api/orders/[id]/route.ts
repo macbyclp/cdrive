@@ -63,24 +63,34 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const body = patchSchema.parse(await req.json());
     const wantsStatusChange = body.status !== undefined || body.accountingNote !== undefined;
-    const wantsContentChange =
+    // Ekler ayrı tutuluyor: muhasebe onay/fatura sürecinde (durum ne olursa olsun) resmi
+    // faturayı/belgeyi siparişe iliştirebilsin diye — diğer içerik alanları hâlâ sadece
+    // "Beklemede" iken oluşturan kişiye (veya admin'e) açık.
+    const wantsAttachmentChange = body.fileIds !== undefined;
+    const wantsOtherContentChange =
       body.customerName !== undefined ||
       body.customerContact !== undefined ||
       body.notes !== undefined ||
       body.items !== undefined ||
-      body.fileIds !== undefined ||
       body.dueDate !== undefined;
 
     if (wantsStatusChange && !canManageOrders(user)) {
       return NextResponse.json({ error: "Durum değiştirme yetkiniz yok" }, { status: 403 });
     }
-    if (wantsContentChange) {
+    if (wantsOtherContentChange) {
       const isOwnerWhilePending = existing.createdById === user.id && existing.status === "PENDING" && canCreateOrder(user);
       if (!isOwnerWhilePending && user.role !== "ADMIN") {
         return NextResponse.json(
           { error: "İçeriği sadece beklemedeki kendi siparişinizde (veya admin olarak) değiştirebilirsiniz" },
           { status: 403 }
         );
+      }
+    }
+    if (wantsAttachmentChange) {
+      const isOwnerWhilePending = existing.createdById === user.id && existing.status === "PENDING" && canCreateOrder(user);
+      const isAccounting = canManageOrders(user);
+      if (!isOwnerWhilePending && !isAccounting && user.role !== "ADMIN") {
+        return NextResponse.json({ error: "Ek dosya ekleme/kaldırma yetkiniz yok" }, { status: 403 });
       }
     }
 

@@ -22,11 +22,12 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
     const q = searchParams.get("q")?.trim();
+    const mine = searchParams.get("mine") === "1";
     const statusFilter = status && status !== "ALL" ? { status: status as "PENDING" | "APPROVED" | "INVOICED" | "CANCELLED" } : {};
     const qFilter = q ? { customerName: { contains: q } } : {};
 
     const orders = await prisma.order.findMany({
-      where: { ...statusFilter, ...qFilter, ...(canManageOrders(user) ? {} : { createdById: user.id }) },
+      where: { ...statusFilter, ...qFilter, ...(mine || !canManageOrders(user) ? { createdById: user.id } : {}) },
       orderBy: { createdAt: "desc" },
       include: { createdBy: { select: { name: true } }, items: true, payments: true },
     });

@@ -17,6 +17,10 @@ export async function GET(req: Request) {
     const status = searchParams.get("status");
     const q = searchParams.get("q")?.trim();
     const customerId = searchParams.get("customerId");
+    // "mine=1" — Satış ekranı bunu her zaman gönderir: muhasebe/admin yetkisi olan biri o
+    // ekranda gezerken bile sadece KENDİ açtığı siparişleri görsün diye (iki ekranın birbirine
+    // karışmaması için) — Muhasebe ekranı bu parametreyi hiç göndermez, herkesi görür.
+    const mine = searchParams.get("mine") === "1";
     const statusFilter = status && status !== "ALL" ? { status: status as "PENDING" | "APPROVED" | "INVOICED" | "CANCELLED" } : {};
     const qFilter = q ? { customerName: { contains: q } } : {};
     const customerFilter = customerId ? { customerId } : {};
@@ -25,7 +29,7 @@ export async function GET(req: Request) {
       ...statusFilter,
       ...qFilter,
       ...customerFilter,
-      ...(canManageOrders(user) ? {} : { createdById: user.id }),
+      ...(mine || !canManageOrders(user) ? { createdById: user.id } : {}),
     };
 
     const orders = await prisma.order.findMany({
