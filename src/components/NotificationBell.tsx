@@ -69,7 +69,8 @@ export default function NotificationBell() {
       load();
     }
     setOpen(false);
-    if (n.targetType === "folder" && n.targetId) router.push(`/drive?folder=${n.targetId}`);
+    if (n.targetType === "order" && n.targetId) router.push(`/orders?open=${n.targetId}`);
+    else if (n.targetType === "folder" && n.targetId) router.push(`/drive?folder=${n.targetId}`);
     else router.push("/drive?view=shared");
   }
 

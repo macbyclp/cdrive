@@ -84,6 +84,21 @@ export async function assertQuota(user: User, addBytes: bigint) {
   }
 }
 
+/** Sipariş sistemine hiç erişimi olmayanlar için: sidebar'da bile görünmemeli. */
+export function canAccessOrders(user: User) {
+  return user.role === "ADMIN" || user.canCreateOrders || user.canManageOrders;
+}
+
+/** Yeni sipariş oluşturabilir mi — pazarlama tarafı (+ admin). */
+export function canCreateOrder(user: User) {
+  return user.role === "ADMIN" || user.canCreateOrders;
+}
+
+/** Tüm siparişleri görüp durumunu değiştirebilir mi — muhasebe tarafı (+ admin). */
+export function canManageOrders(user: User) {
+  return user.role === "ADMIN" || user.canManageOrders;
+}
+
 export function formatBytes(bytes: bigint | number) {
   const n = typeof bytes === "bigint" ? Number(bytes) : bytes;
   const units = ["B", "KB", "MB", "GB", "TB"];

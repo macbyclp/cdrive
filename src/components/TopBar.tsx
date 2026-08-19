@@ -95,6 +95,12 @@ export default function TopBar({
           </div>
         </div>
 
+        {(user.role === "ADMIN" || user.canCreateOrders || user.canManageOrders) && (
+          <a href={withBasePath("/orders")} className="btn-secondary hidden text-sm sm:inline-block">
+            Siparişler
+          </a>
+        )}
+
         {(user.role === "ADMIN" || user.role === "MANAGER") && (
           <a href={withBasePath("/admin")} className="btn-secondary hidden text-sm sm:inline-block">
             Yönetim

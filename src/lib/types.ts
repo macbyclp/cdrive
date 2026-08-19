@@ -8,6 +8,8 @@ export type MeUser = {
   quotaBytes: string;
   twoFactorEnabled: boolean;
   uiSkin: "modern" | "archive";
+  canCreateOrders: boolean;
+  canManageOrders: boolean;
 };
 
 export type Tag = { id: string; name: string; color: string };

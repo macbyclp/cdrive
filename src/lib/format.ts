@@ -10,6 +10,11 @@ export function formatBytesStr(bytes: string | number) {
   return `${val.toFixed(val < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
+export function formatCurrencyTL(amount: string | number) {
+  const n = typeof amount === "string" ? Number(amount) : amount;
+  return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(n);
+}
+
 export function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("tr-TR", {
     day: "2-digit",

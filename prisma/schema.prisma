@@ -56,11 +56,22 @@ enum AuditAction {
   SESSION_REVOKE
   SETTINGS_UPDATE
   AUTO_CLEANUP
+  ORDER_CREATE
+  ORDER_STATUS_UPDATE
 }
 
 enum NotificationType {
   SHARE_GRANTED
   QUOTA_WARNING
+  ORDER_CREATED
+  ORDER_STATUS_CHANGED
+}
+
+enum OrderStatus {
+  PENDING // Beklemede
+  APPROVED // Onaylandı
+  INVOICED // Faturalandı
+  CANCELLED // İptal
 }
 
 model Department {
@@ -86,6 +97,11 @@ model User {
   usedBytes    BigInt   @default(0)
   createdAt    DateTime @default(now())
 
+  // Sipariş kayıt sistemi — departmandan bağımsız, admin panelinden kişi bazlı açılan
+  // iki ayrı yetki: pazarlama tarafı (oluşturma) ve muhasebe tarafı (yönetme).
+  canCreateOrders Boolean @default(false)
+  canManageOrders Boolean @default(false)
+
   // Güvenlik: 2FA (TOTP) ve başarısız giriş kilitleme
   twoFactorSecret      String?
   twoFactorEnabled     Boolean   @default(false)
@@ -109,6 +125,8 @@ model User {
   fileComments FileComment[]
   groupMemberships GroupMember[]
   templateMemberships PermissionTemplateMember[]
+  ordersCreated Order[] @relation("OrderCreatedBy")
+  ordersUpdated Order[] @relation("OrderUpdatedBy")
 
   @@map("users")
 }
@@ -194,6 +212,7 @@ model File {
   stars       FileStar[]
   tags        FileTag[]
   comments    FileComment[]
+  orderAttachments OrderAttachment[]
 
   @@index([folderId])
   @@index([ownerId])
@@ -417,4 +436,53 @@ model PermissionTemplateMember {
   group      Group?              @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@map("permission_template_members")
+}
+
+/// Pazarlamanın müşterileri için açtığı sipariş kaydı — muhasebeye iletilir, sadece
+/// canCreateOrders/canManageOrders yetkisi olanlar (ve admin) görebilir. Dosya sistemindeki
+/// klasör/dosya izin modelinden bağımsız, ayrı ve daha basit bir yetki modeli kullanır.
+model Order {
+  id              String      @id @default(cuid())
+  customerName    String
+  customerContact String? // telefon/e-posta, serbest metin
+  notes           String?     @db.Text
+  status          OrderStatus @default(PENDING)
+  accountingNote  String?     @db.Text // muhasebenin eklediği not (onay/red gerekçesi vb.)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  createdById String
+  createdBy   User   @relation("OrderCreatedBy", fields: [createdById], references: [id])
+
+  updatedById String?
+  updatedBy   User?   @relation("OrderUpdatedBy", fields: [updatedById], references: [id])
+
+  items       OrderItem[]
+  attachments OrderAttachment[]
+
+  @@index([status])
+  @@index([createdById])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productName String
+  quantity    Int     @default(1)
+  unitPrice   Decimal @db.Decimal(12, 2)
+
+  @@map("order_items")
+}
+
+model OrderAttachment {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fileId  String
+  file    File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, fileId])
+  @@map("order_attachments")
 }

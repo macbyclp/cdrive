@@ -17,6 +17,8 @@ type AdminUser = {
   quotaBytes: string;
   department: { id: string; name: string } | null;
   createdAt: string;
+  canCreateOrders: boolean;
+  canManageOrders: boolean;
 };
 
 type Department = { id: string; name: string; quotaBytes: string; _count: { users: number } };
@@ -303,6 +305,27 @@ function UsersTab({
                   </option>
                 ))}
               </select>
+
+              <div className="flex shrink-0 flex-col gap-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5"
+                    checked={u.canCreateOrders}
+                    onChange={(e) => update(u.id, { canCreateOrders: e.target.checked }, "Sipariş oluşturma yetkisi güncellendi")}
+                  />
+                  Sipariş oluşturabilir
+                </label>
+                <label className="flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    className="h-3.5 w-3.5"
+                    checked={u.canManageOrders}
+                    onChange={(e) => update(u.id, { canManageOrders: e.target.checked }, "Sipariş yönetme yetkisi güncellendi")}
+                  />
+                  Siparişleri yönetebilir
+                </label>
+              </div>
 
               <div className="w-44 shrink-0">
                 <div className="mb-1 flex justify-between text-[11px]" style={{ color: "var(--text-secondary)" }}>

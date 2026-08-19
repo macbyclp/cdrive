@@ -31,6 +31,8 @@ export async function GET() {
         quotaBytes: user.quotaBytes.toString(),
         twoFactorEnabled: user.twoFactorEnabled,
         uiSkin: settings?.uiSkin ?? "modern",
+        canCreateOrders: user.canCreateOrders,
+        canManageOrders: user.canManageOrders,
       },
     });
   } catch (err) {

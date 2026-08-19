@@ -12,6 +12,8 @@ const schema = z.object({
   departmentId: z.string().nullable().optional(),
   quotaBytes: z.number().optional(),
   password: z.string().min(8).optional(),
+  canCreateOrders: z.boolean().optional(),
+  canManageOrders: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
