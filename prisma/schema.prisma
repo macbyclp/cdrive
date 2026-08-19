@@ -117,7 +117,10 @@ model User {
   // İlk giriş kurulumu — admin tarafından oluşturulan hesaplarda true başlar: kullanıcı ilk
   // girişte kendi şifresini belirleyip bir avatar seçene kadar /onboarding'e yönlendirilir.
   mustChangePassword Boolean @default(false)
-  avatarKey          String? // hazır avatar setinden seçilen anahtar (bkz. src/lib/avatars.ts), null = baş harf rozeti
+  avatarKey          String? // ESKİ preset emoji-avatar seti (bkz. src/lib/avatars.ts) — geriye dönük uyumluluk için
+  // YENİ çok parçalı "memoji" tarzı avatar — JSON: {skin,hair,eyes,mouth,accessory}
+  // (bkz. src/lib/avatar-parts.ts). Doluysa Avatar bileşeni bunu avatarKey'e tercih eder.
+  avatarParts        String? @db.Text
 
   // Güvenlik: 2FA (TOTP) ve başarısız giriş kilitleme
   twoFactorSecret      String?
@@ -510,6 +513,11 @@ model Customer {
   taxOffice String?
   phone     String?
   email     String?
+  // Adres geocode edilince (bkz. src/lib/geocode.ts, OpenStreetMap Nominatim — ücretsiz,
+  // API anahtarı gerekmez) bir daha aynı adresi sormamak için burada önbelleğe alınır.
+  // Panel'deki "Genel Görünüm" haritasında firma konumlarını göstermek için kullanılıyor.
+  lat       Float?
+  lng       Float?
 
   orders Order[]
 

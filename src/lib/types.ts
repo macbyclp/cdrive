@@ -11,6 +11,7 @@ export type MeUser = {
   canCreateOrders: boolean;
   canManageOrders: boolean;
   avatarKey: string | null;
+  avatarParts: string | null;
 };
 
 export type Tag = { id: string; name: string; color: string };

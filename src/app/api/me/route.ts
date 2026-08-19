@@ -34,6 +34,7 @@ export async function GET() {
         canCreateOrders: user.canCreateOrders,
         canManageOrders: user.canManageOrders,
         avatarKey: user.avatarKey,
+        avatarParts: user.avatarParts,
       },
     });
   } catch (err) {

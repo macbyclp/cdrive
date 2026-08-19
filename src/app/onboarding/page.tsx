@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMe } from "@/lib/useMe";
 import { withBasePath } from "@/lib/basePath";
-import { AVATAR_PRESETS } from "@/lib/avatars";
+import AvatarBuilder from "@/components/AvatarBuilder";
+import { DEFAULT_AVATAR_CONFIG, type AvatarConfig } from "@/lib/avatar-parts";
 
 /** İlk giriş kurulumu — admin tarafından açılan hesaplar buradan geçmeden başka hiçbir yere giremez. */
 export default function OnboardingPage() {
@@ -12,7 +13,7 @@ export default function OnboardingPage() {
   const { user, refresh } = useMe();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [avatarKey, setAvatarKey] = useState(AVATAR_PRESETS[0].key);
+  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(DEFAULT_AVATAR_CONFIG);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +36,7 @@ export default function OnboardingPage() {
     const res = await fetch(withBasePath("/api/account/onboarding"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password, avatarKey }),
+      body: JSON.stringify({ password, avatarConfig }),
     });
     setBusy(false);
     if (!res.ok) {
@@ -48,7 +49,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "var(--background)" }}>
+    <div className="flex min-h-screen items-center justify-center px-4 py-8" style={{ background: "var(--background)" }}>
       <div
         className="w-full max-w-lg rounded-2xl border p-8"
         style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
@@ -63,7 +64,7 @@ export default function OnboardingPage() {
           Hoş geldin{user ? `, ${user.name}` : ""}
         </h1>
         <p className="mx-auto mt-1 max-w-sm text-center text-sm" style={{ color: "var(--text-secondary)" }}>
-          Hesabın bir yönetici tarafından açıldı. Devam etmeden önce kendi şifreni belirle ve bir avatar seç.
+          Hesabın bir yönetici tarafından açıldı. Devam etmeden önce kendi şifreni belirle ve bir avatar oluştur.
         </p>
 
         <form onSubmit={submit} className="mt-6 space-y-5">
@@ -99,27 +100,9 @@ export default function OnboardingPage() {
 
           <div>
             <span className="mb-2 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-              Avatarını seç
+              Avatarını oluştur
             </span>
-            <div className="grid grid-cols-8 gap-2 sm:grid-cols-8">
-              {AVATAR_PRESETS.map((a) => (
-                <button
-                  key={a.key}
-                  type="button"
-                  onClick={() => setAvatarKey(a.key)}
-                  className="flex aspect-square items-center justify-center rounded-full text-lg transition-transform"
-                  style={{
-                    background: `linear-gradient(135deg, ${a.from}, ${a.to})`,
-                    outline: avatarKey === a.key ? "3px solid var(--accent)" : "none",
-                    outlineOffset: "2px",
-                    transform: avatarKey === a.key ? "scale(1.08)" : "none",
-                  }}
-                  aria-label={a.key}
-                >
-                  {a.emoji}
-                </button>
-              ))}
-            </div>
+            <AvatarBuilder value={avatarConfig} onChange={setAvatarConfig} />
           </div>
 
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}

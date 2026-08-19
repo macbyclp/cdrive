@@ -2,13 +2,20 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser, hashPassword, createSession } from "@/lib/auth";
-import { AVATAR_PRESETS } from "@/lib/avatars";
+import { serializeAvatarConfig } from "@/lib/avatar-parts";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
 
 const schema = z.object({
   password: z.string().min(8),
-  avatarKey: z.enum(AVATAR_PRESETS.map((a) => a.key) as [string, ...string[]]),
+  avatarConfig: z.object({
+    skin: z.string(),
+    hairStyle: z.string(),
+    hairColor: z.string(),
+    eyes: z.string(),
+    mouth: z.string(),
+    accessory: z.string(),
+  }),
 });
 
 /** İlk giriş kurulumu — admin tarafından açılan hesap kendi şifresini belirler ve bir avatar seçer. */
@@ -20,7 +27,7 @@ export async function POST(req: Request) {
     const passwordHash = await hashPassword(body.password);
     await prisma.user.update({
       where: { id: user.id },
-      data: { passwordHash, avatarKey: body.avatarKey, mustChangePassword: false },
+      data: { passwordHash, avatarParts: serializeAvatarConfig(body.avatarConfig), mustChangePassword: false },
     });
 
     await logAudit({ userId: user.id, action: "PASSWORD_CHANGE", detail: "İlk giriş kurulumu tamamlandı" });

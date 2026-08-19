@@ -21,6 +21,7 @@ type AdminUser = {
   canCreateOrders: boolean;
   canManageOrders: boolean;
   avatarKey: string | null;
+  avatarParts: string | null;
   mustChangePassword: boolean;
 };
 
@@ -281,7 +282,7 @@ function UsersTab({
                 onClick={() => toggleExpanded(u.id)}
                 className="flex w-full items-center gap-3 px-4 py-3 text-left hover:opacity-90"
               >
-                <Avatar name={u.name} email={u.email} avatarKey={u.avatarKey} size={32} />
+                <Avatar name={u.name} email={u.email} avatarKey={u.avatarKey} avatarParts={u.avatarParts} size={32} />
                 <div className="min-w-[10rem] flex-1">
                   <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                     {u.name}

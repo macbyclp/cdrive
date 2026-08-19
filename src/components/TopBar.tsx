@@ -108,7 +108,7 @@ export default function TopBar({
         <ThemeToggle />
 
         <a href={withBasePath("/account")} className="hidden items-center gap-2 sm:flex" title="Hesap ayarları">
-          <Avatar name={user.name} email={user.email} avatarKey={user.avatarKey} size={32} />
+          <Avatar name={user.name} email={user.email} avatarKey={user.avatarKey} avatarParts={user.avatarParts} size={32} />
           <div className="hidden text-sm md:block">
             <div className="font-medium leading-tight" style={{ color: "var(--text-primary)" }}>
               {user.name}

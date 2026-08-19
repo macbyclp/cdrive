@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 import { orderIncludeShape as includeShape, serializeOrder, findOrCreateCustomer } from "@/lib/orders";
 import { extractInvoiceFields, isExtractableMime } from "@/lib/invoice-extract";
+import { geocodeAddress } from "@/lib/geocode";
 import { readFile } from "@/lib/storage";
 
 async function loadOrder(id: string) {
@@ -194,7 +195,15 @@ async function tryExtractFromNewAttachments(fileIds: string[], customerId: strin
 
       if (Object.keys(patch).length === 0) continue;
 
-      await prisma.customer.update({ where: { id: customerId }, data: patch });
+      // Yeni yazılan adres varsa Panel'deki "Genel Görünüm" haritası için tek seferlik
+      // geocode edilip (OpenStreetMap Nominatim, ücretsiz) önbelleğe alınıyor — hata
+      // olursa (ağ/rate-limit) sessizce atlanır, müşteri kaydı yine de güncellenir.
+      const geo = patch.address ? await geocodeAddress(patch.address) : null;
+
+      await prisma.customer.update({
+        where: { id: customerId },
+        data: { ...patch, ...(geo ? { lat: geo.lat, lng: geo.lng } : {}) },
+      });
       await logAudit({
         userId,
         action: "CUSTOMER_AUTO_UPDATE",

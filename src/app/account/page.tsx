@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import TopBar from "@/components/TopBar";
+import AvatarBuilder from "@/components/AvatarBuilder";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import type { MeUser } from "@/lib/types";
 import { withBasePath } from "@/lib/basePath";
+import { DEFAULT_AVATAR_CONFIG, parseAvatarConfig, type AvatarConfig } from "@/lib/avatar-parts";
 
 export default function AccountPage() {
   const { user, refresh } = useMe();
@@ -29,11 +31,50 @@ export default function AccountPage() {
         </p>
 
         <div className="space-y-6">
+          <AvatarCard user={user} onChange={refresh} />
           <PasswordCard />
           <TwoFactorCard user={user} onChange={refresh} />
           <SessionsCard />
         </div>
       </main>
+    </div>
+  );
+}
+
+function AvatarCard({ user, onChange }: { user: MeUser; onChange: () => void }) {
+  const toast = useToast();
+  const [config, setConfig] = useState<AvatarConfig>(() => parseAvatarConfig(user.avatarParts) ?? DEFAULT_AVATAR_CONFIG);
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    const res = await fetch(withBasePath("/api/account/avatar"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Avatar kaydedilemedi", "error");
+      return;
+    }
+    toast("Avatar güncellendi", "success");
+    onChange();
+  }
+
+  return (
+    <div className="card p-5">
+      <h2 className="mb-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+        Avatarım
+      </h2>
+      <p className="mb-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+        Avatarını istediğin zaman değiştirebilirsin.
+      </p>
+      <AvatarBuilder value={config} onChange={setConfig} />
+      <button disabled={busy} onClick={save} className="btn-primary mt-4 w-full">
+        {busy ? "Kaydediliyor…" : "Avatarı kaydet"}
+      </button>
     </div>
   );
 }

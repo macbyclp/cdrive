@@ -131,6 +131,24 @@ export async function GET() {
       .sort((a, b) => b.lastOrderAt.getTime() - a.lastOrderAt.getTime())
       .slice(0, 5);
 
+    // "Genel Görünüm" haritası için — sadece daha önce geocode edilmiş (bkz.
+    // src/lib/geocode.ts, fatura ekinden adres çekilince tetiklenir) müşteriler.
+    // Uydurma/varsayılan konum yok: adresi geocode edilmemiş müşteri haritada görünmez.
+    const seenCustomerIds = new Set<string>();
+    const mapPoints: { id: string; name: string; address: string | null; lat: number; lng: number }[] = [];
+    for (const o of orders) {
+      if (!o.customer || o.customer.lat === null || o.customer.lng === null) continue;
+      if (seenCustomerIds.has(o.customer.id)) continue;
+      seenCustomerIds.add(o.customer.id);
+      mapPoints.push({
+        id: o.customer.id,
+        name: o.customer.name,
+        address: o.customer.address,
+        lat: o.customer.lat,
+        lng: o.customer.lng,
+      });
+    }
+
     return NextResponse.json({
       stats: {
         thisMonthOrderCount: thisMonth.length,
@@ -142,6 +160,7 @@ export async function GET() {
       statusBreakdown,
       recentOrder,
       latestCustomers,
+      mapPoints,
       scoped,
     });
   } catch (err) {

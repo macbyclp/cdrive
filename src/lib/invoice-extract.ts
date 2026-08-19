@@ -60,10 +60,16 @@ function extractTaxOffice(text: string): string | null {
   return m ? m[1].trim() : null;
 }
 
+const PHONE_PATTERN = /(?:\+?90[\s.-]?)?0?\s?\(?(?:5\d{2}|2\d{2}|3\d{2}|4\d{2})\)?[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}/;
+
 function extractPhone(text: string): string | null {
-  // Türkiye cep (05xx) ve sabit hat (0[2-4]xx) numaraları, boşluk/tire/parantez toleranslı.
-  const m = text.match(/(?:\+?90[\s.-]?)?0?\s?\(?(?:5\d{2}|2\d{2}|3\d{2}|4\d{2})\)?[\s.-]?\d{3}[\s.-]?\d{2}[\s.-]?\d{2}/);
-  return m ? m[0].replace(/\s+/g, " ").trim() : null;
+  // Önce "Tel:"/"Telefon:"/"Phone:" etiketinden sonraki numarayı ara — etiketsiz arama
+  // vergi no gibi 10 haneli başka sayıları da yanlışlıkla telefon sanabiliyor (ikisi de
+  // aynı sayı deseniyle eşleşiyor). Etiket bulunamazsa son çare olarak bare pattern denenir.
+  const labeled = text.match(new RegExp(`(?:tel(?:efon)?|phone)\\s*[:.]?\\s*(${PHONE_PATTERN.source})`, "i"));
+  if (labeled) return labeled[1].replace(/\s+/g, " ").trim();
+  const bare = text.match(PHONE_PATTERN);
+  return bare ? bare[0].replace(/\s+/g, " ").trim() : null;
 }
 
 function extractEmail(text: string): string | null {
