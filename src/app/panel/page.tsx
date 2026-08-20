@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import TopBar from "@/components/TopBar";
+import AppShell from "@/components/AppShell";
 import Avatar from "@/components/Avatar";
 import CustomerMap from "@/components/CustomerMap";
 import { useToast } from "@/components/ToastProvider";
@@ -52,23 +52,6 @@ const ACTION_LABEL: Record<string, string> = {
   PAYMENT_RECORD: "Tahsilat kaydedildi",
   PAYMENT_DELETE: "Tahsilat silindi",
 };
-
-function SideLink({ href, label, icon, active = false }: { href: string; label: string; icon: string; active?: boolean }) {
-  return (
-    <a
-      href={withBasePath(href)}
-      className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors"
-      style={
-        active
-          ? { background: "var(--accent-soft)", color: "var(--accent-soft-foreground)" }
-          : { color: "var(--text-secondary)" }
-      }
-    >
-      <span className="text-base">{icon}</span>
-      {label}
-    </a>
-  );
-}
 
 function StatCard({
   label,
@@ -199,31 +182,9 @@ export default function PanelPage() {
 
   if (!user) return null;
 
-  const canOrders = user.role === "ADMIN" || user.canCreateOrders || user.canManageOrders;
-  const canAdmin = user.role === "ADMIN" || user.role === "MANAGER";
-
   return (
-    <div className="flex min-h-screen flex-col" style={{ backgroundColor: "var(--background)" }}>
-      <TopBar user={user} />
-      <div className="flex flex-1">
-        <aside
-          className="hidden w-60 shrink-0 border-r p-4 sm:block"
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-        >
-          <nav className="space-y-1">
-            <SideLink href="/panel" label="Genel Bakış" icon="📊" active />
-            {/* ?view=root: /drive'ın "panel aktifken parametresiz kök = /panel'e geri yönlendir"
-                mantığını burada bilerek atlatır, yoksa bu link kendi kendine geri döner. */}
-            <SideLink href="/drive?view=root" label="Sürücüm" icon="🗂️" />
-            {(user.role === "ADMIN" || user.canCreateOrders) && <SideLink href="/orders" label="Satış" icon="🛒" />}
-            {(user.role === "ADMIN" || user.canManageOrders) && <SideLink href="/accounting" label="Muhasebe" icon="🧾" />}
-            {canOrders && <SideLink href="/customers" label="Müşteriler" icon="👥" />}
-            {canAdmin && <SideLink href="/admin" label="Yönetim" icon="⚙️" />}
-            <SideLink href="/account" label="Hesap Ayarları" icon="🙍" />
-          </nav>
-        </aside>
-
-        <main className="flex-1 space-y-5 p-4 sm:p-6">
+    <AppShell user={user} active="panel">
+      <div className="space-y-5">
           <div>
             <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
               Merhaba, {user.name.split(" ")[0]} 👋
@@ -503,8 +464,7 @@ export default function PanelPage() {
               </div>
             </>
           )}
-        </main>
       </div>
-    </div>
+    </AppShell>
   );
 }

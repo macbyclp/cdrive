@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import TopBar from "@/components/TopBar";
+import AppShell from "@/components/AppShell";
 import { useMe } from "@/lib/useMe";
 import { formatCurrencyTL } from "@/lib/format";
 import { withBasePath } from "@/lib/basePath";
@@ -46,21 +46,19 @@ export default function CustomersPage() {
   const canAccess = user.role === "ADMIN" || user.canCreateOrders || user.canManageOrders;
   if (!canAccess) {
     return (
-      <div className="min-h-screen">
-        <TopBar user={user} />
-        <main className="mx-auto max-w-2xl p-6 text-center">
+      <AppShell user={user} active="customers">
+        <div className="mx-auto max-w-2xl p-6 text-center">
           <p className="mt-10 text-sm" style={{ color: "var(--text-secondary)" }}>
             Bu bölüme erişiminiz yok.
           </p>
-        </main>
-      </div>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="min-h-screen">
-      <TopBar user={user} />
-      <main className="mx-auto max-w-4xl p-4 sm:p-6">
+    <AppShell user={user} active="customers">
+      <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -143,7 +141,7 @@ export default function CustomersPage() {
             })}
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }

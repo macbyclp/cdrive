@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import TopBar from "@/components/TopBar";
+import AppShell from "@/components/AppShell";
 import OrderDialog from "@/components/OrderDialog";
 import OrderDetailDialog from "@/components/OrderDetailDialog";
 import { useMe } from "@/lib/useMe";
@@ -132,21 +132,20 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
 
   if (!gate) {
     return (
-      <div className="min-h-screen">
-        <TopBar user={user} />
-        <main className="mx-auto max-w-2xl p-6 text-center">
+      <AppShell user={user} active={mode === "sales" ? "sales" : "accounting"}>
+        <div className="mx-auto max-w-2xl p-6 text-center">
           <p className="mt-10 text-sm" style={{ color: "var(--text-secondary)" }}>
             Bu bölüme erişiminiz yok.
           </p>
-        </main>
-      </div>
+        </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="min-h-screen">
-      <TopBar user={user} />
-      <main className="mx-auto max-w-5xl p-4 sm:p-6">
+    <>
+    <AppShell user={user} active={mode === "sales" ? "sales" : "accounting"}>
+      <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
@@ -306,7 +305,8 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
             })}
           </div>
         )}
-      </main>
+      </div>
+    </AppShell>
 
       {showCreate && (
         <OrderDialog
@@ -330,6 +330,6 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
           onChanged={load}
         />
       )}
-    </div>
+    </>
   );
 }

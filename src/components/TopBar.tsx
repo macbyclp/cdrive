@@ -13,10 +13,15 @@ export default function TopBar({
   user,
   onSearch,
   onMenuClick,
+  hideQuickNav,
 }: {
   user: MeUser;
   onSearch?: (q: string) => void;
   onMenuClick?: () => void;
+  // Satış/Muhasebe/Yönetim kısayolları burada tekrar gösterilmesin — sayfa zaten
+  // AppShell'in kenar çubuğuyla açılıyorsa (bkz. src/components/AppShell.tsx) aynı
+  // linkler orada var, üstte tekrarlamaya gerek yok.
+  hideQuickNav?: boolean;
 }) {
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -86,19 +91,19 @@ export default function TopBar({
           </div>
         </div>
 
-        {(user.role === "ADMIN" || user.canCreateOrders) && (
+        {!hideQuickNav && (user.role === "ADMIN" || user.canCreateOrders) && (
           <a href={withBasePath("/orders")} className="btn-secondary hidden text-sm sm:inline-block">
             Satış
           </a>
         )}
 
-        {(user.role === "ADMIN" || user.canManageOrders) && (
+        {!hideQuickNav && (user.role === "ADMIN" || user.canManageOrders) && (
           <a href={withBasePath("/accounting")} className="btn-secondary hidden text-sm sm:inline-block">
             Muhasebe
           </a>
         )}
 
-        {(user.role === "ADMIN" || user.role === "MANAGER") && (
+        {!hideQuickNav && (user.role === "ADMIN" || user.role === "MANAGER") && (
           <a href={withBasePath("/admin")} className="btn-secondary hidden text-sm sm:inline-block">
             Yönetim
           </a>

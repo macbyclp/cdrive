@@ -110,11 +110,18 @@ function DriveInner() {
   // "panel" arayüzü aktifse ve gerçekten /drive'ın kökündeyiz (dosya gezinme amacı olan
   // folder/view/q parametreleri yoksa) ana ekran olarak /panel'e yönlendir. Derin bağlantılar
   // (paylaşılan bir klasör linki, arama sonucu vb.) hep /drive'da kalmaya devam eder.
+  // SADECE sayfaya İLK gelişte (fresh mount) kontrol edilir — yoksa kullanıcı /drive
+  // içindeyken kendi "Sürücüm" (kök) linkine tıkladığında (goFolder(null) → router.push("/drive"),
+  // parametresiz) bu useEffect params değişince tekrar tetiklenip onu anında geri /panel'e
+  // atıyordu; kullanıcı /drive'ın kökünü hiç gezemiyordu (gerçek hata, canlıda bulundu).
+  const didInitialPanelRedirectCheck = useRef(false);
   useEffect(() => {
-    if (user?.uiSkin === "panel" && !folderId && !params.get("view") && !params.get("q")) {
+    if (!user || didInitialPanelRedirectCheck.current) return;
+    didInitialPanelRedirectCheck.current = true;
+    if (user.uiSkin === "panel" && !folderId && !params.get("view") && !params.get("q")) {
       router.replace("/panel");
     }
-  }, [user?.uiSkin, folderId, params, router]);
+  }, [user, folderId, params, router]);
 
   function setViewMode(mode: ViewMode) {
     setViewModeState(mode);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import TopBar from "@/components/TopBar";
+import AppShell from "@/components/AppShell";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
@@ -87,9 +87,8 @@ export default function AdminPage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen">
-      <TopBar user={user} />
-      <main className="mx-auto max-w-5xl p-4 sm:p-6">
+    <AppShell user={user} active="admin">
+      <div className="mx-auto max-w-5xl">
         <h1 className="mb-1 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
           Yönetim paneli
         </h1>
@@ -148,8 +147,8 @@ export default function AdminPage() {
         {!loading && !error && tab === "analytics" && <AnalyticsTab users={users} departments={departments} />}
         {!loading && !error && tab === "settings" && <SettingsTab />}
         {!loading && !error && tab === "audit" && <AuditTab logs={logs} />}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }
 
