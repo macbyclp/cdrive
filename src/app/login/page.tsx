@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { withBasePath } from "@/lib/basePath";
+import Footer from "@/components/Footer";
 
 function LoginForm() {
   const router = useRouter();
@@ -57,7 +58,8 @@ function LoginForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "var(--background)" }}>
+    <div className="flex min-h-screen flex-col" style={{ background: "var(--background)" }}>
+      <div className="flex flex-1 items-center justify-center px-4">
       <div className="w-full max-w-md rounded-2xl border p-8 shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
         <div className="mb-6 text-center">
           <div
@@ -141,6 +143,8 @@ function LoginForm() {
           </form>
         )}
       </div>
+      </div>
+      <Footer />
     </div>
   );
 }

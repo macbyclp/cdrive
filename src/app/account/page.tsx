@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import TopBar from "@/components/TopBar";
 import AvatarBuilder from "@/components/AvatarBuilder";
 import FeatureTour from "@/components/FeatureTour";
+import Footer from "@/components/Footer";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import type { MeUser } from "@/lib/types";
@@ -22,9 +23,9 @@ export default function AccountPage() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <TopBar user={user} />
-      <main className="mx-auto max-w-2xl p-4 sm:p-6">
+      <main className="mx-auto w-full max-w-2xl flex-1 p-4 sm:p-6">
         <h1 className="mb-1 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
           Hesap ayarları
         </h1>
@@ -52,6 +53,7 @@ export default function AccountPage() {
           <SessionsCard />
         </div>
       </main>
+      <Footer />
       {showTour && <FeatureTour user={user} onClose={() => setShowTour(false)} />}
     </div>
   );

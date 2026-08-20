@@ -3,6 +3,7 @@
 import type { MeUser } from "@/lib/types";
 import TopBar from "@/components/TopBar";
 import AppSidebar, { type AppSidebarActive } from "@/components/AppSidebar";
+import Footer from "@/components/Footer";
 
 /**
  * "Panel" arayüzünün ortak sayfa iskeleti — TopBar + sol kenar çubuğu + içerik.
@@ -30,6 +31,7 @@ export default function AppShell({
         <AppSidebar user={user} active={active} />
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
+      <Footer />
     </div>
   );
 }
