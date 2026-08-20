@@ -411,56 +411,22 @@ export default function PanelPage() {
               </div>
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                {/* Genel Görünüm — geocode edilmiş müşteri adresi varsa gerçek harita
-                    (OpenStreetMap), yoksa dekoratif (uydurma veri içermeyen) görünüm */}
+                {/* Genel Görünüm — her zaman gerçek/etkileşimli harita (OpenStreetMap); işaretçi
+                    sadece fatura ekinden geocode edilmiş gerçek müşteri adresi varsa eklenir. */}
                 <div className="card overflow-hidden p-0 lg:col-span-2">
                   <div className="p-5 pb-0">
                     <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
                       Genel Görünüm
                     </h2>
-                    {data.mapPoints.length > 0 && (
-                      <p className="mt-0.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
-                        {data.mapPoints.length} müşteri konumu — faturalardan otomatik çekilen adreslerden
-                      </p>
-                    )}
+                    <p className="mt-0.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
+                      {data.mapPoints.length > 0
+                        ? `${data.mapPoints.length} müşteri konumu — faturalardan otomatik çekilen adreslerden`
+                        : "Bir siparişe fatura eklendiğinde adresler burada işaretlenecek"}
+                    </p>
                   </div>
-                  {data.mapPoints.length > 0 ? (
-                    <div className="mt-4 overflow-hidden">
-                      <CustomerMap points={data.mapPoints} />
-                    </div>
-                  ) : (
-                    <div
-                      className="relative mt-4 h-56 w-full overflow-hidden"
-                      style={{
-                        background:
-                          "radial-gradient(circle at 20% 30%, var(--accent-soft), transparent 60%), radial-gradient(circle at 80% 70%, var(--accent-soft), transparent 55%), var(--surface-muted)",
-                      }}
-                    >
-                      <svg viewBox="0 0 400 180" className="h-full w-full">
-                        <path
-                          d="M 20 140 C 100 40, 180 160, 260 60 S 380 40, 380 40"
-                          fill="none"
-                          stroke="var(--accent)"
-                          strokeWidth="2.5"
-                          strokeDasharray="6 6"
-                          opacity="0.55"
-                        />
-                        <circle cx="20" cy="140" r="6" fill="var(--accent)" />
-                        <circle cx="260" cy="60" r="6" fill="var(--accent)" />
-                        <circle cx="380" cy="40" r="8" fill="var(--accent)" />
-                        <circle cx="380" cy="40" r="8" fill="var(--accent)" opacity="0.4">
-                          <animate attributeName="r" values="8;16;8" dur="2s" repeatCount="indefinite" />
-                          <animate attributeName="opacity" values="0.4;0;0.4" dur="2s" repeatCount="indefinite" />
-                        </circle>
-                      </svg>
-                      <p
-                        className="absolute inset-x-0 bottom-2 text-center text-xs"
-                        style={{ color: "var(--text-tertiary)" }}
-                      >
-                        Bir siparişe fatura eklendiğinde adresler burada haritada görünecek
-                      </p>
-                    </div>
-                  )}
+                  <div className="mt-4 overflow-hidden">
+                    <CustomerMap points={data.mapPoints} />
+                  </div>
                 </div>
 
                 {/* Shipment Overview -> real order status breakdown */}

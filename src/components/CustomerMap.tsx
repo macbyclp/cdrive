@@ -5,23 +5,43 @@ import "leaflet/dist/leaflet.css";
 
 type MapPoint = { id: string; name: string; address: string | null; lat: number; lng: number };
 
+// Hiç geocode edilmiş müşteri yokken haritanın varsayılan görünümü — Türkiye'nin
+// ortalaması civarı. Uydurma bir işaretçi/konum DEĞİL, sadece boş haritanın nereden
+// açılacağı (bkz. src/lib/geocode.ts).
+const DEFAULT_CENTER: [number, number] = [39.0, 35.0];
+const DEFAULT_ZOOM = 5;
+
 /**
  * Panel'deki "Genel Görünüm" kartı için gerçek harita — OpenStreetMap tile'ları
- * (ücretsiz, API anahtarı gerekmez) + Leaflet.js. Sadece daha önce geocode edilmiş
- * (bkz. src/lib/geocode.ts) müşterileri gösterir; hiç yoksa çağıran taraf dekoratif
- * duruma düşer (bkz. panel/page.tsx).
+ * (ücretsiz, API anahtarı gerekmez) + Leaflet.js. Harita her zaman gerçek/etkileşimli
+ * olarak gösterilir; işaretçiler sadece daha önce geocode edilmiş (bkz.
+ * src/lib/geocode.ts) müşteriler için eklenir — veri yoksa harita boş açılır,
+ * uydurma bir işaretçi asla konmaz.
  */
 export default function CustomerMap({ points }: { points: MapPoint[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("leaflet").Map | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current || points.length === 0) return;
+    if (!containerRef.current) return;
     let cancelled = false;
 
     (async () => {
       const L = (await import("leaflet")).default;
       if (cancelled || !containerRef.current) return;
+
+      const map = L.map(containerRef.current, { zoomControl: true, attributionControl: true });
+      mapRef.current = map;
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
+
+      if (points.length === 0) {
+        map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        return;
+      }
 
       // Varsayılan Leaflet marker ikonları bundler'lar altında kırık gelir (göreli
       // asset yolları) — CSS ile çizilen basit bir daire ikonuna geçiliyor.
@@ -31,14 +51,6 @@ export default function CustomerMap({ points }: { points: MapPoint[] }) {
         iconSize: [14, 14],
         iconAnchor: [7, 7],
       });
-
-      const map = L.map(containerRef.current, { zoomControl: true, attributionControl: true });
-      mapRef.current = map;
-
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 18,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-      }).addTo(map);
 
       const markers = points.map((p) =>
         L.marker([p.lat, p.lng], { icon: dotIcon }).bindPopup(`<b>${escapeHtml(p.name)}</b>${p.address ? `<br>${escapeHtml(p.address)}` : ""}`)
@@ -58,8 +70,6 @@ export default function CustomerMap({ points }: { points: MapPoint[] }) {
       mapRef.current = null;
     };
   }, [points]);
-
-  if (points.length === 0) return null;
 
   return <div ref={containerRef} className="h-56 w-full" />;
 }

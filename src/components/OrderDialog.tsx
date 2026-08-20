@@ -162,7 +162,7 @@ export default function OrderDialog({
                   <input
                     type="number"
                     min={1}
-                    className="input w-16 px-2"
+                    className="input w-20 px-2"
                     placeholder="Adet"
                     value={it.quantity}
                     onChange={(e) => updateItem(idx, { quantity: e.target.value })}
