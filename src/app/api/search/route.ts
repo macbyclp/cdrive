@@ -27,6 +27,12 @@ export async function GET(req: Request) {
     const dateTo = searchParams.get("dateTo");
     const minSizeMb = searchParams.get("minSizeMb");
     const maxSizeMb = searchParams.get("maxSizeMb");
+    // Sohbetteki "Sürücüden ekle" gibi yerler için — normal arama ADMIN'e her şeyi,
+    // herkese de kendisiyle paylaşılmış dosyaları gösteriyor; bir sohbete eklerken
+    // bilerek SADECE kullanıcının kendi sahip olduğu dosyalar aranabilsin diye
+    // (gerçek hata: karşı tarafın kendi eklediği/paylaştığı dosyalar bile arama
+    // sonuçlarında çıkıp tekrar eklenebiliyordu — kullanıcı bildirdi, düzeltildi).
+    const mineOnly = searchParams.get("mine") === "1";
 
     // Sadece filtre uygulanmış, hiç metin girilmemiş bir arama da geçerli
     // ("bana sadece PDF'leri göster" gibi) — bu yüzden q boşken erken dönmüyoruz,
@@ -35,6 +41,7 @@ export async function GET(req: Request) {
     if (q.length < 1 && !hasFilters) return NextResponse.json({ files: [] });
 
     const extraWhere: Prisma.FileWhereInput[] = [];
+    if (mineOnly) extraWhere.push({ ownerId: user.id });
     if (type && TYPE_FILTERS[type]) extraWhere.push(TYPE_FILTERS[type]);
     if (dateFrom || dateTo) {
       extraWhere.push({
@@ -95,6 +102,14 @@ export async function GET(req: Request) {
 
     const visible: typeof candidates = [];
     for (const f of candidates) {
+      // mineOnly zaten SQL WHERE'inde ownerId=user.id ile kısıtlandı (yukarıda) — ADMIN
+      // istisnası bile burada uygulanmıyor, bilerek: "Sürücüden ekle" SADECE kendi
+      // dosyalarını göstermeli, admin olsa bile başkasının dosyasını göstermemeli.
+      if (mineOnly) {
+        if (f.ownerId === user.id) visible.push(f);
+        if (visible.length >= 50) break;
+        continue;
+      }
       if (user.role === "ADMIN" || f.ownerId === user.id) {
         visible.push(f);
         continue;

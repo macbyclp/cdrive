@@ -528,7 +528,7 @@ export default function ChatScreen() {
       </div>
 
       {showFilePicker && (
-        <FilePickerDialog onCancel={() => setShowFilePicker(false)} onConfirm={attachFromDrive} />
+        <FilePickerDialog mineOnly onCancel={() => setShowFilePicker(false)} onConfirm={attachFromDrive} />
       )}
     </AppShell>
   );

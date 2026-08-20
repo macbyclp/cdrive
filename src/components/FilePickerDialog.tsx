@@ -6,13 +6,21 @@ import { withBasePath } from "@/lib/basePath";
 
 type PickedFile = { id: string; name: string; mimeType: string };
 
-/** Cdrive'daki erişilebilir dosyalar arasında arama yapıp bir/birden fazla seçim döndüren küçük diyalog. */
+/**
+ * Cdrive'daki erişilebilir dosyalar arasında arama yapıp bir/birden fazla seçim döndüren
+ * küçük diyalog. `mineOnly` verilirse (sohbetteki "Sürücüden ekle" gibi) SADECE kullanıcının
+ * kendi sahip olduğu dosyalar aranır — normal arama ADMIN'e her şeyi, herkese de kendisiyle
+ * paylaşılmış dosyaları da gösterir; bir sohbete eklerken bu istenmiyor (gerçek hata: karşı
+ * tarafın kendi eklediği dosyalar bile arama sonuçlarında çıkıp tekrar eklenebiliyordu).
+ */
 export default function FilePickerDialog({
   initiallySelected = [],
+  mineOnly = false,
   onConfirm,
   onCancel,
 }: {
   initiallySelected?: PickedFile[];
+  mineOnly?: boolean;
   onConfirm: (files: PickedFile[]) => void;
   onCancel: () => void;
 }) {
@@ -28,7 +36,9 @@ export default function FilePickerDialog({
       return;
     }
     setLoading(true);
-    const res = await fetch(withBasePath(`/api/search?q=${encodeURIComponent(query.trim())}`));
+    const qs = new URLSearchParams({ q: query.trim() });
+    if (mineOnly) qs.set("mine", "1");
+    const res = await fetch(withBasePath(`/api/search?${qs.toString()}`));
     const d = await res.json().catch(() => ({ files: [] }));
     setResults(d.files ?? []);
     setLoading(false);
@@ -46,7 +56,7 @@ export default function FilePickerDialog({
       >
         <div className="border-b p-5 pb-3" style={{ borderColor: "var(--border)" }}>
           <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
-            Dosya seç
+            {mineOnly ? "Sürücümden dosya seç" : "Dosya seç"}
           </h2>
           <input
             autoFocus
