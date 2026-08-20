@@ -1,0 +1,21 @@
+Hesaplar için özellik turu (ilk girişte sistemi tanıtan modal)
+
+User.hasSeenFeatureTour (default false) eklendi — migration uygulandığında TÜM
+mevcut hesaplar dahil herkes bir sonraki girişte bir kereliğine otomatik görür,
+yeni hesaplar da doğal olarak false ile başlar. Kapatınca POST
+/api/account/feature-tour ile true'ya çekilir, bir daha otomatik çıkmaz.
+
+Yeni FeatureTour bileşeni kullanıcının GERÇEKTEN erişimi olan bölümleri listeler
+(AppSidebar'daki aynı yetki mantığı) — Sürücüm ve Genel Bakış herkese, Satış/
+Muhasebe/Üretim/Müşteriler/Yönetim ilgili yetkisi olanlara. FeatureTourGate,
+TopBar'a gömülü (TopBar hemen hemen her kimliği doğrulanmış sayfada render
+edildiği için hesabın nereden ilk giriş yaptığından bağımsız çalışır).
+
+Hesap Ayarları'na "Tekrar göster" butonu eklendi — bu, hasSeenFeatureTour'a
+dokunmadan sadece istemci tarafında modalı tekrar açar, istediği zaman
+tekrar bakabilir.
+
+Migration: 20260820103000_add_feature_tour — yerel + test DB'de uygulandı,
+tüm testler (72/72) geçti, tam akış (otomatik açılma → kapatma → bir daha
+otomatik çıkmama → Hesap Ayarları'ndan tekrar açma, yetkiye göre içerik)
+gerçek tarayıcıda uçtan uca doğrulandı.

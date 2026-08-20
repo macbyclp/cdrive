@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import TopBar from "@/components/TopBar";
 import AvatarBuilder from "@/components/AvatarBuilder";
+import FeatureTour from "@/components/FeatureTour";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import type { MeUser } from "@/lib/types";
@@ -11,6 +12,7 @@ import { DEFAULT_AVATAR_CONFIG, parseAvatarConfig, type AvatarConfig } from "@/l
 
 export default function AccountPage() {
   const { user, refresh } = useMe();
+  const [showTour, setShowTour] = useState(false);
 
   useEffect(() => {
     refresh();
@@ -31,12 +33,26 @@ export default function AccountPage() {
         </p>
 
         <div className="space-y-6">
+          <div className="card flex items-center justify-between p-5">
+            <div>
+              <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                Sistem özellikleri
+              </h2>
+              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                Cdrive&apos;daki bölümleri hatırlamak istersen kısa turu tekrar açabilirsin.
+              </p>
+            </div>
+            <button className="btn-secondary shrink-0 text-sm" onClick={() => setShowTour(true)}>
+              Tekrar göster
+            </button>
+          </div>
           <AvatarCard user={user} onChange={refresh} />
           <PasswordCard />
           <TwoFactorCard user={user} onChange={refresh} />
           <SessionsCard />
         </div>
       </main>
+      {showTour && <FeatureTour user={user} onClose={() => setShowTour(false)} />}
     </div>
   );
 }

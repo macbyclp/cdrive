@@ -122,6 +122,13 @@ model User {
   // İlk giriş kurulumu — admin tarafından oluşturulan hesaplarda true başlar: kullanıcı ilk
   // girişte kendi şifresini belirleyip bir avatar seçene kadar /onboarding'e yönlendirilir.
   mustChangePassword Boolean @default(false)
+  // Özellik turu (sistemdeki bölümleri tanıtan bir kerelik modal) — bu alan eklendiğinde
+  // TÜM mevcut kullanıcılarda default false olarak başlar (bu yüzden herkes bir sonraki
+  // girişte bir kereliğine otomatik görür), yeni kullanıcılar da doğal olarak false ile
+  // başlar. Kapatınca true'ya çekilir (bkz. POST /api/account/feature-tour); Hesap
+  // Ayarları'ndaki "tekrar göster" butonu bu alana dokunmadan sadece istemci tarafında
+  // tekrar açar.
+  hasSeenFeatureTour Boolean @default(false)
   avatarKey          String? // ESKİ preset emoji-avatar seti (bkz. src/lib/avatars.ts) — geriye dönük uyumluluk için
   // YENİ çok parçalı "memoji" tarzı avatar — JSON: {skin,hair,eyes,mouth,accessory}
   // (bkz. src/lib/avatar-parts.ts). Doluysa Avatar bileşeni bunu avatarKey'e tercih eder.

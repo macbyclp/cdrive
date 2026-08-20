@@ -7,6 +7,7 @@ import { formatBytesStr } from "@/lib/format";
 import ThemeToggle from "@/components/ThemeToggle";
 import NotificationBell from "@/components/NotificationBell";
 import Avatar from "@/components/Avatar";
+import FeatureTourGate from "@/components/FeatureTourGate";
 import { withBasePath } from "@/lib/basePath";
 
 export default function TopBar({
@@ -37,6 +38,8 @@ export default function TopBar({
   }
 
   return (
+    <>
+    <FeatureTourGate user={user} />
     <header
       className="sticky top-0 z-10 flex items-center gap-3 border-b px-4 py-3 sm:gap-4 sm:px-5"
       style={{ background: "var(--surface)", borderColor: "var(--border)" }}
@@ -128,5 +131,6 @@ export default function TopBar({
         </button>
       </div>
     </header>
+    </>
   );
 }

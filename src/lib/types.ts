@@ -13,6 +13,7 @@ export type MeUser = {
   canManageProduction: boolean;
   avatarKey: string | null;
   avatarParts: string | null;
+  hasSeenFeatureTour: boolean;
 };
 
 export type Tag = { id: string; name: string; color: string };

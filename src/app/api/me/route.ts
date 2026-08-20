@@ -36,6 +36,7 @@ export async function GET() {
         canManageProduction: user.canManageProduction,
         avatarKey: user.avatarKey,
         avatarParts: user.avatarParts,
+        hasSeenFeatureTour: user.hasSeenFeatureTour,
       },
     });
   } catch (err) {
