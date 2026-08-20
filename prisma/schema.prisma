@@ -72,6 +72,8 @@ enum NotificationType {
   ORDER_STATUS_CHANGED
   PAYMENT_RECORDED
   ORDER_OVERDUE
+  CHAT_DM
+  CHAT_MENTION
 }
 
 enum PaymentMethod {
@@ -168,6 +170,7 @@ model User {
   chatMessagesSent     ChatMessage[]   @relation("ChatMessageSender")
   chatMessagesReceived ChatMessage[]   @relation("ChatMessageRecipient")
   chatReadStates       ChatReadState[]
+  chatChannelMemberships ChatChannelMember[]
 
   @@map("users")
 }
@@ -609,9 +612,28 @@ model ChatChannel {
   createdById String
   createdBy   User     @relation("ChatChannelCreatedBy", fields: [createdById], references: [id])
 
+  // Gizli kanal: true ise sadece ChatChannelMember'da üyeliği olanlar görüp mesaj
+  // atabilir/okuyabilir; false (varsayılan, eski davranış) ise herkese açık kalır.
+  isPrivate Boolean @default(false)
+  members   ChatChannelMember[]
+
   messages ChatMessage[]
 
   @@map("chat_channels")
+}
+
+/// Sadece isPrivate=true kanallarda anlamlı — üyelik kontrolü buradan yapılır.
+/// Herkese açık kanallarda bu tabloya hiç bakılmaz (kayıt olsa da olmasa da erişim serbest).
+model ChatChannelMember {
+  id        String   @id @default(cuid())
+  channelId String
+  channel   ChatChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt  DateTime @default(now())
+
+  @@unique([channelId, userId])
+  @@map("chat_channel_members")
 }
 
 /// Bir mesaj ya bir kanala (channelId dolu) ya da birebir bir alıcıya
@@ -620,9 +642,14 @@ model ChatChannel {
 /// content boş olabilir AMA fileId doluysa (ekli dosya kendisi "mesaj" sayılır) —
 /// ikisi de boşsa gönderme reddedilir (bkz. /api/chat/messages).
 model ChatMessage {
-  id        String   @id @default(cuid())
-  content   String   @db.Text
-  createdAt DateTime @default(now())
+  id        String    @id @default(cuid())
+  content   String    @db.Text
+  createdAt DateTime  @default(now())
+  // Düzenlendiyse dolu (sadece gönderen düzenleyebilir). "Yumuşak" silme: deletedAt
+  // doluysa mesaj UI'da "Bu mesaj silindi" olarak gösterilir, satır DB'den silinmez
+  // (SSE/okundu mantığı ve diğer tarafın geçmişi bozulmasın diye).
+  editedAt  DateTime?
+  deletedAt DateTime?
 
   senderId String
   sender   User   @relation("ChatMessageSender", fields: [senderId], references: [id])

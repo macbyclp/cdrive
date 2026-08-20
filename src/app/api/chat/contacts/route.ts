@@ -16,6 +16,7 @@ export async function GET() {
 
     const [channels, readStates, dmMessages, allUsers] = await Promise.all([
       prisma.chatChannel.findMany({
+        where: { OR: [{ isPrivate: false }, { members: { some: { userId: user.id } } }] },
         orderBy: { name: "asc" },
         include: { messages: { orderBy: { createdAt: "desc" }, take: 1 } },
       }),
@@ -41,6 +42,7 @@ export async function GET() {
       return {
         id: c.id,
         name: c.name,
+        isPrivate: c.isPrivate,
         lastMessageAt: lastMessage?.createdAt ?? null,
         unread,
       };

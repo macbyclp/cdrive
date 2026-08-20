@@ -5,11 +5,14 @@ import { requireUser } from "@/lib/auth";
 import { canManageChatChannels } from "@/lib/access";
 import { errorResponse } from "@/lib/api-helpers";
 
-/** Kanal listesi — beta'da herkese açık, üyelik/görünürlük kısıtı yok. */
+/** Kanal listesi — herkese açık kanallar + üyesi olduğu gizli kanallar. */
 export async function GET() {
   try {
-    await requireUser();
-    const channels = await prisma.chatChannel.findMany({ orderBy: { name: "asc" } });
+    const user = await requireUser();
+    const channels = await prisma.chatChannel.findMany({
+      where: { OR: [{ isPrivate: false }, { members: { some: { userId: user.id } } }] },
+      orderBy: { name: "asc" },
+    });
     return NextResponse.json(channels);
   } catch (err) {
     return errorResponse(err);
@@ -23,6 +26,8 @@ const createSchema = z.object({
     .min(2)
     .max(50)
     .regex(/^[a-z0-9-]+$/, "Sadece küçük harf, rakam ve tire (-) kullanılabilir"),
+  isPrivate: z.boolean().optional(),
+  memberIds: z.array(z.string()).max(200).optional(),
 });
 
 /** Kanal oluşturma — spam'i önlemek için admin/departman yöneticisiyle sınırlı (bkz. canManageChatChannels). */
@@ -37,9 +42,20 @@ export async function POST(req: Request) {
     if (existing) {
       return NextResponse.json({ error: "Bu isimde bir kanal zaten var" }, { status: 400 });
     }
+
     const channel = await prisma.chatChannel.create({
-      data: { name: body.name, createdById: user.id },
+      data: { name: body.name, createdById: user.id, isPrivate: !!body.isPrivate },
     });
+
+    if (body.isPrivate) {
+      // Kanalı açan her zaman üye — dışarıdan davet edilen kullanıcılar + kendisi.
+      const memberIds = new Set([user.id, ...(body.memberIds ?? [])]);
+      await prisma.chatChannelMember.createMany({
+        data: [...memberIds].map((userId) => ({ channelId: channel.id, userId })),
+        skipDuplicates: true,
+      });
+    }
+
     return NextResponse.json(channel);
   } catch (err) {
     return errorResponse(err);

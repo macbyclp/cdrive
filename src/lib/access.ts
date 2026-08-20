@@ -109,6 +109,22 @@ export function canManageChatChannels(user: User) {
   return user.role === "ADMIN" || user.role === "MANAGER";
 }
 
+/**
+ * Bir kanalı görebilir/mesaj yazabilir mi. Herkese açık (isPrivate=false) kanallarda
+ * herkes erişebilir (beta'nın eski davranışı korunuyor). Gizli kanallarda ADMIN dahil
+ * HERKES üyelik şart — admin istisnası bilerek yok: gizli kanal "kimin göremeyeceği"
+ * kullanıcı tarafından belirleniyor, admin'in her şeyi görme kuralı burada uygulanmaz.
+ */
+export async function canAccessChatChannel(user: User, channelId: string): Promise<boolean> {
+  const channel = await prisma.chatChannel.findUnique({ where: { id: channelId }, select: { isPrivate: true } });
+  if (!channel) return false;
+  if (!channel.isPrivate) return true;
+  const membership = await prisma.chatChannelMember.findUnique({
+    where: { channelId_userId: { channelId, userId: user.id } },
+  });
+  return !!membership;
+}
+
 export function formatBytes(bytes: bigint | number) {
   const n = typeof bytes === "bigint" ? Number(bytes) : bytes;
   const units = ["B", "KB", "MB", "GB", "TB"];
