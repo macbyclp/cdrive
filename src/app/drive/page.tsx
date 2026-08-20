@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import TopBar from "@/components/TopBar";
+import AppShell from "@/components/AppShell";
 import ShareDialog from "@/components/ShareDialog";
 import VersionsDialog from "@/components/VersionsDialog";
 import PreviewDialog from "@/components/PreviewDialog";
@@ -67,7 +67,6 @@ function DriveInner() {
   const [breadcrumb, setBreadcrumb] = useState<Crumb[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<{ type: "file" | "folder"; id: string; name: string } | null>(null);
   const [versionsTarget, setVersionsTarget] = useState<{ id: string; name: string } | null>(null);
   const [previewTarget, setPreviewTarget] = useState<{ id: string; name: string; mimeType: string } | null>(null);
@@ -210,7 +209,6 @@ function DriveInner() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- veri klasör/görünüm değiştiğinde sunucudan yeniden çekilir
     load();
-    setSidebarOpen(false);
     setSelected(new Set());
   }, [load]);
 
@@ -687,35 +685,22 @@ function DriveInner() {
   const selectionCount = selected.size;
 
   return (
-    <div
-      className="flex min-h-screen flex-col"
-      data-skin={user.uiSkin === "archive" ? "archive" : undefined}
-      style={{ backgroundColor: "var(--background)" }}
-    >
-      <TopBar user={user} onSearch={doSearch} onMenuClick={() => setSidebarOpen(true)} />
+    <AppShell user={user} active="drive" onSearch={doSearch} dataSkin={user.uiSkin === "archive" ? "archive" : undefined}>
+      <div className="mx-auto max-w-6xl">
+        {/* Sürücü'ye özel görünüm anahtarı — genel sol menü artık ortak AppSidebar'da,
+            bu sadece Sürücü içindeki (Sürücüm/Son kullanılanlar/Yıldızlılar/vb.) ikincil
+            gezinme; OrdersScreen'deki yatay sekme deseniyle aynı dil kullanılıyor. */}
+        <div className="mb-4 flex gap-1 overflow-x-auto border-b" style={{ borderColor: "var(--border)" }}>
+          <ViewTab active={view === "root"} onClick={() => goFolder(null)} label="Sürücüm" icon="🗂️" />
+          <ViewTab active={view === "recent"} onClick={() => goView("recent")} label="Son kullanılanlar" icon="🕒" />
+          <ViewTab active={view === "starred"} onClick={() => goView("starred")} label="Yıldızlılar" icon="⭐" />
+          <ViewTab active={view === "media"} onClick={() => goView("media")} label="Medya" icon="🎬" />
+          <ViewTab active={view === "shared"} onClick={() => goView("shared")} label="Benimle paylaşılanlar" icon="🤝" />
+          <ViewTab active={view === "trash"} onClick={() => goView("trash")} label="Çöp kutusu" icon="🗑️" />
+        </div>
 
-      <div className="flex flex-1">
-        {sidebarOpen && (
-          <div className="fixed inset-0 z-30 bg-slate-900/40 sm:hidden" onClick={() => setSidebarOpen(false)} />
-        )}
-        <aside
-          className={`fixed inset-y-0 left-0 z-40 w-56 shrink-0 border-r p-4 transition-transform sm:static sm:translate-x-0 ${
-            sidebarOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
-        >
-          <nav className="space-y-1">
-            <SideLink active={view === "root"} onClick={() => goFolder(null)} label="Sürücüm" icon="🗂️" />
-            <SideLink active={view === "recent"} onClick={() => goView("recent")} label="Son kullanılanlar" icon="🕒" />
-            <SideLink active={view === "starred"} onClick={() => goView("starred")} label="Yıldızlılar" icon="⭐" />
-            <SideLink active={view === "media"} onClick={() => goView("media")} label="Medya" icon="🎬" />
-            <SideLink active={view === "shared"} onClick={() => goView("shared")} label="Benimle paylaşılanlar" icon="🤝" />
-            <SideLink active={view === "trash"} onClick={() => goView("trash")} label="Çöp kutusu" icon="🗑️" />
-          </nav>
-        </aside>
-
-        <main
-          className="relative flex-1 p-4 sm:p-6"
+        <div
+          className="relative"
           onDragOver={(e) => {
             if (view !== "root" || draggedItem) return;
             e.preventDefault();
@@ -1428,7 +1413,7 @@ function DriveInner() {
               ))}
             </div>
           )}
-        </main>
+        </div>
       </div>
 
       {shareTarget && (
@@ -1596,7 +1581,7 @@ function DriveInner() {
       {pending?.kind === "bulk-move" && (
         <MoveDialog itemName={`${selectionCount} öğe`} onSelect={bulkMove} onClose={() => setPending(null)} />
       )}
-    </div>
+    </AppShell>
   );
 }
 
@@ -1633,31 +1618,17 @@ function TagDots({ tags }: { tags?: Tag[] }) {
   );
 }
 
-function SideLink({
-  active,
-  onClick,
-  label,
-  icon,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  icon: string;
-}) {
+/** Sürücü içi görünüm sekmesi — AppShell'in ortak yeni tasarımıyla tutarlı olsun diye
+    (bkz. OrdersScreen'deki TABS) eski dikey off-canvas sidebar yerine yatay, alt-çizgili
+    sekmeler kullanılıyor; mobilde de (overflow-x-auto ile) doğal olarak kaydırılabilir. */
+function ViewTab({ active, onClick, label, icon }: { active: boolean; onClick: () => void; label: string; icon: string }) {
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors"
-      style={
-        active
-          ? { background: "var(--accent-soft)", color: "var(--accent-soft-foreground)" }
-          : { color: "var(--text-primary)" }
-      }
-      onMouseEnter={(e) => {
-        if (!active) e.currentTarget.style.background = "var(--surface-hover)";
-      }}
-      onMouseLeave={(e) => {
-        if (!active) e.currentTarget.style.background = "transparent";
+      className="flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium"
+      style={{
+        borderColor: active ? "var(--accent)" : "transparent",
+        color: active ? "var(--text-primary)" : "var(--text-secondary)",
       }}
     >
       <span>{icon}</span>

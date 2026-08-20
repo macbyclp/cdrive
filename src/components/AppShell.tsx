@@ -18,14 +18,18 @@ export default function AppShell({
   active,
   children,
   onSearch,
+  dataSkin,
 }: {
   user: MeUser;
   active: AppSidebarActive;
   children: React.ReactNode;
   onSearch?: (q: string) => void;
+  // /drive'ın "Kurumsal Arşiv" temasını (uiSkin==="archive") CSS'e taşımak için —
+  // bkz. src/app/drive/page.tsx. Diğer sayfalar bu prop'u hiç vermez.
+  dataSkin?: string;
 }) {
   return (
-    <div className="flex min-h-screen flex-col" style={{ backgroundColor: "var(--background)" }}>
+    <div className="flex min-h-screen flex-col" data-skin={dataSkin} style={{ backgroundColor: "var(--background)" }}>
       <TopBar user={user} onSearch={onSearch} hideQuickNav />
       <div className="flex flex-1">
         <AppSidebar user={user} active={active} />
