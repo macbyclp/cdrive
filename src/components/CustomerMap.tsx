@@ -71,7 +71,12 @@ export default function CustomerMap({ points }: { points: MapPoint[] }) {
     };
   }, [points]);
 
-  return <div ref={containerRef} className="h-56 w-full" />;
+  // "isolate": Leaflet kendi iç panellerine (tile/marker/popup/control) 200-800 arası
+  // z-index veriyor; bu div kendi stacking context'ine alınmazsa o değerler sayfadaki
+  // diğer öğelerle (ör. z-50'lik modal diyaloglar) KARDEŞ gibi karşılaştırılıp haritanın
+  // modalların üstüne çıkmasına neden oluyordu (gerçek bulgu, ekran görüntüsüyle rapor
+  // edildi) — isolate bu sızıntıyı engelliyor.
+  return <div ref={containerRef} className="isolate h-56 w-full" />;
 }
 
 function escapeHtml(s: string) {
