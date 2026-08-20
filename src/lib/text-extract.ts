@@ -11,14 +11,36 @@
 // "bad XRef entry" hatalarıyla patlıyor — sadece çıplak `node script.js`
 // içinde plain `require()` ile çalışıyor, yani Next'in herhangi bir modül
 // sarmalaması bu paketin eski/prototip-manipülasyonu yapan kodunu bozuyor.
-// pdfjs-dist güncel/aktif bakımlı olduğu için bu sorun yok; sadece metin
-// çıkarımı (getTextContent) için canvas gerekmiyor — canvas yalnızca sayfa
-// render/rasterize ederken gerekir, burada hiç kullanılmıyor.
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+//
+// ÖNEMLİ (gerçek üretim hatası, düzeltildi): pdfjs-dist üst seviyede statik
+// import edilmişti ve bu TÜM dosya yüklemelerini kırdı (sadece PDF değil) —
+// çünkü modül parse edilirken `DOMMatrix` tanımsız olduğu için anında
+// "ReferenceError: DOMMatrix is not defined" fırlatıyordu (Node'da tarayıcı
+// DOM API'leri yok; pdfjs-dist bunları normalde isteğe bağlı `@napi-rs/canvas`
+// paketinden polyfill'liyor). `@napi-rs/canvas` denendi ama platforma özel
+// native binary'si Windows'ta üretilen package-lock.json ile Alpine/musl
+// Docker imajında senkron kalmıyor (projede zaten native canvas
+// bağımlılığından kaçınma geleneği var, bkz. eski pdf-parse notları) — onun
+// yerine burada SADECE modülün parse-time'da patlamaması için minimal, sahte
+// DOMMatrix/Path2D sınıfları tanımlanıyor (gerçek rendering hiç kullanılmıyor,
+// sadece metin çıkarımı — bu sınıfların gerçek matematiksel işlevi hiç
+// gerekmiyor). Ayrıca import DİNAMİK: bir sorun çıkarsa sadece PDF metin
+// çıkarımı etkilensin, diğer TÜM dosya yüklemeleri asla bundan etkilenmesin.
+if (typeof (globalThis as Record<string, unknown>).DOMMatrix === "undefined") {
+  class DOMMatrixPolyfill {
+    a = 1; b = 0; c = 0; d = 1; e = 0; f = 0;
+  }
+  (globalThis as Record<string, unknown>).DOMMatrix = DOMMatrixPolyfill;
+}
+if (typeof (globalThis as Record<string, unknown>).Path2D === "undefined") {
+  class Path2DPolyfill {}
+  (globalThis as Record<string, unknown>).Path2D = Path2DPolyfill;
+}
 
 const MAX_CHARS = 200_000;
 
 async function textFromPdf(buffer: Buffer): Promise<string> {
+  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const loadingTask = getDocument({ data: new Uint8Array(buffer) });
   try {
     const doc = await loadingTask.promise;
