@@ -6,6 +6,7 @@ import Avatar from "@/components/Avatar";
 import { useMe } from "@/lib/useMe";
 import { useToast } from "@/components/ToastProvider";
 import { withBasePath } from "@/lib/basePath";
+import { isChatSoundEnabled, playReceivedSound, playSentSound, setChatSoundEnabled } from "@/lib/chat-sound";
 
 type Channel = { id: string; name: string; lastMessageAt: string | null; unread: boolean };
 type Dm = {
@@ -47,12 +48,33 @@ export default function ChatScreen() {
   const [showNewDm, setShowNewDm] = useState(false);
   const [userSearch, setUserSearch] = useState("");
   const [busy, setBusy] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
   const activeRef = useRef<Active | null>(null);
+  const userIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     activeRef.current = active;
   }, [active]);
+
+  useEffect(() => {
+    userIdRef.current = user?.id ?? null;
+  }, [user]);
+
+  // localStorage sadece istemcide okunabilir — sunucu tarafı render ile aynı çıksın
+  // diye ilk render'da varsayılan true, tercih mount sonrası senkronlanıyor.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage sadece istemcide okunabilir, hydration uyumsuzluğunu önlemek için mount sonrası senkronlanıyor
+    setSoundOn(isChatSoundEnabled());
+  }, []);
+
+  function toggleSound() {
+    setSoundOn((s) => {
+      const next = !s;
+      setChatSoundEnabled(next);
+      return next;
+    });
+  }
 
   useEffect(() => {
     refresh();
@@ -103,6 +125,7 @@ export default function ChatScreen() {
         ]);
         markRead(cur);
       }
+      if (data.senderId !== userIdRef.current) playReceivedSound();
       loadContacts();
     };
     return () => es.close();
@@ -140,7 +163,9 @@ export default function ChatScreen() {
       const d = await res.json().catch(() => ({}));
       toast(d.error ?? "Mesaj gönderilemedi", "error");
       setInput(text);
+      return;
     }
+    playSentSound();
     // Ekrana ekleme SSE'nin işi — kendi bağlantımız da mesajı anında geri alır.
   }
 
@@ -174,16 +199,25 @@ export default function ChatScreen() {
   return (
     <AppShell user={user} active="chat">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-4">
-          <h1 className="flex items-center gap-2 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
-            Sohbet
-            <span className="badge text-[10px] font-semibold uppercase" style={{ color: "var(--accent)" }}>
-              Beta
-            </span>
-          </h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            Kurum içi kanallar ve birebir mesajlaşma — gerçek zamanlı.
-          </p>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h1 className="flex items-center gap-2 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
+              Sohbet
+              <span className="badge text-[10px] font-semibold uppercase" style={{ color: "var(--accent)" }}>
+                Beta
+              </span>
+            </h1>
+            <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+              Kurum içi kanallar ve birebir mesajlaşma — gerçek zamanlı.
+            </p>
+          </div>
+          <button
+            className="btn-ghost shrink-0 text-sm"
+            onClick={toggleSound}
+            title={soundOn ? "Bildirim sesini kapat" : "Bildirim sesini aç"}
+          >
+            {soundOn ? "🔊" : "🔇"}
+          </button>
         </div>
 
         <div className="flex gap-4" style={{ height: "70vh" }}>
