@@ -14,13 +14,13 @@ type OrderDetail = {
   customerName: string;
   customerContact: string | null;
   notes: string | null;
-  status: "PENDING" | "APPROVED" | "INVOICED" | "CANCELLED";
+  status: "PENDING" | "APPROVED" | "IN_PRODUCTION" | "INVOICED" | "CANCELLED";
   accountingNote: string | null;
   dueDate: string | null;
   createdAt: string;
   createdBy: { id: string; name: string; email: string };
   updatedBy: { id: string; name: string; email: string } | null;
-  items: { id: string; productName: string; quantity: number; unitPrice: string }[];
+  items: { id: string; productName: string; quantity: number; unitPrice: string; inStock: boolean | null }[];
   attachments: { file: { id: string; name: string; mimeType: string } }[];
   payments: {
     id: string;
@@ -42,6 +42,7 @@ const PAYMENT_METHOD_LABEL: Record<OrderDetail["payments"][number]["method"], st
 const STATUS_LABEL: Record<OrderDetail["status"], string> = {
   PENDING: "Beklemede",
   APPROVED: "Onaylandı",
+  IN_PRODUCTION: "Üretimde",
   INVOICED: "Faturalandı",
   CANCELLED: "İptal",
 };
@@ -49,6 +50,7 @@ const STATUS_LABEL: Record<OrderDetail["status"], string> = {
 const STATUS_COLOR: Record<OrderDetail["status"], string> = {
   PENDING: "var(--warning, #d97706)",
   APPROVED: "var(--accent)",
+  IN_PRODUCTION: "#9333ea",
   INVOICED: "var(--success, #16a34a)",
   CANCELLED: "var(--danger)",
 };
@@ -57,12 +59,14 @@ export default function OrderDetailDialog({
   orderId,
   currentUserId,
   canManage,
+  canManageProduction,
   onClose,
   onChanged,
 }: {
   orderId: string;
   currentUserId: string;
   canManage: boolean;
+  canManageProduction: boolean;
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -180,6 +184,41 @@ export default function OrderDetailDialog({
     toast("Sipariş silindi", "success");
     onChanged();
     onClose();
+  }
+
+  async function setItemStock(itemId: string, inStock: boolean) {
+    setBusy(true);
+    const res = await fetch(withBasePath(`/api/orders/${orderId}`), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stockUpdates: [{ itemId, inStock }] }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Stok durumu güncellenemedi", "error");
+      return;
+    }
+    load();
+    onChanged();
+  }
+
+  async function completeProduction() {
+    setBusy(true);
+    const res = await fetch(withBasePath(`/api/orders/${orderId}`), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "APPROVED" }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Güncellenemedi", "error");
+      return;
+    }
+    toast("Üretim tamamlandı — sipariş faturalanmaya hazır", "success");
+    load();
+    onChanged();
   }
 
   async function removePayment(paymentId: string) {
@@ -340,6 +379,54 @@ export default function OrderDetailDialog({
                 </div>
               </div>
 
+              {canManageProduction && (order.status === "APPROVED" || order.status === "IN_PRODUCTION") && (
+                <div className="rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                      Stok durumu
+                    </p>
+                    {order.status === "IN_PRODUCTION" && (
+                      <button disabled={busy} className="btn-secondary text-xs" onClick={completeProduction}>
+                        Üretim tamamlandı
+                      </button>
+                    )}
+                  </div>
+                  <ul className="space-y-1.5">
+                    {order.items.map((i) => (
+                      <li key={i.id} className="flex items-center justify-between gap-2 text-sm">
+                        <span style={{ color: "var(--text-primary)" }}>{i.productName}</span>
+                        <div className="flex shrink-0 gap-1">
+                          <button
+                            disabled={busy}
+                            className="rounded-full px-2.5 py-1 text-xs font-medium"
+                            style={
+                              i.inStock === true
+                                ? { background: "var(--success, #16a34a)", color: "#fff" }
+                                : { background: "var(--surface-muted)", color: "var(--text-secondary)" }
+                            }
+                            onClick={() => setItemStock(i.id, true)}
+                          >
+                            Var
+                          </button>
+                          <button
+                            disabled={busy}
+                            className="rounded-full px-2.5 py-1 text-xs font-medium"
+                            style={
+                              i.inStock === false
+                                ? { background: "var(--danger)", color: "#fff" }
+                                : { background: "var(--surface-muted)", color: "var(--text-secondary)" }
+                            }
+                            onClick={() => setItemStock(i.id, false)}
+                          >
+                            Yok
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
                 <div className="mb-2 flex items-center justify-between">
                   <p className="text-xs font-medium" style={{ color: "var(--text-primary)" }}>
@@ -460,11 +547,14 @@ export default function OrderDetailDialog({
                     Muhasebe işlemleri
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {order.status !== "APPROVED" && order.status !== "CANCELLED" && order.status !== "INVOICED" && (
-                      <button disabled={busy} className="btn-secondary text-xs" onClick={() => changeStatus("APPROVED")}>
-                        Onayla
-                      </button>
-                    )}
+                    {order.status !== "APPROVED" &&
+                      order.status !== "IN_PRODUCTION" &&
+                      order.status !== "CANCELLED" &&
+                      order.status !== "INVOICED" && (
+                        <button disabled={busy} className="btn-secondary text-xs" onClick={() => changeStatus("APPROVED")}>
+                          Onayla
+                        </button>
+                      )}
                     {order.status === "APPROVED" && (
                       <button disabled={busy} className="btn-secondary text-xs" onClick={() => changeStatus("INVOICED")}>
                         Faturalandı işaretle

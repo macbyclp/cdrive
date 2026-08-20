@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { canAccessOrders, canCreateOrder, canManageOrders, canAccessFile } from "@/lib/access";
+import { canAccessOrders, canCreateOrder, canManageOrders, canManageProduction, canAccessFile } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 import { orderIncludeShape as includeShape, serializeOrder, findOrCreateCustomer } from "@/lib/orders";
@@ -21,7 +21,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const order = await loadOrder(id);
     if (!order) return NextResponse.json({ error: "Sipariş bulunamadı" }, { status: 404 });
 
-    const ok = canManageOrders(user) || (canCreateOrder(user) && order.createdById === user.id);
+    const ok =
+      canManageOrders(user) || canManageProduction(user) || (canCreateOrder(user) && order.createdById === user.id);
     if (!ok) return NextResponse.json({ error: "Bu siparişe erişiminiz yok" }, { status: 403 });
 
     return NextResponse.json(serializeOrder(order));
@@ -38,7 +39,7 @@ const itemSchema = z.object({
 
 const patchSchema = z.object({
   // Muhasebe tarafı:
-  status: z.enum(["PENDING", "APPROVED", "INVOICED", "CANCELLED"]).optional(),
+  status: z.enum(["PENDING", "APPROVED", "IN_PRODUCTION", "INVOICED", "CANCELLED"]).optional(),
   accountingNote: z.string().trim().max(4000).optional(),
   // İçerik tarafı (sadece sipariş hâlâ "Beklemede"yken, oluşturan kişi veya admin):
   customerName: z.string().trim().min(1).max(200).optional(),
@@ -47,11 +48,15 @@ const patchSchema = z.object({
   items: z.array(itemSchema).min(1).max(100).optional(),
   fileIds: z.array(z.string()).max(20).optional(),
   dueDate: z.string().datetime().nullable().optional(),
+  // Üretim tarafı: her kalem için Var(true)/Yok(false) — canManageProduction yetkisi ister,
+  // sadece sipariş "Onaylandı"/"Üretimde" iken kabul edilir (bkz. aşağıdaki iş kuralı).
+  stockUpdates: z.array(z.object({ itemId: z.string(), inStock: z.boolean() })).max(100).optional(),
 });
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "Beklemede",
   APPROVED: "Onaylandı",
+  IN_PRODUCTION: "Üretimde",
   INVOICED: "Faturalandı",
   CANCELLED: "İptal",
 };
@@ -66,6 +71,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const body = patchSchema.parse(await req.json());
     const wantsStatusChange = body.status !== undefined || body.accountingNote !== undefined;
+    const wantsStockUpdate = body.stockUpdates !== undefined;
     // Ekler ayrı tutuluyor: muhasebe onay/fatura sürecinde (durum ne olursa olsun) resmi
     // faturayı/belgeyi siparişe iliştirebilsin diye — diğer içerik alanları hâlâ sadece
     // "Beklemede" iken oluşturan kişiye (veya admin'e) açık.
@@ -78,7 +84,26 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       body.dueDate !== undefined;
 
     if (wantsStatusChange && !canManageOrders(user)) {
-      return NextResponse.json({ error: "Durum değiştirme yetkiniz yok" }, { status: 403 });
+      // Tek istisna: üretim yetkisi olan biri "Üretim tamamlandı" derken (IN_PRODUCTION →
+      // APPROVED) muhasebe yetkisi olmasa da izin verilir — accountingNote göndermediği
+      // ve durum kombinasyonu tam olarak bu tek geçişse.
+      const isProductionCompletion =
+        canManageProduction(user) &&
+        body.status === "APPROVED" &&
+        body.accountingNote === undefined &&
+        existing.status === "IN_PRODUCTION";
+      if (!isProductionCompletion) {
+        return NextResponse.json({ error: "Durum değiştirme yetkiniz yok" }, { status: 403 });
+      }
+    }
+    if (wantsStockUpdate && !canManageProduction(user)) {
+      return NextResponse.json({ error: "Stok güncelleme yetkiniz yok" }, { status: 403 });
+    }
+    if (wantsStockUpdate && existing.status !== "APPROVED" && existing.status !== "IN_PRODUCTION") {
+      return NextResponse.json(
+        { error: "Stok durumu sadece onaylanmış/üretimdeki siparişlerde güncellenebilir" },
+        { status: 400 }
+      );
     }
     if (wantsOtherContentChange) {
       const isOwnerWhilePending = existing.createdById === user.id && existing.status === "PENDING" && canCreateOrder(user);
@@ -121,6 +146,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         await tx.orderItem.deleteMany({ where: { orderId: id } });
         await tx.orderItem.createMany({ data: body.items!.map((i) => ({ ...i, orderId: id })) });
       }
+      if (body.stockUpdates) {
+        for (const su of body.stockUpdates) {
+          // updateMany + orderId koşulu: itemId başka bir siparişe ait olsa bile (id tahmini)
+          // sessizce hiçbir şey güncellemez — IDOR koruması.
+          await tx.orderItem.updateMany({ where: { id: su.itemId, orderId: id }, data: { inStock: su.inStock } });
+        }
+      }
       if (body.fileIds) {
         await tx.orderAttachment.deleteMany({ where: { orderId: id } });
         if (body.fileIds!.length) {
@@ -148,6 +180,52 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             targetId: id,
           },
         });
+      }
+    }
+
+    // Stok kontrolü tamamlandığında (bu istekte en az bir kalem işaretlendiyse) otomatik akış:
+    // sipariş hâlâ "Onaylandı"ysa ve şu an kalemlerden en az biri "Stokta Yok" ise sipariş
+    // kendiliğinden "Üretimde"ye düşer — bunu client'ın status alanı olarak GÖNDERMESİNE gerek
+    // yok, iş kuralı burada, sunucu tarafında hesaplanır.
+    if (body.stockUpdates && existing.status === "APPROVED") {
+      const items = await prisma.orderItem.findMany({ where: { orderId: id } });
+      const anyOut = items.some((i) => i.inStock === false);
+      if (anyOut) {
+        await prisma.order.update({ where: { id }, data: { status: "IN_PRODUCTION", updatedById: user.id } });
+        await logAudit({
+          userId: user.id,
+          action: "ORDER_STATUS_UPDATE",
+          targetType: "order",
+          targetId: id,
+          detail: `${STATUS_LABEL.APPROVED} → ${STATUS_LABEL.IN_PRODUCTION} (stokta olmayan kalem işaretlendi)`,
+        });
+        // Üretim yetkisi olan herkese (+ admin) haber ver — kuyruğa yeni bir sipariş düştü.
+        const producers = await prisma.user.findMany({
+          where: { active: true, OR: [{ canManageProduction: true }, { role: "ADMIN" }] },
+          select: { id: true },
+        });
+        if (producers.length > 0) {
+          await prisma.notification.createMany({
+            data: producers.map((p) => ({
+              userId: p.id,
+              type: "ORDER_STATUS_CHANGED" as const,
+              message: `"${existing.customerName}" siparişi stokta olmayan kalem nedeniyle üretime düştü`,
+              targetType: "order",
+              targetId: id,
+            })),
+          });
+        }
+        if (existing.createdById !== user.id) {
+          await prisma.notification.create({
+            data: {
+              userId: existing.createdById,
+              type: "ORDER_STATUS_CHANGED",
+              message: `"${existing.customerName}" siparişin durumu "${STATUS_LABEL.IN_PRODUCTION}" olarak güncellendi`,
+              targetType: "order",
+              targetId: id,
+            },
+          });
+        }
       }
     }
 

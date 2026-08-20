@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { canAccessOrders, canCreateOrder, canManageOrders, canAccessFile } from "@/lib/access";
+import { canAccessOrders, canCreateOrder, canManageOrders, canManageProduction, canAccessFile } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 import { orderIncludeShape as includeShape, serializeOrder, findOrCreateCustomer, generateOrderNumber } from "@/lib/orders";
@@ -21,15 +21,18 @@ export async function GET(req: Request) {
     // ekranda gezerken bile sadece KENDİ açtığı siparişleri görsün diye (iki ekranın birbirine
     // karışmaması için) — Muhasebe ekranı bu parametreyi hiç göndermez, herkesi görür.
     const mine = searchParams.get("mine") === "1";
-    const statusFilter = status && status !== "ALL" ? { status: status as "PENDING" | "APPROVED" | "INVOICED" | "CANCELLED" } : {};
+    const statusFilter = status && status !== "ALL" ? { status: status as "PENDING" | "APPROVED" | "IN_PRODUCTION" | "INVOICED" | "CANCELLED" } : {};
     const qFilter = q ? { customerName: { contains: q } } : {};
     const customerFilter = customerId ? { customerId } : {};
 
+    // Üretim yetkisi olan biri (muhasebe yetkisi olmasa da) tüm şirketin "Üretimde"
+    // kuyruğunu görebilmeli — kendi açtığı sipariş sayısı zaten sıfır olurdu.
+    const scoped = mine || (!canManageOrders(user) && !canManageProduction(user));
     const where = {
       ...statusFilter,
       ...qFilter,
       ...customerFilter,
-      ...(mine || !canManageOrders(user) ? { createdById: user.id } : {}),
+      ...(scoped ? { createdById: user.id } : {}),
     };
 
     const orders = await prisma.order.findMany({

@@ -12,7 +12,7 @@ import { withBasePath } from "@/lib/basePath";
 type OrderRow = {
   id: string;
   customerName: string;
-  status: "PENDING" | "APPROVED" | "INVOICED" | "CANCELLED";
+  status: "PENDING" | "APPROVED" | "IN_PRODUCTION" | "INVOICED" | "CANCELLED";
   createdAt: string;
   createdBy: { id: string; name: string };
   items: { quantity: number; unitPrice: string }[];
@@ -23,6 +23,7 @@ type OrderRow = {
 const STATUS_LABEL: Record<OrderRow["status"], string> = {
   PENDING: "Beklemede",
   APPROVED: "Onaylandı",
+  IN_PRODUCTION: "Üretimde",
   INVOICED: "Faturalandı",
   CANCELLED: "İptal",
 };
@@ -30,20 +31,24 @@ const STATUS_LABEL: Record<OrderRow["status"], string> = {
 const STATUS_COLOR: Record<OrderRow["status"], string> = {
   PENDING: "var(--warning, #d97706)",
   APPROVED: "var(--accent)",
+  IN_PRODUCTION: "#9333ea",
   INVOICED: "var(--success, #16a34a)",
   CANCELLED: "var(--danger)",
 };
 
-const TABS: ("ALL" | OrderRow["status"])[] = ["ALL", "PENDING", "APPROVED", "INVOICED", "CANCELLED"];
+const TABS: ("ALL" | OrderRow["status"])[] = ["ALL", "PENDING", "APPROVED", "IN_PRODUCTION", "INVOICED", "CANCELLED"];
 
 /**
- * Sipariş listesi ekranı — iki ayrı ekranın (Satış /orders ve Muhasebe /accounting) ortak
- * gövdesi. `mode="sales"` her zaman ?mine=1 gönderir (muhasebe yetkisi olan biri satış
- * ekranındayken bile sadece kendi siparişlerini görsün, iki ekran birbirine karışmasın) ve
- * detay diyaloğunda muhasebe işlemlerini (onay/tahsilat) hiç göstermez; `mode="accounting"`
- * tüm şirketi görür ve tam muhasebe yetkisiyle açar.
+ * Sipariş listesi ekranı — üç ayrı ekranın (Satış /orders, Muhasebe /accounting, Üretim
+ * /production) ortak gövdesi. `mode="sales"` her zaman ?mine=1 gönderir (muhasebe yetkisi
+ * olan biri satış ekranındayken bile sadece kendi siparişlerini görsün, ekranlar birbirine
+ * karışmasın) ve detay diyaloğunda muhasebe işlemlerini (onay/tahsilat) hiç göstermez;
+ * `mode="accounting"` tüm şirketi görür ve tam muhasebe yetkisiyle açar; `mode="production"`
+ * sadece "Üretimde" durumundaki siparişleri sabit bir kuyruk olarak gösterir (sekme/arama/yeni
+ * sipariş yok — o ekranların işi değil). Stok işaretleme yetkisi (canManageProduction) hangi
+ * ekrandan açıldığına bakmaksızın kişiye bağlıdır, bkz. OrderDetailDialog.
  */
-export default function OrdersScreen({ mode }: { mode: "sales" | "accounting" }) {
+export default function OrdersScreen({ mode }: { mode: "sales" | "accounting" | "production" }) {
   return (
     <Suspense fallback={null}>
       <OrdersScreenInner mode={mode} />
@@ -51,7 +56,7 @@ export default function OrdersScreen({ mode }: { mode: "sales" | "accounting" })
   );
 }
 
-function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
+function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" | "production" }) {
   const { user, refresh: refreshMe } = useMe();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -63,12 +68,14 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
   const [showCreate, setShowCreate] = useState(false);
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
   const customerId = searchParams.get("customerId");
-  const basePath = mode === "sales" ? "/orders" : "/accounting";
+  const basePath = mode === "sales" ? "/orders" : mode === "accounting" ? "/accounting" : "/production";
 
   function buildQuery() {
     const params = new URLSearchParams();
-    if (statusFilter !== "ALL") params.set("status", statusFilter);
-    if (q.trim()) params.set("q", q.trim());
+    // Üretim ekranı sabit bir kuyruk — sekme/arama yok, her zaman sadece "Üretimde" gelir.
+    if (mode === "production") params.set("status", "IN_PRODUCTION");
+    else if (statusFilter !== "ALL") params.set("status", statusFilter);
+    if (mode !== "production" && q.trim()) params.set("q", q.trim());
     if (customerId) params.set("customerId", customerId);
     if (mode === "sales") params.set("mine", "1");
     const qs = params.toString();
@@ -110,11 +117,15 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
   const gate =
     mode === "sales"
       ? user.role === "ADMIN" || user.canCreateOrders
-      : user.role === "ADMIN" || user.canManageOrders;
+      : mode === "accounting"
+        ? user.role === "ADMIN" || user.canManageOrders
+        : user.role === "ADMIN" || user.canManageProduction;
   // Detay diyaloğundaki muhasebe işlemleri (onay/tahsilat) sadece Muhasebe ekranında açık —
-  // Satış ekranında kullanıcı gerçekten muhasebe yetkisine sahip olsa bile burada gösterilmez,
-  // iki ekran net ayrılsın diye.
+  // Satış/Üretim ekranında kullanıcı gerçekten muhasebe yetkisine sahip olsa bile burada
+  // gösterilmez, ekranlar net ayrılsın diye.
   const canManageHere = mode === "accounting" && (user.role === "ADMIN" || user.canManageOrders);
+  // Stok işaretleme yetkisi ekrana değil kişiye bağlı — hangi ekrandan açılırsa açılsın aynı.
+  const canManageProductionHere = user.role === "ADMIN" || user.canManageProduction;
   const canCreate = user.role === "ADMIN" || user.canCreateOrders;
 
   const summary = orders.reduce(
@@ -130,9 +141,11 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
     { revenue: 0, collected: 0, remaining: 0 }
   );
 
+  const activeTab: "sales" | "accounting" | "production" = mode;
+
   if (!gate) {
     return (
-      <AppShell user={user} active={mode === "sales" ? "sales" : "accounting"}>
+      <AppShell user={user} active={activeTab}>
         <div className="mx-auto max-w-2xl p-6 text-center">
           <p className="mt-10 text-sm" style={{ color: "var(--text-secondary)" }}>
             Bu bölüme erişiminiz yok.
@@ -144,26 +157,32 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
 
   return (
     <>
-    <AppShell user={user} active={mode === "sales" ? "sales" : "accounting"}>
+    <AppShell user={user} active={activeTab}>
       <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
-              {mode === "sales" ? "Satış" : "Muhasebe"}
+              {mode === "sales" ? "Satış" : mode === "accounting" ? "Muhasebe" : "Üretim"}
             </h1>
             <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
               {mode === "sales"
                 ? "Açtığınız sipariş kayıtları ve durumları burada listelenir."
-                : "Tüm sipariş kayıtları, onay/fatura durumu ve tahsilat burada yönetilir."}
+                : mode === "accounting"
+                  ? "Tüm sipariş kayıtları, onay/fatura durumu ve tahsilat burada yönetilir."
+                  : "Stoğu olmayıp üretime gönderilen siparişler burada listelenir — stok kontrolü ve üretim tamamlama sipariş detayından yapılır."}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <a href={withBasePath("/customers")} className="btn-secondary text-sm">
-              Müşteriler
-            </a>
-            <a href={withBasePath(`/api/orders/export${buildQuery()}`)} className="btn-secondary text-sm">
-              Excel&apos;e aktar
-            </a>
+            {mode !== "production" && (
+              <a href={withBasePath("/customers")} className="btn-secondary text-sm">
+                Müşteriler
+              </a>
+            )}
+            {mode !== "production" && (
+              <a href={withBasePath(`/api/orders/export${buildQuery()}`)} className="btn-secondary text-sm">
+                Excel&apos;e aktar
+              </a>
+            )}
             {mode === "sales" && canCreate && (
               <button className="btn-primary" onClick={() => setShowCreate(true)}>
                 + Yeni sipariş
@@ -172,7 +191,7 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
           </div>
         </div>
 
-        {!loading && !error && orders.length > 0 && (
+        {mode !== "production" && !loading && !error && orders.length > 0 && (
           <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="card p-4">
               <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
@@ -201,6 +220,7 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
           </div>
         )}
 
+        {mode !== "production" && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex gap-1 border-b" style={{ borderColor: "var(--border)" }}>
             {TABS.map((t) => (
@@ -232,6 +252,7 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
             />
           </div>
         </div>
+        )}
 
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
@@ -323,6 +344,7 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" }) {
           orderId={openOrderId}
           currentUserId={user.id}
           canManage={canManageHere}
+          canManageProduction={canManageProductionHere}
           onClose={() => {
             setOpenOrderId(null);
             if (searchParams.get("open")) router.replace(basePath);

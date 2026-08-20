@@ -10,6 +10,7 @@ export type MeUser = {
   uiSkin: "modern" | "archive" | "panel";
   canCreateOrders: boolean;
   canManageOrders: boolean;
+  canManageProduction: boolean;
   avatarKey: string | null;
   avatarParts: string | null;
 };

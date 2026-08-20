@@ -82,6 +82,7 @@ enum PaymentMethod {
 enum OrderStatus {
   PENDING // Beklemede
   APPROVED // Onaylandı
+  IN_PRODUCTION // Üretimde — Onaylandı sonrası stok kontrolünde en az bir kalem "Stokta Yok" işaretlenirse buraya düşer
   INVOICED // Faturalandı
   CANCELLED // İptal
 }
@@ -113,6 +114,10 @@ model User {
   // iki ayrı yetki: pazarlama tarafı (oluşturma) ve muhasebe tarafı (yönetme).
   canCreateOrders Boolean @default(false)
   canManageOrders Boolean @default(false)
+  // Stoklu mal üretimi: bir siparişteki kalemlerin stok durumunu (Var/Yok) işaretleyip
+  // "Üretimde" aşamasını yönetebilir — canManageOrders'tan bağımsız, ayrı bir yetki
+  // (üretim ekibi, muhasebeden farklı kişiler olabilir).
+  canManageProduction Boolean @default(false)
 
   // İlk giriş kurulumu — admin tarafından oluşturulan hesaplarda true başlar: kullanıcı ilk
   // girişte kendi şifresini belirleyip bir avatar seçene kadar /onboarding'e yönlendirilir.
@@ -538,6 +543,10 @@ model OrderItem {
   productName String
   quantity    Int     @default(1)
   unitPrice   Decimal @db.Decimal(12, 2)
+  // Stok durumu: null = henüz kontrol edilmedi, true = Stokta Var, false = Stokta Yok
+  // (bu durumda sipariş "Üretimde"ye düşer). Sadece iki seçenek — miktar bazlı stok
+  // takibi bilerek yapılmıyor, kasıtlı olarak basit tutuldu.
+  inStock     Boolean?
 
   @@map("order_items")
 }

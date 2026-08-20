@@ -20,6 +20,7 @@ type AdminUser = {
   createdAt: string;
   canCreateOrders: boolean;
   canManageOrders: boolean;
+  canManageProduction: boolean;
   avatarKey: string | null;
   avatarParts: string | null;
   mustChangePassword: boolean;
@@ -400,6 +401,15 @@ function UsersTab({
                         onChange={(e) => update(u.id, { canManageOrders: e.target.checked }, "Sipariş yönetme yetkisi güncellendi")}
                       />
                       Yönetebilir (muhasebe)
+                    </label>
+                    <label className="flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5"
+                        checked={u.canManageProduction}
+                        onChange={(e) => update(u.id, { canManageProduction: e.target.checked }, "Üretim yetkisi güncellendi")}
+                      />
+                      Üretimi yönetebilir
                     </label>
                   </div>
                 </div>

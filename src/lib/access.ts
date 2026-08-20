@@ -86,7 +86,7 @@ export async function assertQuota(user: User, addBytes: bigint) {
 
 /** Sipariş sistemine hiç erişimi olmayanlar için: sidebar'da bile görünmemeli. */
 export function canAccessOrders(user: User) {
-  return user.role === "ADMIN" || user.canCreateOrders || user.canManageOrders;
+  return user.role === "ADMIN" || user.canCreateOrders || user.canManageOrders || user.canManageProduction;
 }
 
 /** Yeni sipariş oluşturabilir mi — pazarlama tarafı (+ admin). */
@@ -97,6 +97,11 @@ export function canCreateOrder(user: User) {
 /** Tüm siparişleri görüp durumunu değiştirebilir mi — muhasebe tarafı (+ admin). */
 export function canManageOrders(user: User) {
   return user.role === "ADMIN" || user.canManageOrders;
+}
+
+/** Sipariş kalemlerinin stok durumunu (Var/Yok) işaretleyip "Üretimde" aşamasını yönetebilir mi (+ admin). */
+export function canManageProduction(user: User) {
+  return user.role === "ADMIN" || user.canManageProduction;
 }
 
 export function formatBytes(bytes: bigint | number) {

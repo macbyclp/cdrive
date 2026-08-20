@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { canAccessOrders, canManageOrders } from "@/lib/access";
+import { canAccessOrders, canManageOrders, canManageProduction } from "@/lib/access";
 import { formatDate } from "@/lib/format";
 import { errorResponse } from "@/lib/api-helpers";
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "Beklemede",
   APPROVED: "Onaylandı",
+  IN_PRODUCTION: "Üretimde",
   INVOICED: "Faturalandı",
   CANCELLED: "İptal",
 };
@@ -23,11 +24,12 @@ export async function GET(req: Request) {
     const status = searchParams.get("status");
     const q = searchParams.get("q")?.trim();
     const mine = searchParams.get("mine") === "1";
-    const statusFilter = status && status !== "ALL" ? { status: status as "PENDING" | "APPROVED" | "INVOICED" | "CANCELLED" } : {};
+    const statusFilter = status && status !== "ALL" ? { status: status as "PENDING" | "APPROVED" | "IN_PRODUCTION" | "INVOICED" | "CANCELLED" } : {};
     const qFilter = q ? { customerName: { contains: q } } : {};
 
+    const scoped = mine || (!canManageOrders(user) && !canManageProduction(user));
     const orders = await prisma.order.findMany({
-      where: { ...statusFilter, ...qFilter, ...(mine || !canManageOrders(user) ? { createdById: user.id } : {}) },
+      where: { ...statusFilter, ...qFilter, ...(scoped ? { createdById: user.id } : {}) },
       orderBy: { createdAt: "desc" },
       include: { createdBy: { select: { name: true } }, items: true, payments: true },
     });

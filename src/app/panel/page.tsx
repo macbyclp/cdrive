@@ -43,6 +43,7 @@ const TL = new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY", 
 const STATUS_COLORS: Record<string, string> = {
   PENDING: "#f59e0b",
   APPROVED: "#4f46e5",
+  IN_PRODUCTION: "#9333ea",
   INVOICED: "#16a34a",
   CANCELLED: "#dc2626",
 };
@@ -97,6 +98,7 @@ function StatCard({
 const STATUS_STEPS: { key: string; label: string }[] = [
   { key: "PENDING", label: "Beklemede" },
   { key: "APPROVED", label: "Onaylandı" },
+  { key: "IN_PRODUCTION", label: "Üretimde" },
   { key: "INVOICED", label: "Faturalandı" },
 ];
 

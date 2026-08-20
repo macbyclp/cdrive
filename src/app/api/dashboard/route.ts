@@ -7,12 +7,13 @@ import { errorResponse } from "@/lib/api-helpers";
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "Beklemede",
   APPROVED: "Onaylandı",
+  IN_PRODUCTION: "Üretimde",
   INVOICED: "Faturalandı",
   CANCELLED: "İptal",
 };
 
 // Zaman çizelgesindeki adım sırası — progress bar yüzdesi buradaki konuma göre hesaplanır.
-const STATUS_STEPS = ["PENDING", "APPROVED", "INVOICED"];
+const STATUS_STEPS = ["PENDING", "APPROVED", "IN_PRODUCTION", "INVOICED"];
 
 function orderTotal(items: { quantity: number; unitPrice: unknown }[]) {
   return items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
@@ -66,7 +67,7 @@ export async function GET() {
       .filter((o) => o.status !== "CANCELLED")
       .reduce((sum, o) => sum + Math.max(0, orderTotal(o.items) - orderCollected(o.payments)), 0);
 
-    const statusBreakdown = ["PENDING", "APPROVED", "INVOICED", "CANCELLED"].map((status) => ({
+    const statusBreakdown = ["PENDING", "APPROVED", "IN_PRODUCTION", "INVOICED", "CANCELLED"].map((status) => ({
       status,
       label: STATUS_LABEL[status],
       count: orders.filter((o) => o.status === status).length,

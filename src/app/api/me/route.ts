@@ -33,6 +33,7 @@ export async function GET() {
         uiSkin: (settings?.uiSkin as "modern" | "archive" | "panel") ?? "modern",
         canCreateOrders: user.canCreateOrders,
         canManageOrders: user.canManageOrders,
+        canManageProduction: user.canManageProduction,
         avatarKey: user.avatarKey,
         avatarParts: user.avatarParts,
       },

@@ -10,6 +10,7 @@ import { errorResponse } from "@/lib/api-helpers";
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "Beklemede",
   APPROVED: "Onaylandi",
+  IN_PRODUCTION: "Uretimde",
   INVOICED: "Faturalandi",
   CANCELLED: "Iptal",
 };

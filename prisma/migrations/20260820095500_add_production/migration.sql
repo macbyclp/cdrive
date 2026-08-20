@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE `order_items` ADD COLUMN `inStock` BOOLEAN NULL;
+
+-- AlterTable
+ALTER TABLE `orders` MODIFY `status` ENUM('PENDING', 'APPROVED', 'IN_PRODUCTION', 'INVOICED', 'CANCELLED') NOT NULL DEFAULT 'PENDING';
+
+-- AlterTable
+ALTER TABLE `users` ADD COLUMN `canManageProduction` BOOLEAN NOT NULL DEFAULT false;

@@ -14,6 +14,7 @@ const schema = z.object({
   password: z.string().min(8).optional(),
   canCreateOrders: z.boolean().optional(),
   canManageOrders: z.boolean().optional(),
+  canManageProduction: z.boolean().optional(),
   // Admin bir kullanıcının şifresini sıfırlarken true gönderir — kullanıcı bir sonraki
   // girişte /onboarding'e düşer ve kendi yeni şifresini belirler (admin-oluşturdu hesap
   // akışıyla aynı desen), admin'in gerçek şifreyi bilmesi/paylaşması gerekmez.

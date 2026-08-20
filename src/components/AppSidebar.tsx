@@ -3,7 +3,7 @@
 import type { MeUser } from "@/lib/types";
 import { withBasePath } from "@/lib/basePath";
 
-export type AppSidebarActive = "panel" | "drive" | "sales" | "accounting" | "customers" | "admin" | "account";
+export type AppSidebarActive = "panel" | "drive" | "sales" | "accounting" | "production" | "customers" | "admin" | "account";
 
 function SideLink({ href, label, icon, active = false }: { href: string; label: string; icon: string; active?: boolean }) {
   return (
@@ -30,6 +30,7 @@ function SideLink({ href, label, icon, active = false }: { href: string; label: 
  */
 export default function AppSidebar({ user, active }: { user: MeUser; active: AppSidebarActive }) {
   const canOrders = user.role === "ADMIN" || user.canCreateOrders || user.canManageOrders;
+  const canProduction = user.role === "ADMIN" || user.canManageProduction;
   const canAdmin = user.role === "ADMIN" || user.role === "MANAGER";
 
   return (
@@ -48,6 +49,7 @@ export default function AppSidebar({ user, active }: { user: MeUser; active: App
         {(user.role === "ADMIN" || user.canManageOrders) && (
           <SideLink href="/accounting" label="Muhasebe" icon="🧾" active={active === "accounting"} />
         )}
+        {canProduction && <SideLink href="/production" label="Üretim" icon="🏭" active={active === "production"} />}
         {canOrders && <SideLink href="/customers" label="Müşteriler" icon="👥" active={active === "customers"} />}
         {canAdmin && <SideLink href="/admin" label="Yönetim" icon="⚙️" active={active === "admin"} />}
         <SideLink href="/account" label="Hesap Ayarları" icon="🙍" active={active === "account"} />
