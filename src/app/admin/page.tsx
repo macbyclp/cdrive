@@ -992,6 +992,58 @@ function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments:
   );
 }
 
+type BackupEntry = { name: string; sizeBytes: number; modifiedAt: string };
+
+/**
+ * VDS'teki otomatik günlük DB yedeklemesinin (backup-db.sh) durumunu SADECE gösterir —
+ * bilerek buradan geri yükleme YAPILAMAZ (bkz. /api/admin/backups'taki gerekçe). Amaç:
+ * "yedekleme gerçekten çalışıyor mu" sorusuna admin panelinden hızlıca cevap verebilmek.
+ */
+function BackupsCard() {
+  const [data, setData] = useState<{ configured: boolean; backups: BackupEntry[]; error?: string } | null>(null);
+
+  useEffect(() => {
+    fetch(withBasePath("/api/admin/backups"))
+      .then((r) => r.json())
+      .then(setData)
+      .catch(() => setData({ configured: false, backups: [] }));
+  }, []);
+
+  if (!data) return <div className="skeleton h-20 w-full" />;
+  if (!data.configured) return null; // yerel geliştirmede BACKUP_DIR yok — kart hiç görünmesin
+
+  const latest = data.backups[0];
+
+  return (
+    <div className="card space-y-3 p-5">
+      <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+        Veritabanı yedekleri
+      </h2>
+      {data.error ? (
+        <p className="text-sm" style={{ color: "var(--danger)" }}>
+          {data.error}
+        </p>
+      ) : latest ? (
+        <>
+          <p className="text-sm" style={{ color: "var(--text-primary)" }}>
+            Son yedek: <strong>{formatDate(latest.modifiedAt)}</strong> · {formatBytesStr(latest.sizeBytes)}
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            Toplam {data.backups.length} yedek dosyası saklanıyor (30 gün rotasyonlu, her gece
+            03:30). Geri yükleme bilerek buradan yapılamıyor — yanlışlıkla production
+            veritabanının üzerine yazma riskini önlemek için elle bir SSH işlemi olarak
+            kalıyor.
+          </p>
+        </>
+      ) : (
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          Henüz hiç yedek bulunamadı.
+        </p>
+      )}
+    </div>
+  );
+}
+
 type SystemSettingsData = {
   trashRetentionDays: number | null;
   versionRetentionDays: number | null;
@@ -1112,6 +1164,8 @@ function SettingsTab() {
 
   return (
     <div className="space-y-6">
+      <BackupsCard />
+
       <div className="card space-y-4 p-5">
         <div>
           <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
