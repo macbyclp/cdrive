@@ -158,6 +158,7 @@ model User {
   folderStars  FolderStar[]
   notifications Notification[]
   sessions     Session[]
+  passwordResetTokens PasswordResetToken[]
   fileComments FileComment[]
   groupMemberships GroupMember[]
   templateMemberships PermissionTemplateMember[]
@@ -188,6 +189,22 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+}
+
+/// "Şifremi unuttum" akışı — HAM token e-postayla gönderilir, DB'de sadece sha256 HASH'i
+/// tutulur (DB sızarsa bile token'lar yeniden kullanılamasın diye, ShareLink.token'ın aksine
+/// burada gerçek hesap ele geçirme riski var). Tek kullanımlık (usedAt) + kısa ömürlü (1 saat).
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
 
 /// Tek satırlık genel sistem ayarları — id her zaman 1.

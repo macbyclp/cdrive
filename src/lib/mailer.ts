@@ -21,7 +21,7 @@ function getTransport() {
   return globalForMailer.cdriveMailer;
 }
 
-export async function sendMail(opts: { to: string; subject: string; text: string }) {
+export async function sendMail(opts: { to: string; subject: string; text: string; html?: string }) {
   const transport = getTransport();
   if (!transport) return; // SMTP yapılandırılmamış — sessizce atla (yerel geliştirme/test)
   try {
@@ -30,8 +30,20 @@ export async function sendMail(opts: { to: string; subject: string; text: string
       to: opts.to,
       subject: opts.subject,
       text: opts.text,
+      html: opts.html,
     });
   } catch (err) {
     console.error("[mailer] gönderilemedi:", opts.to, err);
   }
+}
+
+/**
+ * E-postalardaki bağlantılar için mutlak site adresi (basePath dahil) — APP_URL
+ * (production'da https://cdrive.calapverdi.tr) + NEXT_BASE_PATH (production'da boş,
+ * yerelde/varsayılanda "/cdrive", next.config.ts'teki basePath ile aynı mantık).
+ */
+export function appBaseUrl() {
+  const origin = (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  const basePath = process.env.NEXT_BASE_PATH ?? "/cdrive";
+  return `${origin}${basePath}`;
 }

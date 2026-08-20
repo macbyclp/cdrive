@@ -92,9 +92,14 @@ function LoginForm() {
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                Şifre
-              </span>
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                  Şifre
+                </span>
+                <a href={withBasePath("/forgot-password")} className="text-xs" style={{ color: "var(--accent)" }}>
+                  Şifremi unuttum
+                </a>
+              </div>
               <input
                 required
                 type="password"
