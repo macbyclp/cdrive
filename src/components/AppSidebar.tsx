@@ -3,7 +3,7 @@
 import type { MeUser } from "@/lib/types";
 import { withBasePath } from "@/lib/basePath";
 
-export type AppSidebarActive = "panel" | "drive" | "sales" | "accounting" | "production" | "customers" | "admin" | "account";
+export type AppSidebarActive = "panel" | "drive" | "chat" | "sales" | "accounting" | "production" | "customers" | "admin" | "account";
 
 function SideLink({ href, label, icon, active = false }: { href: string; label: string; icon: string; active?: boolean }) {
   return (
@@ -43,6 +43,7 @@ export default function AppSidebar({ user, active }: { user: MeUser; active: App
         {/* ?view=root: /drive'ın "panel aktifken parametresiz kök = /panel'e geri yönlendir"
             mantığını burada bilerek atlatır, yoksa bu link kendi kendine geri döner. */}
         <SideLink href="/drive?view=root" label="Sürücüm" icon="🗂️" active={active === "drive"} />
+        <SideLink href="/chat" label="Sohbet" icon="💬" active={active === "chat"} />
         {(user.role === "ADMIN" || user.canCreateOrders) && (
           <SideLink href="/orders" label="Satış" icon="🛒" active={active === "sales"} />
         )}

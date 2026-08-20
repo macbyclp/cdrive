@@ -104,6 +104,11 @@ export function canManageProduction(user: User) {
   return user.role === "ADMIN" || user.canManageProduction;
 }
 
+/** Kurum içi sohbet (beta) kanalı açabilir mi — spam'i önlemek için admin/departman yöneticisiyle sınırlı. Herkes mesaj yazabilir/DM atabilir, bu sadece KANAL AÇMA yetkisi. */
+export function canManageChatChannels(user: User) {
+  return user.role === "ADMIN" || user.role === "MANAGER";
+}
+
 export function formatBytes(bytes: bigint | number) {
   const n = typeof bytes === "bigint" ? Number(bytes) : bytes;
   const units = ["B", "KB", "MB", "GB", "TB"];

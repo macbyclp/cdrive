@@ -24,6 +24,11 @@ function featuresFor(user: MeUser): Feature[] {
       title: "Genel Bakış",
       description: "Bu ay sipariş/ciro özeti, bekleyen bakiye, son siparişin durumu ve müşteri haritası tek ekranda.",
     },
+    {
+      icon: "💬",
+      title: "Sohbet (Beta)",
+      description: "Kurum içi kanallar ve birebir mesajlaşma — gerçek zamanlı.",
+    },
   ];
   if (user.role === "ADMIN" || user.canCreateOrders) {
     list.push({ icon: "🛒", title: "Satış", description: "Yeni sipariş aç, kendi açtığın siparişlerin durumunu takip et." });

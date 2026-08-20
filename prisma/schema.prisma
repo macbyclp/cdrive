@@ -161,6 +161,12 @@ model User {
   ordersUpdated Order[] @relation("OrderUpdatedBy")
   paymentsRecorded Payment[] @relation("PaymentRecordedBy")
 
+  // Kurum içi sohbet (beta) — kanallar + birebir mesajlaşma, bkz. ChatChannel/ChatMessage.
+  chatChannelsCreated  ChatChannel[]   @relation("ChatChannelCreatedBy")
+  chatMessagesSent     ChatMessage[]   @relation("ChatMessageSender")
+  chatMessagesReceived ChatMessage[]   @relation("ChatMessageRecipient")
+  chatReadStates       ChatReadState[]
+
   @@map("users")
 }
 
@@ -587,4 +593,57 @@ model Payment {
 
   @@index([orderId])
   @@map("payments")
+}
+
+/// Kurum içi sohbet (BETA) — herkesin görebildiği kanallar + herkesin herkese
+/// yazabildiği birebir (DM) mesajlaşma. Gerçek zamanlı iletim SSE (Server-Sent
+/// Events) ile yapılır — ayrı bir WebSocket sunucusu gerektirmez, mevcut
+/// standalone Next.js deploy'una dokunmaz (bkz. src/lib/chat-events.ts).
+model ChatChannel {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  createdAt   DateTime @default(now())
+  createdById String
+  createdBy   User     @relation("ChatChannelCreatedBy", fields: [createdById], references: [id])
+
+  messages ChatMessage[]
+
+  @@map("chat_channels")
+}
+
+/// Bir mesaj ya bir kanala (channelId dolu) ya da birebir bir alıcıya
+/// (recipientId dolu) aittir — ikisi asla aynı anda dolu/boş olmaz (uygulama
+/// katmanında zorlanır, DB seviyesinde CHECK kısıtı Prisma/MySQL'de pratik değil).
+model ChatMessage {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  senderId String
+  sender   User   @relation("ChatMessageSender", fields: [senderId], references: [id])
+
+  channelId String?
+  channel   ChatChannel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  recipientId String?
+  recipient   User?   @relation("ChatMessageRecipient", fields: [recipientId], references: [id])
+
+  @@index([channelId, createdAt])
+  @@index([senderId, recipientId, createdAt])
+  @@index([recipientId, senderId, createdAt])
+  @@map("chat_messages")
+}
+
+/// Bir kullanıcının bir kanalı/DM'i en son ne zaman okuduğu — sidebar'daki
+/// "okunmamış" rozetini hesaplamak için. scopeKey: "channel:<id>" veya
+/// "dm:<diğer kullanıcının id'si>" — tek bir tablo, tek bir unique index.
+model ChatReadState {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scopeKey   String
+  lastReadAt DateTime @default(now())
+
+  @@unique([userId, scopeKey])
+  @@map("chat_read_states")
 }
