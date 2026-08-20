@@ -32,6 +32,21 @@ export async function findOrCreateCustomer(name: string, contact?: string | null
   return prisma.customer.create({ data: { name: trimmed, contact: contact || null } });
 }
 
+/**
+ * Yeni bir sipariş için rastgele, en fazla 8 haneli, benzersiz bir sipariş numarası üretir
+ * (1..99.999.999 arası). Çakışma ihtimali çok düşük olsa da (siparişlerin sayısına göre)
+ * birkaç deneme ile garanti altına alınıyor; hepsi çakışırsa (pratikte imkansız) null döner
+ * ve sipariş orderNumber'sız oluşturulur (görüntüleme id'den türetilen sabit sayıya düşer).
+ */
+export async function generateOrderNumber(): Promise<number | null> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const candidate = Math.floor(Math.random() * 99_999_999) + 1;
+    const existing = await prisma.order.findUnique({ where: { orderNumber: candidate } });
+    if (!existing) return candidate;
+  }
+  return null;
+}
+
 export function serializeOrder(o: {
   items: { unitPrice: unknown; [k: string]: unknown }[];
   payments: { amount: unknown; [k: string]: unknown }[];

@@ -3,7 +3,7 @@ import PDFDocument from "pdfkit";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canCreateOrder, canManageOrders } from "@/lib/access";
-import { formatCurrencyTL, formatDate } from "@/lib/format";
+import { formatCurrencyTL, formatDate, orderDisplayNumber } from "@/lib/format";
 import { pdfSafe } from "@/lib/pdf-text";
 import { errorResponse } from "@/lib/api-helpers";
 
@@ -59,7 +59,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       .text("Dahili siparis ozeti", MARGIN, 44);
     doc
       .fontSize(9)
-      .text(`Siparis No: ${order.id}`, MARGIN, 22, { width: CONTENT_WIDTH, align: "right" })
+      .text(`Siparis No: ${orderDisplayNumber(order)}`, MARGIN, 22, { width: CONTENT_WIDTH, align: "right" })
       .text(`Tarih: ${formatDate(order.createdAt.toISOString())}`, { width: CONTENT_WIDTH, align: "right" })
       .text(`Durum: ${STATUS_LABEL[order.status] ?? order.status}`, { width: CONTENT_WIDTH, align: "right" });
 

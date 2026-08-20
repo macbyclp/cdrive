@@ -169,6 +169,7 @@ function UsersTab({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [quotaDrafts, setQuotaDrafts] = useState<Record<string, string>>({});
+  const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   function toggleExpanded(id: string) {
@@ -218,6 +219,27 @@ function UsersTab({
 
   function quotaGb(quotaBytes: string) {
     return (Number(quotaBytes) / 1024 ** 3).toFixed(1);
+  }
+
+  function resetPassword(userId: string) {
+    const pw = passwordDrafts[userId] ?? "";
+    if (pw.length < 8) {
+      toast("Yeni şifre en az 8 karakter olmalı", "error");
+      return;
+    }
+    // mustChangePassword: true — kullanıcı bir sonraki girişte kendi yeni şifresini
+    // belirlemeye zorlanır (admin-oluşturdu hesap akışıyla aynı /onboarding kapısı);
+    // admin'in belirlediği bu şifre yalnızca geçicidir, admin gerçek şifreyi bilmemeli.
+    update(
+      userId,
+      { password: pw, mustChangePassword: true },
+      "Şifre sıfırlandı — kullanıcı bir sonraki girişte yeni şifresini kendisi belirleyecek"
+    );
+    setPasswordDrafts((d) => {
+      const next = { ...d };
+      delete next[userId];
+      return next;
+    });
   }
 
   function saveQuota(userId: string) {
@@ -416,6 +438,32 @@ function UsersTab({
                       Kaydet
                     </button>
                   </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                  Şifreyi sıfırla
+                </span>
+                <p className="mb-1.5 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                  Kullanıcı şifresini unuttuysa buradan geçici bir şifre belirle — bir sonraki
+                  girişte kendi yeni şifresini kendisi belirlemeye zorlanır.
+                </p>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="password"
+                    minLength={8}
+                    placeholder="Yeni geçici şifre (en az 8 karakter)"
+                    className="input min-w-0 flex-1 px-2 py-1 text-xs"
+                    value={passwordDrafts[u.id] ?? ""}
+                    onChange={(e) => setPasswordDrafts((d) => ({ ...d, [u.id]: e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") resetPassword(u.id);
+                    }}
+                  />
+                  <button className="btn-ghost shrink-0 text-xs" onClick={() => resetPassword(u.id)}>
+                    Sıfırla
+                  </button>
                 </div>
               </div>
                 </div>

@@ -464,6 +464,13 @@ model PermissionTemplateMember {
 /// klasör/dosya izin modelinden bağımsız, ayrı ve daha basit bir yetki modeli kullanır.
 model Order {
   id              String      @id @default(cuid())
+  // Kullanıcıya gösterilen kısa, rastgele, en fazla 8 haneli sayısal sipariş/fatura
+  // numarası — id (cuid) harf+rakam karışık ve uzun olduğu için Panel/fatura PDF'inde
+  // ayrı gösteriliyor. Sadece bu alan eklendikten SONRA açılan siparişlerde dolu olur
+  // (bkz. src/lib/orders.ts generateOrderNumber); eski siparişlerde null kalır — o
+  // durumda görüntüleme id'den türetilmiş sabit bir 8 haneli sayıya geri düşer
+  // (bkz. orderDisplayNumber), veritabanına yazılmaz.
+  orderNumber     Int?        @unique
   customerName    String
   customerContact String? // telefon/e-posta, serbest metin
   notes           String?     @db.Text

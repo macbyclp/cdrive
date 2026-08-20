@@ -7,7 +7,7 @@ import CustomerMap from "@/components/CustomerMap";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import { withBasePath } from "@/lib/basePath";
-import { formatDate } from "@/lib/format";
+import { formatDate, orderDisplayNumber } from "@/lib/format";
 
 type DashboardData = {
   stats: {
@@ -20,6 +20,7 @@ type DashboardData = {
   statusBreakdown: { status: string; label: string; count: number }[];
   recentOrder: {
     id: string;
+    orderNumber: number | null;
     customerName: string;
     customerContact: string | null;
     status: string;
@@ -260,7 +261,7 @@ export default function PanelPage() {
                             {data.recentOrder.customerName}
                           </div>
                           <div className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                            Sipariş #{data.recentOrder.id.slice(-6).toUpperCase()} ·{" "}
+                            Sipariş #{orderDisplayNumber(data.recentOrder)} ·{" "}
                             {formatDate(data.recentOrder.createdAt)}
                           </div>
                         </div>

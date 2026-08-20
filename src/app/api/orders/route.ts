@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { canAccessOrders, canCreateOrder, canManageOrders, canAccessFile } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
-import { orderIncludeShape as includeShape, serializeOrder, findOrCreateCustomer } from "@/lib/orders";
+import { orderIncludeShape as includeShape, serializeOrder, findOrCreateCustomer, generateOrderNumber } from "@/lib/orders";
 
 /** Sipariş listesi — muhasebe tüm siparişleri görür, pazarlama sadece kendi oluşturduklarını. */
 export async function GET(req: Request) {
@@ -73,6 +73,7 @@ export async function POST(req: Request) {
     }
 
     const customer = await findOrCreateCustomer(body.customerName, body.customerContact);
+    const orderNumber = await generateOrderNumber();
 
     const order = await prisma.order.create({
       data: {
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
         createdById: user.id,
         customerId: customer.id,
+        orderNumber,
         items: { create: body.items },
         attachments: body.fileIds?.length ? { create: body.fileIds.map((fileId) => ({ fileId })) } : undefined,
       },

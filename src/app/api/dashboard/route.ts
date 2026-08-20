@@ -86,6 +86,7 @@ export async function GET() {
         latest.status === "CANCELLED" ? 100 : Math.round(((stepIndex + 1) / STATUS_STEPS.length) * 100);
       recentOrder = {
         id: latest.id,
+        orderNumber: latest.orderNumber,
         customerName: latest.customerName,
         customerContact: latest.customerContact,
         status: latest.status,

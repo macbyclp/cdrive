@@ -7,6 +7,7 @@ import { formatCurrencyTL, formatDate, iconForMime } from "@/lib/format";
 import OrderDialog from "@/components/OrderDialog";
 import PaymentDialog from "@/components/PaymentDialog";
 import FilePickerDialog from "@/components/FilePickerDialog";
+import { ConfirmDialog } from "@/components/Dialogs";
 
 type OrderDetail = {
   id: string;
@@ -73,6 +74,7 @@ export default function OrderDetailDialog({
   const [editing, setEditing] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [showAttach, setShowAttach] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   function load() {
     fetch(withBasePath(`/api/orders/${orderId}`))
@@ -165,6 +167,21 @@ export default function OrderDetailDialog({
     load();
   }
 
+  async function deleteOrder() {
+    setBusy(true);
+    const res = await fetch(withBasePath(`/api/orders/${orderId}`), { method: "DELETE" });
+    setBusy(false);
+    setShowDeleteConfirm(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Sipariş silinemedi", "error");
+      return;
+    }
+    toast("Sipariş silindi", "success");
+    onChanged();
+    onClose();
+  }
+
   async function removePayment(paymentId: string) {
     setBusy(true);
     const res = await fetch(withBasePath(`/api/orders/${orderId}/payments/${paymentId}`), { method: "DELETE" });
@@ -233,6 +250,14 @@ export default function OrderDetailDialog({
               >
                 Fatura/makbuz indir
               </a>
+            )}
+            {order && canManage && order.status === "INVOICED" && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="btn-ghost text-xs text-red-600 dark:text-red-400"
+              >
+                Sil
+              </button>
             )}
             <button onClick={onClose} className="btn-ghost">
               Kapat
@@ -509,6 +534,16 @@ export default function OrderDetailDialog({
             setShowAttach(false);
             addAttachments(files);
           }}
+        />
+      )}
+
+      {showDeleteConfirm && order && (
+        <ConfirmDialog
+          title="Siparişi sil"
+          description={`"${order.customerName}" siparişi kalıcı olarak silinecek — bu işlem geri alınamaz. Ekli dosyaların kendisi Sürücü'de kalmaya devam eder.`}
+          confirmLabel="Sil"
+          onConfirm={deleteOrder}
+          onCancel={() => setShowDeleteConfirm(false)}
         />
       )}
     </div>

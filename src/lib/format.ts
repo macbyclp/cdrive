@@ -15,6 +15,20 @@ export function formatCurrencyTL(amount: string | number) {
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(n);
 }
 
+/**
+ * Kullanıcıya gösterilecek sipariş/fatura numarasını döner — Order.orderNumber doluysa
+ * onu, boşsa (orderNumber alanı eklenmeden önce açılmış eski bir sipariş) id'den
+ * türetilen, o sipariş için hep AYNI kalan (ama veritabanına yazılmayan) en fazla 8
+ * haneli bir sayıya düşer. Client ve server'da aynı şekilde kullanılabilsin diye
+ * (Prisma bağımlılığı olmadan) burada, saf bir yardımcı fonksiyon olarak duruyor.
+ */
+export function orderDisplayNumber(order: { id: string; orderNumber?: number | null }): string {
+  if (order.orderNumber) return String(order.orderNumber);
+  let hash = 0;
+  for (let i = 0; i < order.id.length; i++) hash = (hash * 31 + order.id.charCodeAt(i)) >>> 0;
+  return String((hash % 99_999_999) + 1);
+}
+
 export function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("tr-TR", {
     day: "2-digit",

@@ -14,6 +14,10 @@ const schema = z.object({
   password: z.string().min(8).optional(),
   canCreateOrders: z.boolean().optional(),
   canManageOrders: z.boolean().optional(),
+  // Admin bir kullanıcının şifresini sıfırlarken true gönderir — kullanıcı bir sonraki
+  // girişte /onboarding'e düşer ve kendi yeni şifresini belirler (admin-oluşturdu hesap
+  // akışıyla aynı desen), admin'in gerçek şifreyi bilmesi/paylaşması gerekmez.
+  mustChangePassword: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -34,9 +38,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const user = await prisma.user.update({ where: { id }, data });
     await logAudit({
       userId: admin.id,
-      action: body.active === false ? "USER_DEACTIVATE" : "USER_UPDATE",
+      action: body.password ? "PASSWORD_CHANGE" : body.active === false ? "USER_DEACTIVATE" : "USER_UPDATE",
       targetType: "user",
       targetId: id,
+      detail: body.password ? `${user.email} için şifre admin tarafından sıfırlandı` : undefined,
     });
     return NextResponse.json({ ...user, passwordHash: undefined, usedBytes: user.usedBytes.toString(), quotaBytes: user.quotaBytes.toString() });
   } catch (err) {

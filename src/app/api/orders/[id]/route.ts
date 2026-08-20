@@ -171,6 +171,42 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 }
 
+/**
+ * Sadece muhasebe (+ admin) ve sadece FATURALANMIŞ (INVOICED) siparişler için — akış
+ * ("Beklemede"/"Onaylandı") henüz devam eden bir siparişin yanlışlıkla silinmesini
+ * engellemek amacıyla bilerek bu duruma kısıtlanıyor. Kalemler/ekler/tahsilatlar
+ * (OrderItem/OrderAttachment/Payment) veritabanında Order'a onDelete: Cascade ile
+ * bağlı, otomatik silinir — ekli dosyaların KENDİSİ (Drive'daki File kaydı) etkilenmez,
+ * sadece sipariş-dosya bağlantısı kalkar.
+ */
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const user = await requireUser();
+    if (!canManageOrders(user)) {
+      return NextResponse.json({ error: "Sipariş silme yetkiniz yok" }, { status: 403 });
+    }
+    const { id } = await params;
+    const existing = await prisma.order.findUnique({ where: { id } });
+    if (!existing) return NextResponse.json({ error: "Sipariş bulunamadı" }, { status: 404 });
+    if (existing.status !== "INVOICED") {
+      return NextResponse.json({ error: "Sadece faturalandı durumundaki siparişler silinebilir" }, { status: 400 });
+    }
+
+    await prisma.order.delete({ where: { id } });
+    await logAudit({
+      userId: user.id,
+      action: "ORDER_STATUS_UPDATE",
+      targetType: "order",
+      targetId: id,
+      detail: `"${existing.customerName}" siparişi silindi`,
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}
+
 async function tryExtractFromNewAttachments(fileIds: string[], customerId: string, userId: string) {
   const customer = await prisma.customer.findUnique({ where: { id: customerId } });
   if (!customer) return null;
