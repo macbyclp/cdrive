@@ -20,6 +20,14 @@ type OrderRow = {
   dueDate: string | null;
 };
 
+type OrderTemplatePrefill = {
+  customerName: string;
+  customerContact: string | null;
+  notes: string | null;
+  items: { productName: string; quantity: number; unitPrice: number }[];
+};
+type OrderTemplate = OrderTemplatePrefill & { id: string; name: string; createdById: string; createdByName: string };
+
 const STATUS_LABEL: Record<OrderRow["status"], string> = {
   PENDING: "Beklemede",
   APPROVED: "Onaylandı",
@@ -66,7 +74,10 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" | "productio
   const [statusFilter, setStatusFilter] = useState<"ALL" | OrderRow["status"]>("ALL");
   const [q, setQ] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [createPrefill, setCreatePrefill] = useState<OrderTemplatePrefill | undefined>(undefined);
   const [openOrderId, setOpenOrderId] = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [templates, setTemplates] = useState<OrderTemplate[]>([]);
   const customerId = searchParams.get("customerId");
   const basePath = mode === "sales" ? "/orders" : mode === "accounting" ? "/accounting" : "/production";
 
@@ -96,6 +107,24 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" | "productio
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, q, customerId, mode]);
+
+  function loadTemplates() {
+    fetch(withBasePath("/api/order-templates"))
+      .then((r) => r.json())
+      .then((d) => setTemplates(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }
+
+  function applyTemplate(t: OrderTemplate) {
+    setCreatePrefill({ customerName: t.customerName, customerContact: t.customerContact, notes: t.notes, items: t.items });
+    setShowTemplates(false);
+    setShowCreate(true);
+  }
+
+  async function deleteTemplate(t: OrderTemplate) {
+    const res = await fetch(withBasePath(`/api/order-templates/${t.id}`), { method: "DELETE" });
+    if (res.ok) setTemplates((ts) => ts.filter((x) => x.id !== t.id));
+  }
 
   useEffect(() => {
     refreshMe();
@@ -184,7 +213,24 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" | "productio
               </a>
             )}
             {mode === "sales" && canCreate && (
-              <button className="btn-primary" onClick={() => setShowCreate(true)}>
+              <button
+                className="btn-secondary text-sm"
+                onClick={() => {
+                  loadTemplates();
+                  setShowTemplates(true);
+                }}
+              >
+                🔁 Şablonlar
+              </button>
+            )}
+            {mode === "sales" && canCreate && (
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  setCreatePrefill(undefined);
+                  setShowCreate(true);
+                }}
+              >
                 + Yeni sipariş
               </button>
             )}
@@ -331,12 +377,65 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" | "productio
 
       {showCreate && (
         <OrderDialog
+          prefill={createPrefill}
           onClose={() => setShowCreate(false)}
           onSaved={() => {
             load();
             refreshMe();
           }}
         />
+      )}
+
+      {showTemplates && (
+        <div className="dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
+          <div
+            className="dialog-panel flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border"
+            style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
+          >
+            <div className="border-b p-5 pb-3" style={{ borderColor: "var(--border)" }}>
+              <h2 className="text-base font-semibold" style={{ color: "var(--text-primary)" }}>
+                Tekrarlayan sipariş şablonları
+              </h2>
+              <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+                Yeni sipariş formunu bir şablonla önceden doldur — göndermeden önce her zaman gözden geçirebilirsin.
+              </p>
+            </div>
+            <div className="flex-1 space-y-2 overflow-y-auto p-4">
+              {templates.length === 0 && (
+                <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+                  Henüz şablon yok — &ldquo;Yeni sipariş&rdquo; oluştururken &ldquo;Şablon olarak kaydet&rdquo;i işaretleyerek ilk şablonu oluşturabilirsin.
+                </p>
+              )}
+              {templates.map((t) => (
+                <div key={t.id} className="flex items-center justify-between gap-2 rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                      {t.name}
+                    </p>
+                    <p className="truncate text-xs" style={{ color: "var(--text-secondary)" }}>
+                      {t.customerName} · {t.items.length} kalem · {t.createdByName}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-1">
+                    <button className="btn-primary px-2 text-xs" onClick={() => applyTemplate(t)}>
+                      Kullan
+                    </button>
+                    {(t.createdById === user.id || canManageHere) && (
+                      <button className="btn-ghost px-2 text-xs text-red-600 dark:text-red-400" onClick={() => deleteTemplate(t)}>
+                        Sil
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end border-t p-4" style={{ borderColor: "var(--border)" }}>
+              <button className="btn-ghost" onClick={() => setShowTemplates(false)}>
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {openOrderId && (

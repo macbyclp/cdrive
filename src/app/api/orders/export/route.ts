@@ -65,6 +65,54 @@ export async function GET(req: Request) {
       });
     }
 
+    // "Siparişler" sekmesindeki AYNI (görünürlük kapsamı zaten uygulanmış) veriden iki ek
+    // özet sekmesi türetiliyor — ayrı bir sorgu/endpoint değil, aynı `orders` dizisi üzerinden.
+    const monthlyMap = new Map<string, { count: number; total: number; collected: number }>();
+    const customerMap = new Map<string, { count: number; total: number; collected: number }>();
+    for (const o of orders) {
+      const total = o.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
+      const collected = o.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+
+      const monthKey = `${o.createdAt.getFullYear()}-${String(o.createdAt.getMonth() + 1).padStart(2, "0")}`;
+      const m = monthlyMap.get(monthKey) ?? { count: 0, total: 0, collected: 0 };
+      m.count++;
+      m.total += total;
+      m.collected += collected;
+      monthlyMap.set(monthKey, m);
+
+      const c = customerMap.get(o.customerName) ?? { count: 0, total: 0, collected: 0 };
+      c.count++;
+      c.total += total;
+      c.collected += collected;
+      customerMap.set(o.customerName, c);
+    }
+
+    const wsMonthly = wb.addWorksheet("Aylık Özet");
+    wsMonthly.columns = [
+      { header: "Ay", key: "month", width: 12 },
+      { header: "Sipariş sayısı", key: "count", width: 16 },
+      { header: "Toplam ciro (₺)", key: "total", width: 18 },
+      { header: "Tahsil edilen (₺)", key: "collected", width: 18 },
+      { header: "Kalan (₺)", key: "remaining", width: 14 },
+    ];
+    wsMonthly.getRow(1).font = { bold: true };
+    for (const [month, v] of [...monthlyMap.entries()].sort((a, b) => b[0].localeCompare(a[0]))) {
+      wsMonthly.addRow({ month, count: v.count, total: v.total, collected: v.collected, remaining: Math.max(0, v.total - v.collected) });
+    }
+
+    const wsCustomer = wb.addWorksheet("Müşteri Özeti");
+    wsCustomer.columns = [
+      { header: "Müşteri", key: "customer", width: 28 },
+      { header: "Sipariş sayısı", key: "count", width: 16 },
+      { header: "Toplam ciro (₺)", key: "total", width: 18 },
+      { header: "Tahsil edilen (₺)", key: "collected", width: 18 },
+      { header: "Kalan (₺)", key: "remaining", width: 14 },
+    ];
+    wsCustomer.getRow(1).font = { bold: true };
+    for (const [customer, v] of [...customerMap.entries()].sort((a, b) => b[1].total - a[1].total)) {
+      wsCustomer.addRow({ customer, count: v.count, total: v.total, collected: v.collected, remaining: Math.max(0, v.total - v.collected) });
+    }
+
     const buffer = await wb.xlsx.writeBuffer();
     return new NextResponse(new Uint8Array(Buffer.from(buffer)), {
       headers: {

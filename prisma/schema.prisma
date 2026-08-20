@@ -171,6 +171,7 @@ model User {
   chatMessagesReceived ChatMessage[]   @relation("ChatMessageRecipient")
   chatReadStates       ChatReadState[]
   chatChannelMemberships ChatChannelMember[]
+  orderTemplatesCreated OrderTemplate[]
 
   @@map("users")
 }
@@ -197,6 +198,7 @@ model SystemSettings {
   maxFileSizeBytes     BigInt? // null = sınır yok
   blockedExtensions    String? @db.Text // virgülle ayrılmış, örn ".exe,.bat,.sh"
   uiSkin               String   @default("modern") // "modern" | "archive" — Sürücü sayfasının görsel dili, admin panelinden seçilir
+  require2faForAdmins  Boolean  @default(false) // true ise TÜM ADMIN hesapları 2FA kurana kadar /account dışında hiçbir yere giremez
   updatedAt            DateTime @updatedAt
 
   @@map("system_settings")
@@ -568,6 +570,27 @@ model OrderItem {
   inStock     Boolean?
 
   @@map("order_items")
+}
+
+/// Tekrarlayan sipariş şablonu — "her ay aynı müşteriye aynı kalemler" senaryosu için.
+/// items JSON olarak tutulur (Order/OrderItem gibi ayrı bir tablo değil, kasıtlı basit): şablon
+/// gerçek bir siparişe DÖNÜŞMEZ, sadece "Yeni Sipariş" formunu önceden doldurur — kullanıcı
+/// göndermeden önce her zaman gözden geçirip değiştirebilir. canCreateOrders yetkisi olan
+/// HERKES tüm şablonları görür (takım içi paylaşımlı, kişisel değil); silme sadece
+/// oluşturan + muhasebe/admin ile sınırlı.
+model OrderTemplate {
+  id              String   @id @default(cuid())
+  name            String
+  customerName    String
+  customerContact String?
+  notes           String?  @db.Text
+  items           String   @db.Text // JSON: {productName, quantity, unitPrice}[]
+  createdAt       DateTime @default(now())
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  @@map("order_templates")
 }
 
 model OrderAttachment {

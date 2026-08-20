@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { createSession, verifyPassword, isLocked, registerFailedLogin, clearFailedLogins, createPending2FA } from "@/lib/auth";
+import { createSession, verifyPassword, isLocked, registerFailedLogin, clearFailedLogins, createPending2FA, computeTwoFactorRequired } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
@@ -50,8 +50,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ requiresTwoFactor: true });
     }
 
+    const twoFactorRequired = await computeTwoFactorRequired(user);
     await createSession(
-      { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword },
+      { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword, twoFactorRequired },
       { ip, userAgent: req.headers.get("user-agent") }
     );
     await logAudit({ userId: user.id, action: "LOGIN", ip });

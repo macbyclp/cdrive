@@ -19,6 +19,14 @@ type EditableOrder = {
   attachments: { file: AttachedFile }[];
 };
 
+/** Bir şablondan "Yeni Sipariş" formunu önceden doldurmak için — id/attachments yok, her zaman yeni bir sipariş oluşturur. */
+type OrderPrefill = {
+  customerName: string;
+  customerContact: string | null;
+  notes: string | null;
+  items: { productName: string; quantity: number; unitPrice: number }[];
+};
+
 /** ISO tarih-saatini <input type="date"> için "YYYY-MM-DD"ye çevirir. */
 function toDateInputValue(iso?: string | null) {
   if (!iso) return "";
@@ -30,28 +38,33 @@ const emptyItem: ItemDraft = { productName: "", quantity: "1", unitPrice: "" };
 /** Yeni sipariş oluşturma ya da (sadece "Beklemede" durumundaki) kendi siparişini düzenleme diyaloğu. */
 export default function OrderDialog({
   order,
+  prefill,
   onClose,
   onSaved,
 }: {
   order?: EditableOrder;
+  /** Bir şablondan "Kullan" ile açıldıysa — sadece isEdit=false iken anlamlı. */
+  prefill?: OrderPrefill;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const toast = useToast();
   const isEdit = !!order;
-  const [customerName, setCustomerName] = useState(order?.customerName ?? "");
-  const [customerContact, setCustomerContact] = useState(order?.customerContact ?? "");
-  const [notes, setNotes] = useState(order?.notes ?? "");
+  const [customerName, setCustomerName] = useState(order?.customerName ?? prefill?.customerName ?? "");
+  const [customerContact, setCustomerContact] = useState(order?.customerContact ?? prefill?.customerContact ?? "");
+  const [notes, setNotes] = useState(order?.notes ?? prefill?.notes ?? "");
   const [dueDate, setDueDate] = useState(toDateInputValue(order?.dueDate));
-  const [items, setItems] = useState<ItemDraft[]>(
-    order?.items.length
-      ? order.items.map((i) => ({ productName: i.productName, quantity: String(i.quantity), unitPrice: i.unitPrice }))
-      : [{ ...emptyItem }]
-  );
+  const [items, setItems] = useState<ItemDraft[]>(() => {
+    if (order?.items.length) return order.items.map((i) => ({ productName: i.productName, quantity: String(i.quantity), unitPrice: i.unitPrice }));
+    if (prefill?.items.length) return prefill.items.map((i) => ({ productName: i.productName, quantity: String(i.quantity), unitPrice: String(i.unitPrice) }));
+    return [{ ...emptyItem }];
+  });
   const [attachments, setAttachments] = useState<AttachedFile[]>(order?.attachments.map((a) => a.file) ?? []);
   const [pickingFile, setPickingFile] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
 
   function updateItem(idx: number, patch: Partial<ItemDraft>) {
     setItems((its) => its.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
@@ -108,6 +121,18 @@ export default function OrderDialog({
       return;
     }
     toast(isEdit ? "Sipariş güncellendi" : "Sipariş oluşturuldu", "success");
+
+    // Şablon olarak kaydetme, siparişi oluşturmayı ASLA bloklamaz — best-effort, ayrı bir istek.
+    if (!isEdit && saveAsTemplate && templateName.trim()) {
+      const tRes = await fetch(withBasePath("/api/order-templates"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: templateName.trim(), customerName: payload.customerName, customerContact: payload.customerContact, notes: payload.notes, items: parsedItems }),
+      });
+      if (tRes.ok) toast(`"${templateName.trim()}" şablon olarak kaydedildi`, "success");
+      else toast("Sipariş oluşturuldu ama şablon kaydedilemedi", "error");
+    }
+
     onSaved();
     onClose();
   }
@@ -238,6 +263,25 @@ export default function OrderDialog({
               </div>
             )}
           </div>
+
+          {!isEdit && (
+            <label className="flex items-start gap-2">
+              <input type="checkbox" className="mt-0.5" checked={saveAsTemplate} onChange={(e) => setSaveAsTemplate(e.target.checked)} />
+              <span className="flex-1">
+                <span className="block text-sm" style={{ color: "var(--text-primary)" }}>
+                  🔁 Tekrarlayan sipariş şablonu olarak kaydet
+                </span>
+                {saveAsTemplate && (
+                  <input
+                    className="input mt-1.5 text-sm"
+                    placeholder="Şablon adı (örn. Migros haftalık)"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                  />
+                )}
+              </span>
+            </label>
+          )}
 
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         </div>

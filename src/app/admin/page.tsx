@@ -998,6 +998,7 @@ type SystemSettingsData = {
   maxFileSizeBytes: string | null;
   blockedExtensions: string | null;
   uiSkin: "modern" | "archive" | "panel";
+  require2faForAdmins: boolean;
 };
 
 function SettingsTab() {
@@ -1008,6 +1009,7 @@ function SettingsTab() {
   const [maxSizeMb, setMaxSizeMb] = useState("");
   const [blockedExt, setBlockedExt] = useState("");
   const [uiSkin, setUiSkin] = useState<"modern" | "archive" | "panel">("modern");
+  const [require2fa, setRequire2fa] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
@@ -1021,7 +1023,24 @@ function SettingsTab() {
         setMaxSizeMb(d.maxFileSizeBytes ? (Number(d.maxFileSizeBytes) / 1024 ** 2).toString() : "");
         setBlockedExt(d.blockedExtensions ?? "");
         setUiSkin(d.uiSkin ?? "modern");
+        setRequire2fa(!!d.require2faForAdmins);
       });
+  }
+
+  async function toggleRequire2fa(next: boolean) {
+    setRequire2fa(next);
+    const res = await fetch(withBasePath("/api/admin/settings"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ require2faForAdmins: next }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Kaydedilemedi", "error");
+      setRequire2fa(!next);
+      return;
+    }
+    toast(next ? "Adminler için 2FA zorunlu kılındı" : "2FA zorunluluğu kaldırıldı", "success");
   }
 
   async function saveSkin(skin: "modern" | "archive" | "panel") {
@@ -1168,6 +1187,31 @@ function SettingsTab() {
             </p>
           </button>
         </div>
+      </div>
+
+      <div className="card space-y-3 p-5">
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Güvenlik
+        </h2>
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={require2fa}
+            onChange={(e) => toggleRequire2fa(e.target.checked)}
+          />
+          <span>
+            <span className="block text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+              Adminler için 2FA zorunlu kıl
+            </span>
+            <span className="block text-xs" style={{ color: "var(--text-secondary)" }}>
+              Açılırsa, henüz iki adımlı doğrulama kurmamış her ADMIN hesabı BİR SONRAKİ
+              girişinde /account dışında hiçbir sayfaya erişemez — kuruluncaya kadar (halihazırda
+              açık oturumlar bu değişikliği ancak yeniden giriş yapınca görür). Sadece ADMIN
+              rolünü etkiler.
+            </span>
+          </span>
+        </label>
       </div>
 
       <form onSubmit={save} className="card space-y-4 p-5">

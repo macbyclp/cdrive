@@ -32,6 +32,7 @@ const schema = z.object({
   maxFileSizeBytes: z.number().positive().nullable().optional(),
   blockedExtensions: z.string().nullable().optional(),
   uiSkin: z.enum(["modern", "archive", "panel"]).optional(),
+  require2faForAdmins: z.boolean().optional(),
 });
 
 export async function PATCH(req: Request) {

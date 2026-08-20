@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import TopBar from "@/components/TopBar";
 import AvatarBuilder from "@/components/AvatarBuilder";
 import FeatureTour from "@/components/FeatureTour";
@@ -11,9 +12,11 @@ import type { MeUser } from "@/lib/types";
 import { withBasePath } from "@/lib/basePath";
 import { DEFAULT_AVATAR_CONFIG, parseAvatarConfig, type AvatarConfig } from "@/lib/avatar-parts";
 
-export default function AccountPage() {
+function AccountInner() {
   const { user, refresh } = useMe();
   const [showTour, setShowTour] = useState(false);
+  const searchParams = useSearchParams();
+  const require2fa = searchParams.get("require2fa") === "1";
 
   useEffect(() => {
     refresh();
@@ -32,6 +35,16 @@ export default function AccountPage() {
         <p className="mb-6 text-sm" style={{ color: "var(--text-secondary)" }}>
           {user.name} · {user.email}
         </p>
+
+        {require2fa && !user.twoFactorEnabled && (
+          <div
+            className="mb-6 rounded-xl border p-4 text-sm"
+            style={{ borderColor: "var(--warning, #d97706)", background: "#fef3c7", color: "#78350f" }}
+          >
+            🔒 Yönetici hesapları için iki adımlı doğrulama (2FA) zorunlu kılındı. Aşağıdan
+            kurana kadar başka hiçbir sayfaya erişemezsiniz.
+          </div>
+        )}
 
         <div className="space-y-6">
           <div className="card flex items-center justify-between p-5">
@@ -56,6 +69,14 @@ export default function AccountPage() {
       <Footer />
       {showTour && <FeatureTour user={user} onClose={() => setShowTour(false)} />}
     </div>
+  );
+}
+
+export default function AccountPage() {
+  return (
+    <Suspense>
+      <AccountInner />
+    </Suspense>
   );
 }
 

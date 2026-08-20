@@ -22,7 +22,20 @@ export type SessionPayload = {
   role: Role;
   sessionId: string;
   mustChangePassword: boolean;
+  twoFactorRequired: boolean;
 };
+
+/**
+ * SystemSettings.require2faForAdmins açıksa ve bu ADMIN henüz 2FA kurmadıysa true —
+ * middleware bunu mustChangePassword ile aynı desende bir "hard gate" olarak kullanır
+ * (2FA kurana kadar /account dışında hiçbir korumalı sayfaya giremez). Sadece ADMIN rolü
+ * için zorlanır; MANAGER/MEMBER etkilenmez.
+ */
+export async function computeTwoFactorRequired(user: { role: Role; twoFactorEnabled: boolean }): Promise<boolean> {
+  if (user.role !== "ADMIN" || user.twoFactorEnabled) return false;
+  const settings = await prisma.systemSettings.findUnique({ where: { id: 1 } });
+  return !!settings?.require2faForAdmins;
+}
 
 export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
@@ -220,7 +233,7 @@ type ImpersonatorPayload = { adminUserId: string; adminSessionId: string; adminN
  */
 export async function startImpersonation(
   admin: { id: string; name: string },
-  target: { id: string; email: string; name: string; role: Role; mustChangePassword: boolean },
+  target: { id: string; email: string; name: string; role: Role; mustChangePassword: boolean; twoFactorEnabled: boolean },
   meta?: { ip?: string | null; userAgent?: string | null }
 ) {
   const adminSession = await requireSession();
@@ -245,8 +258,16 @@ export async function startImpersonation(
   });
 
   // cdrive_session çerezini hedefin YENİ oturumuna yazar — admin'in oturumu DB'de kalır.
+  const targetTwoFactorRequired = await computeTwoFactorRequired(target);
   await createSession(
-    { userId: target.id, email: target.email, name: target.name, role: target.role, mustChangePassword: target.mustChangePassword },
+    {
+      userId: target.id,
+      email: target.email,
+      name: target.name,
+      role: target.role,
+      mustChangePassword: target.mustChangePassword,
+      twoFactorRequired: targetTwoFactorRequired,
+    },
     meta
   );
 }
@@ -294,6 +315,7 @@ export async function stopImpersonation(): Promise<{ adminId: string; targetId: 
     });
   }
 
+  const adminTwoFactorRequired = await computeTwoFactorRequired(admin);
   const token = await new SignJWT({
     userId: admin.id,
     email: admin.email,
@@ -301,6 +323,7 @@ export async function stopImpersonation(): Promise<{ adminId: string; targetId: 
     role: admin.role,
     sessionId: imp.adminSessionId,
     mustChangePassword: admin.mustChangePassword,
+    twoFactorRequired: adminTwoFactorRequired,
   } satisfies SessionPayload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()

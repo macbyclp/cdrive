@@ -19,6 +19,19 @@ import type { Crumb, FileItem, FolderItem, Tag } from "@/lib/types";
 import { badgeColorForMime, extOf, formatBytesStr, formatDate, iconForMime, officeDocType, previewKind } from "@/lib/format";
 import { withBasePath } from "@/lib/basePath";
 
+// Tarayıcının File and Directory Entries API'si (webkitGetAsEntry) resmi DOM tiplerinde tam
+// karşılığı olmadığı için sürükle-bırak klasör yüklemesinde kullandığımız minimal alt küme.
+type FileSystemDirectoryReaderLike = {
+  readEntries: (cb: (entries: FileSystemEntryLike[]) => void, errCb: (err: unknown) => void) => void;
+};
+type FileSystemEntryLike = {
+  name: string;
+  isFile: boolean;
+  isDirectory: boolean;
+  file?: (cb: (file: File) => void, errCb: (err: unknown) => void) => void;
+  createReader?: () => FileSystemDirectoryReaderLike;
+};
+
 type View = "root" | "shared" | "search" | "recent" | "starred" | "trash" | "media";
 type ViewMode = "list" | "grid";
 const VIEW_MODE_KEY = "cdrive-view-mode";
@@ -354,11 +367,91 @@ function DriveInner() {
     refreshMe();
   }
 
+  /** DataTransferItem'ın klasör girişini (webkitGetAsEntry) okur — tarayıcı desteklemiyorsa null döner. */
+  function asEntry(item: DataTransferItem): FileSystemEntryLike | null {
+    const getEntry = (item as unknown as { webkitGetAsEntry?: () => FileSystemEntryLike | null }).webkitGetAsEntry;
+    return getEntry ? getEntry.call(item) : null;
+  }
+
+  function readAllEntries(reader: FileSystemDirectoryReaderLike): Promise<FileSystemEntryLike[]> {
+    return new Promise((resolve, reject) => {
+      const all: FileSystemEntryLike[] = [];
+      const readBatch = () => {
+        reader.readEntries((entries) => {
+          if (entries.length === 0) {
+            resolve(all);
+            return;
+          }
+          all.push(...entries);
+          readBatch();
+        }, reject);
+      };
+      readBatch();
+    });
+  }
+
+  /** Bir dosya/klasör girişini (ve klasörse tüm alt ağacını) yükler — klasörler gerçek Folder kayıtları olarak oluşturulur. */
+  async function uploadEntry(entry: FileSystemEntryLike, parentFolderId: string | null): Promise<boolean> {
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve, reject) => entry.file!(resolve, reject));
+      const fd = new FormData();
+      fd.append("file", file);
+      if (parentFolderId) fd.append("folderId", parentFolderId);
+      const res = await fetch(withBasePath("/api/files"), { method: "POST", body: fd });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast(`${entry.name}: ${d.error ?? "yüklenemedi"}`, "error");
+      }
+      return res.ok;
+    }
+    if (entry.isDirectory) {
+      const res = await fetch(withBasePath("/api/folders"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: entry.name, parentId: parentFolderId }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast(`"${entry.name}" klasörü oluşturulamadı: ${d.error ?? "hata"}`, "error");
+        return false;
+      }
+      const newFolder = await res.json();
+      const children = await readAllEntries(entry.createReader!());
+      let allOk = true;
+      for (const child of children) {
+        const ok = await uploadEntry(child, newFolder.id);
+        if (!ok) allOk = false;
+      }
+      return allOk;
+    }
+    return false;
+  }
+
+  /** Sürükle-bırak ile bırakılan öğeler arasında klasör varsa (webkitGetAsEntry ile) alt ağacıyla
+   * birlikte gerçek Folder/File kayıtları olarak oluşturur; hiç klasör yoksa eski düz dosya
+   * yükleme akışına düşer (bu tarayıcı API'sini desteklemeyen ortamlarda da güvenli bir geri dönüş). */
+  async function uploadDroppedItems(dataTransfer: DataTransfer) {
+    const items = Array.from(dataTransfer.items);
+    const entries = items.map(asEntry).filter((e): e is FileSystemEntryLike => !!e);
+    const hasFolder = entries.some((e) => e.isDirectory);
+    if (entries.length === 0 || !hasFolder) {
+      uploadFiles(dataTransfer.files);
+      return;
+    }
+    let ok = 0;
+    for (const entry of entries) {
+      if (await uploadEntry(entry, folderId)) ok++;
+    }
+    if (ok > 0) toast(`${ok}/${entries.length} öğe yüklendi`, "success");
+    load();
+    refreshMe();
+  }
+
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
     if (view !== "root" || draggedItem) return;
-    uploadFiles(e.dataTransfer.files);
+    uploadDroppedItems(e.dataTransfer);
   }
 
   async function submitRenameFolder(folder: FolderItem, name: string) {

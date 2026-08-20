@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser, hashPassword, createSession } from "@/lib/auth";
+import { requireUser, hashPassword, createSession, computeTwoFactorRequired } from "@/lib/auth";
 import { serializeAvatarConfig } from "@/lib/avatar-parts";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
@@ -35,8 +35,9 @@ export async function POST(req: Request) {
     // JWT'deki eski mustChangePassword=true bayrağı yeni oturum açılana kadar geçerli
     // kalır — middleware'in hemen tekrar /onboarding'e atmaması için oturumu burada
     // güncel (false) bayrakla yeniden imzalıyoruz.
+    const twoFactorRequired = await computeTwoFactorRequired({ role: user.role, twoFactorEnabled: user.twoFactorEnabled });
     await createSession(
-      { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: false },
+      { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: false, twoFactorRequired },
       { ip: clientIp(req), userAgent: req.headers.get("user-agent") }
     );
 

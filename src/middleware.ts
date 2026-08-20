@@ -9,11 +9,11 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get("cdrive_session")?.value;
 
-  let payload: { role?: string; mustChangePassword?: boolean } | null = null;
+  let payload: { role?: string; mustChangePassword?: boolean; twoFactorRequired?: boolean } | null = null;
   if (token) {
     try {
       const { payload: p } = await jwtVerify(token, secret);
-      payload = p as { role?: string; mustChangePassword?: boolean };
+      payload = p as { role?: string; mustChangePassword?: boolean; twoFactorRequired?: boolean };
     } catch {
       payload = null;
     }
@@ -44,6 +44,16 @@ export async function middleware(req: NextRequest) {
   if (payload?.mustChangePassword && isProtected && pathname !== "/onboarding") {
     const url = req.nextUrl.clone();
     url.pathname = "/onboarding";
+    return NextResponse.redirect(url);
+  }
+
+  // Sistem ayarlarından "adminlere 2FA zorunlu" açıksa, henüz kurmamış bir ADMIN
+  // /account dışında hiçbir korumalı sayfaya giremez — 2FA'yı kurana kadar (bkz.
+  // computeTwoFactorRequired, mustChangePassword ile aynı desen).
+  if (payload?.twoFactorRequired && isProtected && pathname !== "/account") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/account";
+    url.searchParams.set("require2fa", "1");
     return NextResponse.redirect(url);
   }
 
