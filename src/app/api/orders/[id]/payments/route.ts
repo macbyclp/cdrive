@@ -6,6 +6,7 @@ import { canManageOrders } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 import { formatCurrencyTL } from "@/lib/format";
+import { notifyUser } from "@/lib/notify";
 
 const createSchema = z.object({
   amount: z.number().min(0.01).max(100_000_000),
@@ -50,14 +51,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
 
     if (order.createdById !== user.id) {
-      await prisma.notification.create({
-        data: {
-          userId: order.createdById,
-          type: "PAYMENT_RECORDED",
-          message: `"${order.customerName}" siparişi için ${formatCurrencyTL(body.amount)} tahsilat kaydedildi`,
-          targetType: "order",
-          targetId: id,
-        },
+      await notifyUser({
+        userId: order.createdById,
+        type: "PAYMENT_RECORDED",
+        message: `"${order.customerName}" siparişi için ${formatCurrencyTL(body.amount)} tahsilat kaydedildi`,
+        targetType: "order",
+        targetId: id,
       });
     }
 

@@ -9,6 +9,7 @@ import { orderIncludeShape as includeShape, serializeOrder, findOrCreateCustomer
 import { extractInvoiceFields, isExtractableMime } from "@/lib/invoice-extract";
 import { geocodeAddress } from "@/lib/geocode";
 import { readFile } from "@/lib/storage";
+import { notifyUser, notifyUsers } from "@/lib/notify";
 
 async function loadOrder(id: string) {
   return prisma.order.findUnique({ where: { id }, include: includeShape });
@@ -171,14 +172,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         detail: `${STATUS_LABEL[existing.status]} → ${STATUS_LABEL[body.status]}`,
       });
       if (existing.createdById !== user.id) {
-        await prisma.notification.create({
-          data: {
-            userId: existing.createdById,
-            type: "ORDER_STATUS_CHANGED",
-            message: `"${existing.customerName}" siparişin durumu "${STATUS_LABEL[body.status]}" olarak güncellendi`,
-            targetType: "order",
-            targetId: id,
-          },
+        await notifyUser({
+          userId: existing.createdById,
+          type: "ORDER_STATUS_CHANGED",
+          message: `"${existing.customerName}" siparişin durumu "${STATUS_LABEL[body.status]}" olarak güncellendi`,
+          targetType: "order",
+          targetId: id,
         });
       }
     }
@@ -204,26 +203,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           where: { active: true, OR: [{ canManageProduction: true }, { role: "ADMIN" }] },
           select: { id: true },
         });
-        if (producers.length > 0) {
-          await prisma.notification.createMany({
-            data: producers.map((p) => ({
-              userId: p.id,
-              type: "ORDER_STATUS_CHANGED" as const,
-              message: `"${existing.customerName}" siparişi stokta olmayan kalem nedeniyle üretime düştü`,
-              targetType: "order",
-              targetId: id,
-            })),
-          });
-        }
+        await notifyUsers(
+          producers.map((p) => p.id),
+          "ORDER_STATUS_CHANGED",
+          `"${existing.customerName}" siparişi stokta olmayan kalem nedeniyle üretime düştü`,
+          "order",
+          id
+        );
         if (existing.createdById !== user.id) {
-          await prisma.notification.create({
-            data: {
-              userId: existing.createdById,
-              type: "ORDER_STATUS_CHANGED",
-              message: `"${existing.customerName}" siparişin durumu "${STATUS_LABEL.IN_PRODUCTION}" olarak güncellendi`,
-              targetType: "order",
-              targetId: id,
-            },
+          await notifyUser({
+            userId: existing.createdById,
+            type: "ORDER_STATUS_CHANGED",
+            message: `"${existing.customerName}" siparişin durumu "${STATUS_LABEL.IN_PRODUCTION}" olarak güncellendi`,
+            targetType: "order",
+            targetId: id,
           });
         }
       }

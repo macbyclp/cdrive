@@ -6,6 +6,7 @@ import { canAccessOrders, canCreateOrder, canManageOrders, canManageProduction, 
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 import { orderIncludeShape as includeShape, serializeOrder, findOrCreateCustomer, generateOrderNumber } from "@/lib/orders";
+import { notifyUsers } from "@/lib/notify";
 
 /** Sipariş listesi — muhasebe tüm siparişleri görür, pazarlama sadece kendi oluşturduklarını. */
 export async function GET(req: Request) {
@@ -106,17 +107,13 @@ export async function POST(req: Request) {
       where: { active: true, OR: [{ canManageOrders: true }, { role: "ADMIN" }], NOT: { id: user.id } },
       select: { id: true },
     });
-    if (managers.length > 0) {
-      await prisma.notification.createMany({
-        data: managers.map((m) => ({
-          userId: m.id,
-          type: "ORDER_CREATED" as const,
-          message: `${user.name}, "${body.customerName}" için yeni bir sipariş kaydı açtı`,
-          targetType: "order",
-          targetId: order.id,
-        })),
-      });
-    }
+    await notifyUsers(
+      managers.map((m) => m.id),
+      "ORDER_CREATED",
+      `${user.name}, "${body.customerName}" için yeni bir sipariş kaydı açtı`,
+      "order",
+      order.id
+    );
 
     return NextResponse.json(serializeOrder(order));
   } catch (err) {

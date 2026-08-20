@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/format";
+import { notifyUser } from "@/lib/notify";
 
 /**
  * Vadesi geçmiş ve bakiyesi hâlâ kapanmamış siparişler için muhasebeye (+ admin)
@@ -36,14 +37,12 @@ export async function notifyOverdueOrders(): Promise<number> {
         where: { userId: m.id, type: "ORDER_OVERDUE", targetType: "order", targetId: order.id, createdAt: { gte: todayStart } },
       });
       if (already) continue;
-      await prisma.notification.create({
-        data: {
-          userId: m.id,
-          type: "ORDER_OVERDUE",
-          message: `"${order.customerName}" siparişinin vadesi (${formatDate(order.dueDate!.toISOString())}) geçti, bakiye kapanmadı`,
-          targetType: "order",
-          targetId: order.id,
-        },
+      await notifyUser({
+        userId: m.id,
+        type: "ORDER_OVERDUE",
+        message: `"${order.customerName}" siparişinin vadesi (${formatDate(order.dueDate!.toISOString())}) geçti, bakiye kapanmadı`,
+        targetType: "order",
+        targetId: order.id,
       });
       notified++;
     }

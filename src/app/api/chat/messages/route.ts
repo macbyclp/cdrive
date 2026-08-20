@@ -6,6 +6,7 @@ import { canAccessFile, canAccessChatChannel } from "@/lib/access";
 import { errorResponse } from "@/lib/api-helpers";
 import { publishChatMessage } from "@/lib/chat-events";
 import { chatPreview } from "@/lib/chat";
+import { notifyUser } from "@/lib/notify";
 
 const senderSelect = { select: { id: true, name: true, avatarKey: true, avatarParts: true } } as const;
 const fileSelect = { select: { id: true, name: true, mimeType: true, size: true } } as const;
@@ -164,14 +165,12 @@ export async function POST(req: Request) {
     // (kanal üyeliği yok/geniş olabileceğinden her mesajda herkese bildirim spam olurdu).
     const preview = chatPreview(body.content || (body.fileId ? "📎 Dosya eki" : ""));
     if (body.recipientId) {
-      await prisma.notification.create({
-        data: {
-          userId: body.recipientId,
-          type: "CHAT_DM",
-          message: `${message.sender.name}: ${preview}`,
-          targetType: "chat_dm",
-          targetId: message.senderId,
-        },
+      await notifyUser({
+        userId: body.recipientId,
+        type: "CHAT_DM",
+        message: `${message.sender.name}: ${preview}`,
+        targetType: "chat_dm",
+        targetId: message.senderId,
       });
     } else if (body.mentionedUserIds && body.mentionedUserIds.length > 0) {
       const uniqueIds = [...new Set(body.mentionedUserIds)].filter((id) => id !== user.id);
