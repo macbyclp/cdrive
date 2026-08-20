@@ -6,6 +6,11 @@ import type { Role } from "@prisma/client";
 
 const SESSION_COOKIE = "cdrive_session";
 const PENDING_2FA_COOKIE = "cdrive_2fa_pending";
+// Admin bir kullanıcıyı "taklit" ederken (bkz. startImpersonation) kimden dönüleceği bilgisi
+// ayrı, kısa ömürlü bir çerezde tutulur — hedef kullanıcının normal cdrive_session çerezi
+// ÜZERİNE YAZILIR (yeni bir Session satırıyla), admin'in kendi oturumu DB'de hiç bozulmaz,
+// sadece bu çerezle "geri dönüş anahtarı" saklanır.
+const IMPERSONATOR_COOKIE = "cdrive_impersonator";
 const secret = new TextEncoder().encode(
   process.env.SESSION_SECRET ?? "insecure-dev-secret-change-me"
 );
@@ -201,6 +206,123 @@ export async function registerFailedLogin(userId: string, currentAttempts: numbe
 
 export async function clearFailedLogins(userId: string) {
   await prisma.user.update({ where: { id: userId }, data: { failedLoginAttempts: 0, lockedUntil: null } });
+}
+
+// --- Kullanıcı taklit etme (admin panelinden, şifre değiştirmeden "biri olarak" girmek) ---
+
+type ImpersonatorPayload = { adminUserId: string; adminSessionId: string; adminName: string };
+
+/**
+ * Admin başka bir kullanıcı olarak girer: hedefe ait TAMAMEN YENİ bir Session satırı
+ * açılır (createSession) — cdrive_session çerezi buna yazılır, admin'in kendi oturumu DB'de
+ * dokunulmadan durur. Admin'in kimliği + geri dönmek için gereken sessionId, ayrı ve kısa
+ * ömürlü (2 saat) bir çerezde (IMPERSONATOR_COOKIE) saklanır — bkz. stopImpersonation.
+ */
+export async function startImpersonation(
+  admin: { id: string; name: string },
+  target: { id: string; email: string; name: string; role: Role; mustChangePassword: boolean },
+  meta?: { ip?: string | null; userAgent?: string | null }
+) {
+  const adminSession = await requireSession();
+
+  const impToken = await new SignJWT({
+    adminUserId: admin.id,
+    adminSessionId: adminSession.sessionId,
+    adminName: admin.name,
+  } satisfies ImpersonatorPayload)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("2h")
+    .sign(secret);
+
+  const store = await cookies();
+  store.set(IMPERSONATOR_COOKIE, impToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 2,
+  });
+
+  // cdrive_session çerezini hedefin YENİ oturumuna yazar — admin'in oturumu DB'de kalır.
+  await createSession(
+    { userId: target.id, email: target.email, name: target.name, role: target.role, mustChangePassword: target.mustChangePassword },
+    meta
+  );
+}
+
+export async function getImpersonator(): Promise<ImpersonatorPayload | null> {
+  const store = await cookies();
+  const token = store.get(IMPERSONATOR_COOKIE)?.value;
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, secret);
+    return payload as unknown as ImpersonatorPayload;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Taklit oturumundan admin'in kendi oturumuna geri döner: hedefin taklit sırasında açılan
+ * oturumunu revoke eder (hijyen — arkada canlı taklit oturumu bırakmamak için), admin'in
+ * ORİJİNAL sessionId'siyle yeni bir JWT basar (yeni Session satırı AÇILMAZ, var olan
+ * kullanılır — /onboarding tamamlanınca yapılan "JWT re-mint" ile aynı desen).
+ */
+export async function stopImpersonation(): Promise<{ adminId: string; targetId: string | null }> {
+  const imp = await getImpersonator();
+  if (!imp) throw new AuthError("Taklit oturumu bulunamadı");
+
+  const adminSessionRecord = await prisma.session.findUnique({ where: { id: imp.adminSessionId } });
+  if (!adminSessionRecord || adminSessionRecord.revokedAt) {
+    await clearImpersonatorCookie();
+    throw new AuthError("Yönetici oturumunuz artık geçerli değil, tekrar giriş yapın");
+  }
+  const admin = await prisma.user.findUnique({ where: { id: imp.adminUserId } });
+  if (!admin || !admin.active) {
+    await clearImpersonatorCookie();
+    throw new AuthError("Yönetici hesabı bulunamadı");
+  }
+
+  const currentSession = await getSession(); // şu an hedefin oturumu
+  let targetId: string | null = null;
+  if (currentSession?.sessionId) {
+    targetId = currentSession.userId;
+    await prisma.session.updateMany({
+      where: { id: currentSession.sessionId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  const token = await new SignJWT({
+    userId: admin.id,
+    email: admin.email,
+    name: admin.name,
+    role: admin.role,
+    sessionId: imp.adminSessionId,
+    mustChangePassword: admin.mustChangePassword,
+  } satisfies SessionPayload)
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime("7d")
+    .sign(secret);
+
+  const store = await cookies();
+  store.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+  await clearImpersonatorCookie();
+
+  return { adminId: admin.id, targetId };
+}
+
+async function clearImpersonatorCookie() {
+  const store = await cookies();
+  store.delete(IMPERSONATOR_COOKIE);
 }
 
 export class AuthError extends Error {

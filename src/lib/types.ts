@@ -14,6 +14,7 @@ export type MeUser = {
   avatarKey: string | null;
   avatarParts: string | null;
   hasSeenFeatureTour: boolean;
+  impersonatedBy: string | null;
 };
 
 export type Tag = { id: string; name: string; color: string };

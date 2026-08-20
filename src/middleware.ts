@@ -28,6 +28,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/accounting") ||
     pathname.startsWith("/customers") ||
     pathname.startsWith("/panel") ||
+    pathname.startsWith("/chat") ||
+    pathname.startsWith("/production") ||
     pathname.startsWith("/onboarding");
 
   if (!payload && isProtected) {
@@ -70,6 +72,8 @@ export const config = {
     "/accounting/:path*",
     "/customers/:path*",
     "/panel/:path*",
+    "/chat/:path*",
+    "/production/:path*",
     "/onboarding/:path*",
     "/login",
     "/setup",

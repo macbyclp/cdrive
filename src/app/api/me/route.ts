@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireUser, AuthError, clearSessionCookie } from "@/lib/auth";
+import { requireUser, AuthError, clearSessionCookie, getImpersonator } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
@@ -9,12 +9,14 @@ export async function GET() {
     // yetmez, ör. hesap ayarlarından uzaktan kapatılmış bir oturum burada
     // reddedilmeli.
     const sessionUser = await requireUser();
-    const [user, settings] = await Promise.all([
+    const [user, settings, impersonator] = await Promise.all([
       prisma.user.findUnique({ where: { id: sessionUser.id }, include: { department: true } }),
       // uiSkin sistem geneli bir görünüm ayarıdır (admin panelinden), her oturum
       // açmış kullanıcının (admin olmasa da) bilmesi gerekir — /api/me zaten her
       // sayfa yüklemesinde çağrıldığı için en ucuz taşıma noktası burası.
       prisma.systemSettings.findUnique({ where: { id: 1 }, select: { uiSkin: true } }),
+      // Admin bu kullanıcıyı taklit ediyorsa TopBar'daki "geri dön" şeridini göstermek için.
+      getImpersonator(),
     ]);
     if (!user || !user.active) {
       await clearSessionCookie();
@@ -37,6 +39,7 @@ export async function GET() {
         avatarKey: user.avatarKey,
         avatarParts: user.avatarParts,
         hasSeenFeatureTour: user.hasSeenFeatureTour,
+        impersonatedBy: impersonator?.adminName ?? null,
       },
     });
   } catch (err) {

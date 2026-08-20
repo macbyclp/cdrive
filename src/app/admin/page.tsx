@@ -138,7 +138,7 @@ export default function AdminPage() {
         )}
 
         {!loading && !error && tab === "users" && (
-          <UsersTab users={users} departments={departments} reload={loadAll} currentUserId={user.id} />
+          <UsersTab users={users} departments={departments} reload={loadAll} currentUserId={user.id} currentUserRole={user.role} />
         )}
         {!loading && !error && tab === "departments" && <DepartmentsTab departments={departments} reload={loadAll} />}
         {!loading && !error && tab === "groups" && <GroupsTab groups={groups} reload={loadAll} />}
@@ -158,13 +158,16 @@ function UsersTab({
   departments,
   reload,
   currentUserId,
+  currentUserRole,
 }: {
   users: AdminUser[];
   departments: Department[];
   reload: () => void;
   currentUserId: string;
+  currentUserRole: "ADMIN" | "MANAGER" | "MEMBER";
 }) {
   const toast = useToast();
+  const [impersonating, setImpersonating] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", role: "MEMBER", departmentId: "" });
   const [error, setError] = useState<string | null>(null);
@@ -241,6 +244,19 @@ function UsersTab({
       delete next[userId];
       return next;
     });
+  }
+
+  /** Şifreye hiç dokunmadan hedef kullanıcı olarak girer — bkz. src/lib/auth.ts startImpersonation. Tam sayfa yenileme şart: yeni oturum çerezi yazılıyor, client-side router yeterli olmaz. */
+  async function impersonate(userId: string) {
+    setImpersonating(userId);
+    const res = await fetch(withBasePath(`/api/admin/users/${userId}/impersonate`), { method: "POST" });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Kullanıcı olarak girilemedi", "error");
+      setImpersonating(null);
+      return;
+    }
+    window.location.href = withBasePath("/panel");
   }
 
   function saveQuota(userId: string) {
@@ -476,6 +492,26 @@ function UsersTab({
                   </button>
                 </div>
               </div>
+
+              {currentUserRole === "ADMIN" && u.role !== "ADMIN" && u.id !== currentUserId && (
+                <div className="mt-4">
+                  <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    Kullanıcı olarak gir
+                  </span>
+                  <p className="mb-1.5 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                    Şifresine hiç dokunmadan bu kullanıcının gördüğünü gör — destek/hata ayıklama
+                    için. Üstte sabit bir uyarı şeridi görünür, oradan geri dönebilirsin.
+                    {u.mustChangePassword && " (bu kullanıcı henüz ilk girişini tamamlamadığı için şu an kullanılamıyor)"}
+                  </p>
+                  <button
+                    disabled={impersonating === u.id || u.mustChangePassword}
+                    className="btn-ghost text-xs"
+                    onClick={() => impersonate(u.id)}
+                  >
+                    {impersonating === u.id ? "Giriliyor…" : "🕵️ Kullanıcı olarak gir"}
+                  </button>
+                </div>
+              )}
                 </div>
               )}
             </div>
