@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
+import { canAccessFile } from "@/lib/access";
 import { errorResponse } from "@/lib/api-helpers";
 import { publishChatMessage } from "@/lib/chat-events";
 
 const senderSelect = { select: { id: true, name: true, avatarKey: true, avatarParts: true } } as const;
+const fileSelect = { select: { id: true, name: true, mimeType: true, size: true } } as const;
 
 function serialize(m: {
   id: string;
@@ -15,6 +17,7 @@ function serialize(m: {
   channelId: string | null;
   recipientId: string | null;
   sender: { id: string; name: string; avatarKey: string | null; avatarParts: string | null };
+  file: { id: string; name: string; mimeType: string; size: bigint } | null;
 }) {
   return {
     id: m.id,
@@ -23,6 +26,7 @@ function serialize(m: {
     channelId: m.channelId,
     recipientId: m.recipientId,
     sender: m.sender,
+    file: m.file ? { ...m.file, size: m.file.size.toString() } : null,
   };
 }
 
@@ -57,7 +61,7 @@ export async function GET(req: Request) {
       where,
       orderBy: { createdAt: "desc" },
       take: 100,
-      include: { sender: senderSelect },
+      include: { sender: senderSelect, file: fileSelect },
     });
 
     return NextResponse.json(messages.reverse().map(serialize));
@@ -68,12 +72,16 @@ export async function GET(req: Request) {
 
 const sendSchema = z
   .object({
-    content: z.string().trim().min(1).max(4000),
+    content: z.string().trim().max(4000).optional(),
     channelId: z.string().optional(),
     recipientId: z.string().optional(),
+    fileId: z.string().optional(),
   })
   .refine((d) => !!d.channelId !== !!d.recipientId, {
     message: "channelId ve recipientId'den tam olarak biri verilmeli",
+  })
+  .refine((d) => !!(d.content && d.content.length > 0) || !!d.fileId, {
+    message: "Mesaj metni veya ekli dosyadan en az biri gerekli",
   });
 
 export async function POST(req: Request) {
@@ -95,14 +103,24 @@ export async function POST(req: Request) {
       }
     }
 
+    if (body.fileId) {
+      // Göndereni görmediği bir dosyayı id tahmin ederek eklemesin — ekledikten sonra
+      // (kanalsa herkese, DM'se karşı tarafa) görünür/indirilebilir hale gelecek, bu
+      // yüzden "paylaşma" niyeti burada doğrulanıyor (bkz. GET /api/files/[id]'deki
+      // sohbet-üzerinden-erişim istisnası).
+      const ok = await canAccessFile(user, body.fileId, "VIEW");
+      if (!ok) return NextResponse.json({ error: "Eklemek istediğiniz dosyaya erişiminiz yok" }, { status: 403 });
+    }
+
     const message = await prisma.chatMessage.create({
       data: {
-        content: body.content,
+        content: body.content ?? "",
         senderId: user.id,
         channelId: body.channelId ?? null,
         recipientId: body.recipientId ?? null,
+        fileId: body.fileId ?? null,
       },
-      include: { sender: senderSelect },
+      include: { sender: senderSelect, file: fileSelect },
     });
 
     const serialized = serialize(message);
@@ -116,6 +134,7 @@ export async function POST(req: Request) {
       senderAvatarParts: message.sender.avatarParts,
       channelId: message.channelId,
       recipientId: message.recipientId,
+      file: serialized.file,
     });
 
     return NextResponse.json(serialized);

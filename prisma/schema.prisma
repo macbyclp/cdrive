@@ -254,6 +254,7 @@ model File {
   tags        FileTag[]
   comments    FileComment[]
   orderAttachments OrderAttachment[]
+  chatMessages ChatMessage[]
 
   @@index([folderId])
   @@index([ownerId])
@@ -616,6 +617,8 @@ model ChatChannel {
 /// Bir mesaj ya bir kanala (channelId dolu) ya da birebir bir alıcıya
 /// (recipientId dolu) aittir — ikisi asla aynı anda dolu/boş olmaz (uygulama
 /// katmanında zorlanır, DB seviyesinde CHECK kısıtı Prisma/MySQL'de pratik değil).
+/// content boş olabilir AMA fileId doluysa (ekli dosya kendisi "mesaj" sayılır) —
+/// ikisi de boşsa gönderme reddedilir (bkz. /api/chat/messages).
 model ChatMessage {
   id        String   @id @default(cuid())
   content   String   @db.Text
@@ -629,6 +632,13 @@ model ChatMessage {
 
   recipientId String?
   recipient   User?   @relation("ChatMessageRecipient", fields: [recipientId], references: [id])
+
+  // Sürücü'den var olan bir dosyayı eklemek veya PC'den yeni bir dosya yüklemek (önce normal
+  // /api/files'a yüklenir, sonra buraya referans verilir) — ikisi de aynı alanı kullanır.
+  // Dosyanın KENDİSİ silinirse (Drive'dan) mesajdaki referans da otomatik temizlenir (ekli
+  // dosya kaybolur ama mesaj METNİ varsa mesaj durmaya devam eder).
+  fileId String?
+  file   File?   @relation(fields: [fileId], references: [id], onDelete: SetNull)
 
   @@index([channelId, createdAt])
   @@index([senderId, recipientId, createdAt])

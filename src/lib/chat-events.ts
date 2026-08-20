@@ -28,6 +28,7 @@ export type ChatEventPayload = {
   senderAvatarParts: string | null;
   channelId: string | null;
   recipientId: string | null;
+  file: { id: string; name: string; mimeType: string; size: string } | null;
 };
 
 /** Bir mesaj olayının bu kullanıcıya iletilip iletilmeyeceği — DM sızıntısını burada önlüyoruz. */

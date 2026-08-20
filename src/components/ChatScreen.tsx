@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
 import Avatar from "@/components/Avatar";
+import FilePickerDialog from "@/components/FilePickerDialog";
 import { useMe } from "@/lib/useMe";
 import { useToast } from "@/components/ToastProvider";
 import { withBasePath } from "@/lib/basePath";
+import { formatBytesStr, iconForMime } from "@/lib/format";
 import { isChatSoundEnabled, playReceivedSound, playSentSound, setChatSoundEnabled } from "@/lib/chat-sound";
 
 type Channel = { id: string; name: string; lastMessageAt: string | null; unread: boolean };
@@ -21,6 +23,8 @@ type Dm = {
 type Contact = { id: string; name: string; avatarKey: string | null; avatarParts: string | null };
 type ContactsResponse = { channels: Channel[]; dms: Dm[]; allUsers: Contact[] };
 
+type ChatFile = { id: string; name: string; mimeType: string; size: string };
+
 type Message = {
   id: string;
   content: string;
@@ -28,6 +32,7 @@ type Message = {
   channelId: string | null;
   recipientId: string | null;
   sender: { id: string; name: string; avatarKey: string | null; avatarParts: string | null };
+  file: ChatFile | null;
 };
 
 type Active = { type: "channel"; id: string; name: string } | { type: "dm"; id: string; name: string; avatarKey: string | null; avatarParts: string | null };
@@ -49,9 +54,14 @@ export default function ChatScreen() {
   const [userSearch, setUserSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
+  const [showFilePicker, setShowFilePicker] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const activeRef = useRef<Active | null>(null);
   const userIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     activeRef.current = active;
@@ -121,6 +131,7 @@ export default function ChatScreen() {
             channelId: data.channelId,
             recipientId: data.recipientId,
             sender: { id: data.senderId, name: data.senderName, avatarKey: data.senderAvatarKey, avatarParts: data.senderAvatarParts },
+            file: data.file ?? null,
           },
         ]);
         markRead(cur);
@@ -134,6 +145,14 @@ export default function ChatScreen() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) setShowAttachMenu(false);
+    }
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
 
   function openConversation(target: Active) {
     setActive(target);
@@ -167,6 +186,50 @@ export default function ChatScreen() {
     }
     playSentSound();
     // Ekrana ekleme SSE'nin işi — kendi bağlantımız da mesajı anında geri alır.
+  }
+
+  /** Var olan bir Sürücü dosyasını veya yeni yüklenmiş bir dosyayı mesaj olarak gönderir. */
+  async function sendFile(fileId: string, target: Active) {
+    const res = await fetch(withBasePath("/api/chat/messages"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(
+        target.type === "channel" ? { fileId, channelId: target.id } : { fileId, recipientId: target.id }
+      ),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Dosya gönderilemedi", "error");
+      return;
+    }
+    playSentSound();
+  }
+
+  /** Sürücü'de var olan dosyalardan seçim — FilePickerDialog çoklu seçime izin veriyor, her biri ayrı mesaj olarak gönderiliyor. */
+  async function attachFromDrive(files: { id: string; name: string; mimeType: string }[]) {
+    setShowFilePicker(false);
+    if (!active) return;
+    for (const f of files) await sendFile(f.id, active);
+  }
+
+  /** Bilgisayardan yeni dosya yükleme — önce normal /api/files'a (kullanıcının kendi Sürücü köküne) yüklenir, sonra mesaj olarak gönderilir. */
+  async function uploadAndSend(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0 || !active) return;
+    setUploading(true);
+    for (const file of Array.from(fileList)) {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(withBasePath("/api/files"), { method: "POST", body: fd });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast(`${file.name}: ${d.error ?? "yüklenemedi"}`, "error");
+        continue;
+      }
+      const uploaded = await res.json();
+      await sendFile(uploaded.id, active);
+    }
+    setUploading(false);
+    refresh(); // kota göstergesi güncellensin
   }
 
   async function createChannel(e: React.FormEvent) {
@@ -346,16 +409,37 @@ export default function ChatScreen() {
                               {m.sender.name}
                             </span>
                           )}
-                          <div
-                            className="rounded-2xl px-3 py-2 text-sm"
-                            style={
-                              mine
-                                ? { background: "var(--accent)", color: "#fff" }
-                                : { background: "var(--surface-muted)", color: "var(--text-primary)" }
-                            }
-                          >
-                            {m.content}
-                          </div>
+                          {m.content && (
+                            <div
+                              className="rounded-2xl px-3 py-2 text-sm"
+                              style={
+                                mine
+                                  ? { background: "var(--accent)", color: "#fff" }
+                                  : { background: "var(--surface-muted)", color: "var(--text-primary)" }
+                              }
+                            >
+                              {m.content}
+                            </div>
+                          )}
+                          {m.file && (
+                            <a
+                              href={withBasePath(`/api/files/${m.file.id}`)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-sm hover:opacity-80"
+                              style={{ borderColor: "var(--border)", background: "var(--surface)" }}
+                            >
+                              <span className="text-lg">{iconForMime(m.file.mimeType)}</span>
+                              <span className="min-w-0">
+                                <span className="block truncate font-medium" style={{ color: "var(--text-primary)" }}>
+                                  {m.file.name}
+                                </span>
+                                <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+                                  {formatBytesStr(m.file.size)}
+                                </span>
+                              </span>
+                            </a>
+                          )}
                           <span className="mt-0.5 text-[10px]" style={{ color: "var(--text-tertiary)" }}>
                             {formatTime(m.createdAt)}
                           </span>
@@ -377,6 +461,56 @@ export default function ChatScreen() {
                     send();
                   }}
                 >
+                  <div className="relative shrink-0" ref={attachMenuRef}>
+                    <button
+                      type="button"
+                      disabled={uploading}
+                      className="btn-secondary px-2.5"
+                      title="Dosya ekle"
+                      onClick={() => setShowAttachMenu((s) => !s)}
+                    >
+                      {uploading ? "…" : "📎"}
+                    </button>
+                    {showAttachMenu && (
+                      <div
+                        className="absolute bottom-full left-0 z-30 mb-1 w-48 overflow-hidden rounded-lg border py-1 shadow-lg"
+                        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+                      >
+                        <button
+                          type="button"
+                          className="block w-full px-3 py-2 text-left text-sm hover:opacity-80"
+                          style={{ color: "var(--text-primary)" }}
+                          onClick={() => {
+                            setShowAttachMenu(false);
+                            setShowFilePicker(true);
+                          }}
+                        >
+                          🗂️ Sürücüden ekle
+                        </button>
+                        <button
+                          type="button"
+                          className="block w-full px-3 py-2 text-left text-sm hover:opacity-80"
+                          style={{ color: "var(--text-primary)" }}
+                          onClick={() => {
+                            setShowAttachMenu(false);
+                            fileInputRef.current?.click();
+                          }}
+                        >
+                          ⬆ Bilgisayardan yükle
+                        </button>
+                      </div>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => {
+                        uploadAndSend(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </div>
                   <input
                     className="input flex-1"
                     placeholder="Mesaj yaz…"
@@ -392,6 +526,10 @@ export default function ChatScreen() {
           </div>
         </div>
       </div>
+
+      {showFilePicker && (
+        <FilePickerDialog onCancel={() => setShowFilePicker(false)} onConfirm={attachFromDrive} />
+      )}
     </AppShell>
   );
 }

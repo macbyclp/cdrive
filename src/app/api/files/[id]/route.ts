@@ -11,7 +11,21 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const { id } = await params;
     const user = await requireUser();
-    const ok = await canAccessFile(user, id, "VIEW");
+    let ok = await canAccessFile(user, id, "VIEW");
+    if (!ok) {
+      // Dosyanın kendisinde klasör/paylaşım izni olmasa bile, sohbette görebildiği bir
+      // mesaja EKLİ ise indirebilmeli — kanal mesajı herkese açık, DM ise sadece
+      // gönderen/alıcıya. "Sohbete ekleme" fiilen "bu görünürlükte paylaşma" anlamına
+      // geliyor (gerçek kurum-içi sohbet uygulamalarındaki gibi).
+      const viaChat = await prisma.chatMessage.findFirst({
+        where: {
+          fileId: id,
+          OR: [{ channelId: { not: null } }, { senderId: user.id }, { recipientId: user.id }],
+        },
+        select: { id: true },
+      });
+      ok = !!viaChat;
+    }
     if (!ok) return NextResponse.json({ error: "Bu dosyaya erişiminiz yok" }, { status: 403 });
 
     const file = await prisma.file.findUnique({ where: { id }, include: { currentVersion: true } });
