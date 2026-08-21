@@ -1052,7 +1052,161 @@ type SystemSettingsData = {
   uiSkin: "modern" | "archive" | "panel";
   require2faForAdmins: boolean;
   orgName: string;
+  smtpHost: string | null;
+  smtpPort: number | null;
+  smtpUser: string | null;
+  smtpPasswordSet: boolean;
+  mailFrom: string | null;
 };
+
+/**
+ * E-posta (SMTP) ayarları — artık tamamen admin panelinden girilir, SSH/env değişkeni
+ * gerekmez (önceki oturumda VDS docker-compose.yml'e elle eklenmişti). Şifre API'den
+ * asla geri dönmediği için (bkz. /api/admin/settings) sadece "ayarlı mı" gösteriliyor;
+ * yeni bir şifre girilmeden kaydedilirse eskisi (varsa) korunur.
+ */
+function SmtpCard() {
+  const toast = useToast();
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState("");
+  const [user, setUser] = useState("");
+  const [pass, setPass] = useState("");
+  const [passwordSet, setPasswordSet] = useState(false);
+  const [from, setFrom] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [testTo, setTestTo] = useState("");
+  const [testBusy, setTestBusy] = useState(false);
+
+  function load() {
+    fetch(withBasePath("/api/admin/settings"))
+      .then((r) => r.json())
+      .then((d: SystemSettingsData) => {
+        setHost(d.smtpHost ?? "");
+        setPort(d.smtpPort ? String(d.smtpPort) : "");
+        setUser(d.smtpUser ?? "");
+        setFrom(d.mailFrom ?? "");
+        setPasswordSet(!!d.smtpPasswordSet);
+      });
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    const body: Record<string, unknown> = {
+      smtpHost: host.trim() || null,
+      smtpPort: port.trim() ? Number(port) : null,
+      smtpUser: user.trim() || null,
+      mailFrom: from.trim() || "",
+    };
+    if (pass.trim()) body.smtpPass = pass.trim();
+    const res = await fetch(withBasePath("/api/admin/settings"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Kaydedilemedi", "error");
+      return;
+    }
+    setPass("");
+    load();
+    toast("SMTP ayarları kaydedildi", "success");
+  }
+
+  async function sendTest(e: React.FormEvent) {
+    e.preventDefault();
+    if (!testTo.trim()) return;
+    setTestBusy(true);
+    const res = await fetch(withBasePath("/api/admin/settings/test-email"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: testTo.trim() }),
+    });
+    setTestBusy(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast(d.error ?? "Gönderilemedi", "error");
+      return;
+    }
+    toast(`Test e-postası ${testTo.trim()} adresine gönderildi`, "success");
+  }
+
+  return (
+    <div className="card space-y-4 p-5">
+      <div>
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          E-posta (SMTP)
+        </h2>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Sipariş/ödeme/sohbet bildirimleri ve şifre sıfırlama e-postaları buradan gönderilir.
+          Sunucu ortam değişkeni/SSH gerekmez — hepsi buradan yönetilir.
+        </p>
+      </div>
+      <form onSubmit={save} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+            SMTP sunucusu
+          </span>
+          <input className="input" value={host} onChange={(e) => setHost(e.target.value)} placeholder="mail.ornek.tr" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+            Port
+          </span>
+          <input type="number" className="input" value={port} onChange={(e) => setPort(e.target.value)} placeholder="465" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+            Kullanıcı adı
+          </span>
+          <input className="input" value={user} onChange={(e) => setUser(e.target.value)} placeholder="bildirim@ornek.tr" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+            Şifre
+          </span>
+          <input
+            type="password"
+            className="input"
+            value={pass}
+            onChange={(e) => setPass(e.target.value)}
+            placeholder={passwordSet ? "•••••••• (değiştirmek için yaz)" : "Şifre gir"}
+          />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+            Gönderen adresi (From)
+          </span>
+          <input type="email" className="input" value={from} onChange={(e) => setFrom(e.target.value)} placeholder="bildirim@ornek.tr" />
+        </label>
+        <div className="sm:col-span-2">
+          <button disabled={busy} className="btn-primary">
+            {busy ? "Kaydediliyor…" : "SMTP ayarlarını kaydet"}
+          </button>
+        </div>
+      </form>
+      <form onSubmit={sendTest} className="flex gap-2 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+        <input
+          type="email"
+          required
+          className="input flex-1"
+          value={testTo}
+          onChange={(e) => setTestTo(e.target.value)}
+          placeholder="Test e-postası gönderilecek adres"
+        />
+        <button disabled={testBusy} className="btn-secondary shrink-0">
+          {testBusy ? "Gönderiliyor…" : "Test e-postası gönder"}
+        </button>
+      </form>
+    </div>
+  );
+}
 
 function SettingsTab() {
   const toast = useToast();
@@ -1212,6 +1366,8 @@ function SettingsTab() {
           </button>
         </div>
       </form>
+
+      <SmtpCard />
 
       <BackupsCard />
 

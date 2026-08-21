@@ -1,40 +1,71 @@
 import nodemailer from "nodemailer";
+import { prisma } from "@/lib/prisma";
 
 /**
- * E-posta gönderimi — SMTP_HOST env değişkeni yoksa (yerel geliştirme, testler) tamamen
- * sessizce devre dışı kalır, hiçbir çağıran kod bunu kontrol etmek zorunda değil. Bir
- * gönderim başarısız olursa da HATA FIRLATMAZ — sadece konsola loglar; e-posta arızası
- * hiçbir zaman uygulamanın asıl işlemini (sipariş oluşturma, mesaj gönderme vb.) bozmasın.
+ * E-posta gönderimi — SMTP ayarları artık admin panelinden (SystemSettings) giriliyor,
+ * env değişkeni/SSH gerekmez. DB'de bir alan boşsa geçiş dönemi için ilgili env
+ * değişkenine (SMTP_HOST/PORT/USER/PASS/MAIL_FROM) düşülür — hiçbiri yoksa (yerel
+ * geliştirme, testler) tamamen sessizce devre dışı kalır. Bir gönderim başarısız
+ * olursa da HATA FIRLATMAZ — sadece konsola loglar; e-posta arızası hiçbir zaman
+ * uygulamanın asıl işlemini (sipariş oluşturma, mesaj gönderme vb.) bozmasın.
  */
-const globalForMailer = globalThis as unknown as { cdriveMailer?: ReturnType<typeof nodemailer.createTransport> };
+const globalForMailer = globalThis as unknown as {
+  cdriveMailer?: ReturnType<typeof nodemailer.createTransport>;
+  cdriveMailerKey?: string;
+};
 
-function getTransport() {
-  if (!process.env.SMTP_HOST) return null;
-  if (!globalForMailer.cdriveMailer) {
+export type SmtpConfig = { host: string; port: number; user: string | null; pass: string | null; from: string | null };
+
+/** Admin panelinden girilmiş ayarları env fallback'iyle birleştirir — host boşsa null (yapılandırılmamış). */
+export async function getSmtpConfig(): Promise<SmtpConfig | null> {
+  const settings = await prisma.systemSettings.findUnique({ where: { id: 1 } });
+  const host = settings?.smtpHost || process.env.SMTP_HOST;
+  if (!host) return null;
+  const port = settings?.smtpPort || Number(process.env.SMTP_PORT ?? 465);
+  const user = settings?.smtpUser || process.env.SMTP_USER || null;
+  const pass = settings?.smtpPass || process.env.SMTP_PASS || null;
+  const from = settings?.mailFrom || process.env.MAIL_FROM || user;
+  return { host, port, user, pass, from };
+}
+
+function getTransport(config: SmtpConfig) {
+  const cacheKey = `${config.host}:${config.port}:${config.user}:${config.pass}`;
+  if (!globalForMailer.cdriveMailer || globalForMailer.cdriveMailerKey !== cacheKey) {
     globalForMailer.cdriveMailer = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT ?? 465),
-      secure: Number(process.env.SMTP_PORT ?? 465) === 465,
-      auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } : undefined,
+      host: config.host,
+      port: config.port,
+      secure: config.port === 465,
+      auth: config.user ? { user: config.user, pass: config.pass ?? undefined } : undefined,
     });
+    globalForMailer.cdriveMailerKey = cacheKey;
   }
   return globalForMailer.cdriveMailer;
 }
 
 export async function sendMail(opts: { to: string; subject: string; text: string; html?: string }) {
-  const transport = getTransport();
-  if (!transport) return; // SMTP yapılandırılmamış — sessizce atla (yerel geliştirme/test)
   try {
-    await transport.sendMail({
-      from: process.env.MAIL_FROM ?? process.env.SMTP_USER,
-      to: opts.to,
-      subject: opts.subject,
-      text: opts.text,
-      html: opts.html,
-    });
+    await sendMailOrThrow(opts);
   } catch (err) {
     console.error("[mailer] gönderilemedi:", opts.to, err);
   }
+}
+
+/**
+ * `sendMail`'in hata fırlatan hali — SADECE admin panelindeki "Test e-postası gönder"
+ * butonu gibi kullanıcının gerçek bir hata mesajı GÖRMESİ gereken tek bir yerde kullanılır.
+ * Uygulamanın normal bildirim akışları her zaman sessiz `sendMail`'i kullanmaya devam eder.
+ */
+export async function sendMailOrThrow(opts: { to: string; subject: string; text: string; html?: string }) {
+  const config = await getSmtpConfig();
+  if (!config) throw new Error("SMTP yapılandırılmamış");
+  const transport = getTransport(config);
+  await transport.sendMail({
+    from: config.from ?? undefined,
+    to: opts.to,
+    subject: opts.subject,
+    text: opts.text,
+    html: opts.html,
+  });
 }
 
 /**

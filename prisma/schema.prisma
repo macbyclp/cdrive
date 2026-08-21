@@ -217,6 +217,17 @@ model SystemSettings {
   uiSkin               String   @default("modern") // "modern" | "archive" — Sürücü sayfasının görsel dili, admin panelinden seçilir
   require2faForAdmins  Boolean  @default(false) // true ise TÜM ADMIN hesapları 2FA kurana kadar /account dışında hiçbir yere giremez
   orgName              String   @default("MACBYMAC") // Footer'da ve e-posta şablonlarındaki telif/kurum adı — admin panelinden değiştirilebilir
+
+  // SMTP ayarları — admin panelinden girilir, artık env değişkeni/SSH gerekmez. Hiçbiri
+  // doluysa DB'deki değer, boşsa (geçiş dönemi için geriye dönük uyum) SMTP_HOST/PORT/USER/
+  // PASS/MAIL_FROM env değişkenleri kullanılır (bkz. src/lib/mailer.ts). smtpPass API
+  // yanıtlarında ASLA geri döndürülmez, sadece "ayarlı mı" bilgisi (smtpPasswordSet) döner.
+  smtpHost String?
+  smtpPort Int?
+  smtpUser String?
+  smtpPass String?
+  mailFrom String?
+
   updatedAt            DateTime @updatedAt
 
   @@map("system_settings")
