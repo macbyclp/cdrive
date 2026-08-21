@@ -23,7 +23,7 @@ function escapeHtml(s: string) {
  * @param bodyHtml Zaten güvenli/kaçışlı HTML gövde (paragraf(lar))
  * @param cta Opsiyonel eylem butonu — sipariş/sohbet gibi bir hedefe götürür
  */
-export function renderEmail(opts: { heading: string; bodyHtml: string; cta?: { label: string; url: string } }) {
+export function renderEmail(opts: { heading: string; bodyHtml: string; cta?: { label: string; url: string }; orgName: string }) {
   const year = new Date().getFullYear();
   return `<!doctype html>
 <html lang="tr">
@@ -63,7 +63,7 @@ export function renderEmail(opts: { heading: string; bodyHtml: string; cta?: { l
             }
             <tr>
               <td style="padding:16px 32px;border-top:1px solid ${BORDER};font-size:12px;color:${TEXT_TERTIARY};text-align:center;">
-                © ${year} MACBYMAC — Tüm Hakları Saklıdır
+                © ${year} ${escapeHtml(opts.orgName)} — Tüm Hakları Saklıdır
               </td>
             </tr>
           </table>
@@ -79,7 +79,7 @@ export function paragraph(text: string) {
 }
 
 /** Şifre sıfırlama e-postası — bağlantı 1 saat geçerli, tek kullanımlık. */
-export function passwordResetEmail(opts: { name: string; resetUrl: string }) {
+export function passwordResetEmail(opts: { name: string; resetUrl: string; orgName: string }) {
   const html = renderEmail({
     heading: "Şifre sıfırlama isteği",
     bodyHtml:
@@ -87,13 +87,14 @@ export function passwordResetEmail(opts: { name: string; resetUrl: string }) {
       paragraph("Cdrive hesabın için bir şifre sıfırlama isteği aldık. Aşağıdaki butona tıklayarak yeni bir şifre belirleyebilirsin.") +
       paragraph("Bu bağlantı 1 saat geçerlidir ve sadece bir kez kullanılabilir. Bu isteği sen yapmadıysan bu e-postayı görmezden gelebilirsin — hesabında hiçbir şey değişmez."),
     cta: { label: "Yeni şifre belirle", url: opts.resetUrl },
+    orgName: opts.orgName,
   });
   const text = `Merhaba ${opts.name},\n\nCdrive hesabın için bir şifre sıfırlama isteği aldık. Aşağıdaki bağlantıyla yeni bir şifre belirleyebilirsin (1 saat geçerli, tek kullanımlık):\n\n${opts.resetUrl}\n\nBu isteği sen yapmadıysan bu e-postayı görmezden gelebilirsin.`;
   return { subject: "Cdrive — Şifre sıfırlama", html, text };
 }
 
 /** notify.ts'in gönderdiği genel bildirim e-postaları için — mesaj tek satırlık düz metin, opsiyonel hedefe giden bir buton. */
-export function genericNotificationEmail(opts: { heading: string; message: string; cta?: { label: string; url: string } }) {
-  const html = renderEmail({ heading: opts.heading, bodyHtml: paragraph(opts.message), cta: opts.cta });
+export function genericNotificationEmail(opts: { heading: string; message: string; cta?: { label: string; url: string }; orgName: string }) {
+  const html = renderEmail({ heading: opts.heading, bodyHtml: paragraph(opts.message), cta: opts.cta, orgName: opts.orgName });
   return { subject: `Cdrive — ${opts.heading}`, html, text: opts.message };
 }

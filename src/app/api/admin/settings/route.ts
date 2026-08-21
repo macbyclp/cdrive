@@ -33,6 +33,7 @@ const schema = z.object({
   blockedExtensions: z.string().nullable().optional(),
   uiSkin: z.enum(["modern", "archive", "panel"]).optional(),
   require2faForAdmins: z.boolean().optional(),
+  orgName: z.string().trim().min(1).max(100).optional(),
 });
 
 export async function PATCH(req: Request) {

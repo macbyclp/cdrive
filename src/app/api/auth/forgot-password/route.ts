@@ -6,6 +6,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
 import { sendMail, appBaseUrl } from "@/lib/mailer";
 import { passwordResetEmail } from "@/lib/email-templates";
+import { getOrgName } from "@/lib/org";
 
 const schema = z.object({ email: z.string().email() });
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 saat
@@ -39,7 +40,8 @@ export async function POST(req: Request) {
       });
 
       const resetUrl = `${appBaseUrl()}/reset-password?token=${rawToken}`;
-      const { subject, html, text } = passwordResetEmail({ name: user.name, resetUrl });
+      const orgName = await getOrgName();
+      const { subject, html, text } = passwordResetEmail({ name: user.name, resetUrl, orgName });
       void sendMail({ to: user.email, subject, html, text });
     }
 

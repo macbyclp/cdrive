@@ -1051,6 +1051,7 @@ type SystemSettingsData = {
   blockedExtensions: string | null;
   uiSkin: "modern" | "archive" | "panel";
   require2faForAdmins: boolean;
+  orgName: string;
 };
 
 function SettingsTab() {
@@ -1062,6 +1063,8 @@ function SettingsTab() {
   const [blockedExt, setBlockedExt] = useState("");
   const [uiSkin, setUiSkin] = useState<"modern" | "archive" | "panel">("modern");
   const [require2fa, setRequire2fa] = useState(false);
+  const [orgName, setOrgName] = useState("");
+  const [orgNameBusy, setOrgNameBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<string | null>(null);
 
@@ -1070,6 +1073,7 @@ function SettingsTab() {
       .then((r) => r.json())
       .then((d: SystemSettingsData) => {
         setSettings(d);
+        setOrgName(d.orgName ?? "MACBYMAC");
         setTrashDays(d.trashRetentionDays?.toString() ?? "");
         setVersionDays(d.versionRetentionDays?.toString() ?? "");
         setMaxSizeMb(d.maxFileSizeBytes ? (Number(d.maxFileSizeBytes) / 1024 ** 2).toString() : "");
@@ -1093,6 +1097,25 @@ function SettingsTab() {
       return;
     }
     toast(next ? "Adminler için 2FA zorunlu kılındı" : "2FA zorunluluğu kaldırıldı", "success");
+  }
+
+  async function saveOrgName(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = orgName.trim();
+    if (!trimmed) return;
+    setOrgNameBusy(true);
+    const res = await fetch(withBasePath("/api/admin/settings"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orgName: trimmed }),
+    });
+    setOrgNameBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Kaydedilemedi", "error");
+      return;
+    }
+    toast("Kurum adı güncellendi — footer ve e-postalarda yansıyacak", "success");
   }
 
   async function saveSkin(skin: "modern" | "archive" | "panel") {
@@ -1164,6 +1187,32 @@ function SettingsTab() {
 
   return (
     <div className="space-y-6">
+      <form onSubmit={saveOrgName} className="card space-y-3 p-5">
+        <div>
+          <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            Kurum adı
+          </h2>
+          <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+            Footer&apos;daki telif satırında ve gönderilen tüm e-postaların altında görünür
+            (örn. &ldquo;© {new Date().getFullYear()} {orgName || "…"} — Tüm Hakları Saklıdır&rdquo;).
+            &ldquo;Cdrive&rdquo; ürün adı bundan etkilenmez.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <input
+            required
+            maxLength={100}
+            className="input flex-1"
+            value={orgName}
+            onChange={(e) => setOrgName(e.target.value)}
+            placeholder="örn. Çalapverdi Gıda"
+          />
+          <button disabled={orgNameBusy} className="btn-primary shrink-0">
+            {orgNameBusy ? "Kaydediliyor…" : "Kaydet"}
+          </button>
+        </div>
+      </form>
+
       <BackupsCard />
 
       <div className="card space-y-4 p-5">

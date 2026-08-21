@@ -216,6 +216,7 @@ model SystemSettings {
   blockedExtensions    String? @db.Text // virgülle ayrılmış, örn ".exe,.bat,.sh"
   uiSkin               String   @default("modern") // "modern" | "archive" — Sürücü sayfasının görsel dili, admin panelinden seçilir
   require2faForAdmins  Boolean  @default(false) // true ise TÜM ADMIN hesapları 2FA kurana kadar /account dışında hiçbir yere giremez
+  orgName              String   @default("MACBYMAC") // Footer'da ve e-posta şablonlarındaki telif/kurum adı — admin panelinden değiştirilebilir
   updatedAt            DateTime @updatedAt
 
   @@map("system_settings")

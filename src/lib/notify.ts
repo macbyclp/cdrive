@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendMail, appBaseUrl } from "@/lib/mailer";
 import { genericNotificationEmail } from "@/lib/email-templates";
+import { getOrgName } from "@/lib/org";
 import type { NotificationType } from "@prisma/client";
 
 // E-posta SADECE zaman-kritik/eyleme-geçirilebilir türlerde gidiyor — her dosya paylaşımı
@@ -22,11 +23,11 @@ function ctaFor(type: NotificationType, targetId?: string | null): { label: stri
   return undefined;
 }
 
-async function emailFor(userId: string, type: NotificationType, message: string, targetId?: string | null) {
+async function emailFor(userId: string, type: NotificationType, message: string, orgName: string, targetId?: string | null) {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
   if (!user) return;
   const heading = HEADING[type] ?? "Bildirim";
-  const { subject, html, text } = genericNotificationEmail({ heading, message, cta: ctaFor(type, targetId) });
+  const { subject, html, text } = genericNotificationEmail({ heading, message, cta: ctaFor(type, targetId), orgName });
   void sendMail({ to: user.email, subject, html, text });
 }
 
@@ -37,7 +38,10 @@ export async function notifyUser(data: NotifyInput) {
   const notification = await prisma.notification.create({
     data: { userId: data.userId, type: data.type, message: data.message, targetType: data.targetType, targetId: data.targetId },
   });
-  if (EMAIL_TYPES.includes(data.type)) void emailFor(data.userId, data.type, data.message, data.targetId);
+  if (EMAIL_TYPES.includes(data.type)) {
+    const orgName = await getOrgName();
+    void emailFor(data.userId, data.type, data.message, orgName, data.targetId);
+  }
   return notification;
 }
 
@@ -46,6 +50,7 @@ export async function notifyUsers(userIds: string[], type: NotificationType, mes
   if (userIds.length === 0) return;
   await prisma.notification.createMany({ data: userIds.map((userId) => ({ userId, type, message, targetType, targetId })) });
   if (EMAIL_TYPES.includes(type)) {
-    for (const userId of userIds) void emailFor(userId, type, message, targetId);
+    const orgName = await getOrgName();
+    for (const userId of userIds) void emailFor(userId, type, message, orgName, targetId);
   }
 }
