@@ -7,6 +7,7 @@ import OrderDialog from "@/components/OrderDialog";
 import OrderDetailDialog from "@/components/OrderDetailDialog";
 import { useMe } from "@/lib/useMe";
 import { formatCurrencyTL, formatDate } from "@/lib/format";
+import { orderTotal, orderCollected, orderRemaining } from "@/lib/orders";
 import { withBasePath } from "@/lib/basePath";
 
 type OrderRow = {
@@ -160,11 +161,9 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" | "productio
   const summary = orders.reduce(
     (acc, o) => {
       if (o.status === "CANCELLED") return acc;
-      const total = o.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
-      const collected = o.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-      acc.revenue += total;
-      acc.collected += collected;
-      acc.remaining += Math.max(0, total - collected);
+      acc.revenue += orderTotal(o.items);
+      acc.collected += orderCollected(o.payments);
+      acc.remaining += orderRemaining(o.items, o.payments);
       return acc;
     },
     { revenue: 0, collected: 0, remaining: 0 }
@@ -323,8 +322,8 @@ function OrdersScreenInner({ mode }: { mode: "sales" | "accounting" | "productio
         {!loading && !error && orders.length > 0 && (
           <div className="card overflow-hidden">
             {orders.map((o) => {
-              const total = o.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
-              const collected = o.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+              const total = orderTotal(o.items);
+              const collected = orderCollected(o.payments);
               const isOverdue = !!o.dueDate && collected < total && new Date(o.dueDate) < new Date() && o.status !== "CANCELLED";
               const paymentLabel = collected <= 0 ? "Ödenmedi" : collected < total ? "Kısmi ödendi" : "Ödendi";
               const paymentColor =

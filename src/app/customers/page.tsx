@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { useMe } from "@/lib/useMe";
 import { formatCurrencyTL } from "@/lib/format";
+import { remainingFrom } from "@/lib/orders";
 import { withBasePath } from "@/lib/basePath";
 
 type Customer = {
@@ -96,7 +97,7 @@ export default function CustomersPage() {
         {!loading && !error && customers.length > 0 && (
           <div className="card overflow-hidden">
             {customers.map((c) => {
-              const remaining = Math.max(0, c.revenue - c.collected);
+              const remaining = remainingFrom(c.revenue, c.collected);
               return (
                 <a
                   key={c.id}

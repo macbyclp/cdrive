@@ -992,15 +992,29 @@ function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments:
   );
 }
 
-type BackupEntry = { name: string; sizeBytes: number; modifiedAt: string };
+type BackupEntry = {
+  name: string;
+  kind: "database" | "storage";
+  sizeBytes: number;
+  modifiedAt: string;
+};
 
 /**
- * VDS'teki otomatik günlük DB yedeklemesinin (backup-db.sh) durumunu SADECE gösterir —
+ * VDS'teki otomatik günlük yedeklemenin (backup-all.sh) durumunu SADECE gösterir —
  * bilerek buradan geri yükleme YAPILAMAZ (bkz. /api/admin/backups'taki gerekçe). Amaç:
  * "yedekleme gerçekten çalışıyor mu" sorusuna admin panelinden hızlıca cevap verebilmek.
+ *
+ * Veritabanı ve yüklenen dosyalar ayrı ayrı gösterilir: ikisi birlikte olmadan yedek
+ * "tam" değildir (sadece DB geri yüklenirse dosya kayıtları var olmayan dosyaları
+ * işaret eder), o yüzden dosya yedeği hiç yoksa kart açık bir uyarı gösterir.
  */
 function BackupsCard() {
-  const [data, setData] = useState<{ configured: boolean; backups: BackupEntry[]; error?: string } | null>(null);
+  const [data, setData] = useState<{
+    configured: boolean;
+    backups: BackupEntry[];
+    hasStorageBackup?: boolean;
+    error?: string;
+  } | null>(null);
 
   useEffect(() => {
     fetch(withBasePath("/api/admin/backups"))
@@ -1012,33 +1026,66 @@ function BackupsCard() {
   if (!data) return <div className="skeleton h-20 w-full" />;
   if (!data.configured) return null; // yerel geliştirmede BACKUP_DIR yok — kart hiç görünmesin
 
-  const latest = data.backups[0];
+  const dbBackups = data.backups.filter((b) => b.kind === "database");
+  const storageBackups = data.backups.filter((b) => b.kind === "storage");
+  const latestDb = dbBackups[0];
+  const latestStorage = storageBackups[0];
 
   return (
     <div className="card space-y-3 p-5">
       <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-        Veritabanı yedekleri
+        Yedekler
       </h2>
       {data.error ? (
         <p className="text-sm" style={{ color: "var(--danger)" }}>
           {data.error}
         </p>
-      ) : latest ? (
-        <>
-          <p className="text-sm" style={{ color: "var(--text-primary)" }}>
-            Son yedek: <strong>{formatDate(latest.modifiedAt)}</strong> · {formatBytesStr(latest.sizeBytes)}
-          </p>
-          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            Toplam {data.backups.length} yedek dosyası saklanıyor (30 gün rotasyonlu, her gece
-            03:30). Geri yükleme bilerek buradan yapılamıyor — yanlışlıkla production
-            veritabanının üzerine yazma riskini önlemek için elle bir SSH işlemi olarak
-            kalıyor.
-          </p>
-        </>
-      ) : (
+      ) : data.backups.length === 0 ? (
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           Henüz hiç yedek bulunamadı.
         </p>
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            <p className="text-sm" style={{ color: "var(--text-primary)" }}>
+              🗄️ Veritabanı:{" "}
+              {latestDb ? (
+                <>
+                  <strong>{formatDate(latestDb.modifiedAt)}</strong> · {formatBytesStr(latestDb.sizeBytes)} ·{" "}
+                  {dbBackups.length} dosya
+                </>
+              ) : (
+                <span style={{ color: "var(--danger)" }}>yedek yok</span>
+              )}
+            </p>
+            <p className="text-sm" style={{ color: "var(--text-primary)" }}>
+              📁 Yüklenen dosyalar:{" "}
+              {latestStorage ? (
+                <>
+                  <strong>{formatDate(latestStorage.modifiedAt)}</strong> ·{" "}
+                  {formatBytesStr(latestStorage.sizeBytes)} · {storageBackups.length} dosya
+                </>
+              ) : (
+                <span style={{ color: "var(--danger)" }}>yedek yok</span>
+              )}
+            </p>
+          </div>
+          {!data.hasStorageBackup && (
+            <p
+              className="rounded-lg px-3 py-2 text-xs"
+              style={{ backgroundColor: "var(--danger-bg, #fef2f2)", color: "var(--danger)" }}
+            >
+              <strong>Dikkat:</strong> Yüklenen dosyaların hiç yedeği yok. Bu haliyle bir disk
+              kaybında veritabanı geri gelse bile dosyalar kurtarılamaz. Sunucudaki yedekleme
+              görevinin <code>backup-all.sh</code> scriptini çalıştırdığından emin ol.
+            </p>
+          )}
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            30 gün rotasyonlu, her gece 03:30. Geri yükleme bilerek buradan yapılamıyor —
+            yanlışlıkla production verisinin üzerine yazma riskini önlemek için elle bir SSH
+            işlemi olarak kalıyor.
+          </p>
+        </>
       )}
     </div>
   );

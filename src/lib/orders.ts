@@ -47,6 +47,50 @@ export async function generateOrderNumber(): Promise<number | null> {
   return null;
 }
 
+/**
+ * Sipariş tutarı hesapları — TEK KAYNAK.
+ *
+ * Bu üç formül daha önce beş ayrı yerde (OrderDialog, OrderDetailDialog, OrdersScreen'in
+ * iki farklı yeri ve /customers) elle tekrarlanıyordu. Aynı formülün kopyaları zamanla
+ * birbirinden ayrışır (biri KDV/iskonto öğrenir, diğeri öğrenmez) ve para hesabında
+ * sessiz tutarsızlık en pahalı hata türüdür — o yüzden buraya toplandı.
+ *
+ * `unitPrice`/`amount` alanları Prisma'da Decimal olduğu için API'den string olarak
+ * geliyor; imzalar bilerek `number | string` kabul edip Number()'a çeviriyor.
+ */
+// quantity de string olabiliyor: OrderDialog'daki form taslağı (ItemDraft) alanları
+// kullanıcı yazarken string tutar, kaydedilmiş sipariş ise number döner.
+export type OrderAmountItem = { quantity: number | string; unitPrice: number | string };
+export type OrderAmountPayment = { amount: number | string };
+
+/** Kalemlerin (adet × birim fiyat) toplamı — siparişin brüt tutarı. */
+export function orderTotal(items: readonly OrderAmountItem[]): number {
+  return items.reduce((sum, i) => sum + (Number(i.quantity) || 0) * (Number(i.unitPrice) || 0), 0);
+}
+
+/** Bu siparişe karşılık girilmiş ödemelerin toplamı. */
+export function orderCollected(payments: readonly OrderAmountPayment[]): number {
+  return payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+}
+
+/**
+ * Kalan borcun kırpma kuralı. Fazla tahsilat (collected > total) durumunda NEGATİF
+ * DÖNMEZ, 0'a kırpılır — "kalan -250 TL" göstermek yerine "kalan 0" göstermek kasıtlı
+ * bir ürün kararı. Zaten toplanmış (aggregate) rakamlarla çalışan /customers sayfası
+ * da aynı kuralı kullansın diye ayrı bir fonksiyon.
+ */
+export function remainingFrom(total: number, collected: number): number {
+  return Math.max(0, total - collected);
+}
+
+/** Bir siparişin kalan borcu — kalemler ve ödemelerden hesaplanır. */
+export function orderRemaining(
+  items: readonly OrderAmountItem[],
+  payments: readonly OrderAmountPayment[]
+): number {
+  return remainingFrom(orderTotal(items), orderCollected(payments));
+}
+
 export function serializeOrder(o: {
   items: { unitPrice: unknown; [k: string]: unknown }[];
   payments: { amount: unknown; [k: string]: unknown }[];

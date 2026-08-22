@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/components/ToastProvider";
 import { withBasePath } from "@/lib/basePath";
 import { formatCurrencyTL, formatDate, iconForMime } from "@/lib/format";
+import { orderTotal, orderCollected, orderRemaining } from "@/lib/orders";
 import OrderDialog from "@/components/OrderDialog";
 import PaymentDialog from "@/components/PaymentDialog";
 import FilePickerDialog from "@/components/FilePickerDialog";
@@ -257,9 +258,9 @@ export default function OrderDetailDialog({
     );
   }
 
-  const total = order?.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0) ?? 0;
-  const collected = order?.payments.reduce((sum, p) => sum + Number(p.amount), 0) ?? 0;
-  const remaining = Math.max(0, total - collected);
+  const total = order ? orderTotal(order.items) : 0;
+  const collected = order ? orderCollected(order.payments) : 0;
+  const remaining = order ? orderRemaining(order.items, order.payments) : 0;
   const isOwnerPending = order && order.createdBy.id === currentUserId && order.status === "PENDING";
 
   return (

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { readFile } from "@/lib/storage";
 import { verifyPassword } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
+import { shareLinkStatus } from "@/lib/share";
 import { errorResponse } from "@/lib/api-helpers";
 
 // Herkese açık indirme uç noktası — oturum gerektirmez, sadece geçerli token
@@ -15,14 +16,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
       include: { file: { include: { currentVersion: true } } },
     });
 
-    if (!link || link.revoked) {
-      return NextResponse.json({ error: "Bağlantı geçersiz veya iptal edilmiş" }, { status: 404 });
-    }
-    if (link.expiresAt && link.expiresAt < new Date()) {
-      return NextResponse.json({ error: "Bağlantının süresi dolmuş" }, { status: 410 });
-    }
-    if (link.maxDownloads && link.downloadCount >= link.maxDownloads) {
-      return NextResponse.json({ error: "İndirme limitine ulaşıldı" }, { status: 410 });
+    const gate = shareLinkStatus(link);
+    if (!link || !gate.ok) {
+      // !link durumu shareLinkStatus içinde zaten 404'e çevriliyor; buradaki kontrol
+      // TypeScript'in aşağıdaki link erişimlerini daraltabilmesi için.
+      return NextResponse.json(
+        { error: gate.ok ? "Bağlantı geçersiz veya iptal edilmiş" : gate.error },
+        { status: gate.ok ? 404 : gate.status }
+      );
     }
     if (link.passwordHash) {
       const password = new URL(req.url).searchParams.get("password") ?? "";

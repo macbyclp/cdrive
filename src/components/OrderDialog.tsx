@@ -5,6 +5,7 @@ import { useToast } from "@/components/ToastProvider";
 import { withBasePath } from "@/lib/basePath";
 import FilePickerDialog from "@/components/FilePickerDialog";
 import { iconForMime } from "@/lib/format";
+import { orderTotal } from "@/lib/orders";
 
 type ItemDraft = { productName: string; quantity: string; unitPrice: string };
 type AttachedFile = { id: string; name: string; mimeType: string };
@@ -78,7 +79,7 @@ export default function OrderDialog({
     setItems((its) => (its.length > 1 ? its.filter((_, i) => i !== idx) : its));
   }
 
-  const total = items.reduce((sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
+  const total = orderTotal(items);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
