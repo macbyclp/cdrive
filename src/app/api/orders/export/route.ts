@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canAccessOrders, canManageOrders, canManageProduction } from "@/lib/access";
 import { formatDate } from "@/lib/format";
+import { orderTotal, orderCollected, remainingFrom } from "@/lib/orders";
 import { errorResponse } from "@/lib/api-helpers";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -50,14 +51,14 @@ export async function GET(req: Request) {
     ws.getRow(1).font = { bold: true };
 
     for (const o of orders) {
-      const total = o.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
-      const collected = o.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const total = orderTotal(o.items);
+      const collected = orderCollected(o.payments);
       ws.addRow({
         customer: o.customerName,
         contact: o.customerContact ?? "",
         total,
         collected,
-        remaining: Math.max(0, total - collected),
+        remaining: remainingFrom(total, collected),
         status: STATUS_LABEL[o.status] ?? o.status,
         createdBy: o.createdBy.name,
         createdAt: formatDate(o.createdAt.toISOString()),
@@ -70,8 +71,8 @@ export async function GET(req: Request) {
     const monthlyMap = new Map<string, { count: number; total: number; collected: number }>();
     const customerMap = new Map<string, { count: number; total: number; collected: number }>();
     for (const o of orders) {
-      const total = o.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
-      const collected = o.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const total = orderTotal(o.items);
+      const collected = orderCollected(o.payments);
 
       const monthKey = `${o.createdAt.getFullYear()}-${String(o.createdAt.getMonth() + 1).padStart(2, "0")}`;
       const m = monthlyMap.get(monthKey) ?? { count: 0, total: 0, collected: 0 };

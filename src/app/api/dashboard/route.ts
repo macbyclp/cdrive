@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canManageOrders } from "@/lib/access";
+import { orderTotal, orderCollected, remainingFrom } from "@/lib/orders";
 import { errorResponse } from "@/lib/api-helpers";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -15,12 +16,8 @@ const STATUS_LABEL: Record<string, string> = {
 // Zaman çizelgesindeki adım sırası — progress bar yüzdesi buradaki konuma göre hesaplanır.
 const STATUS_STEPS = ["PENDING", "APPROVED", "IN_PRODUCTION", "INVOICED"];
 
-function orderTotal(items: { quantity: number; unitPrice: unknown }[]) {
-  return items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
-}
-function orderCollected(payments: { amount: unknown }[]) {
-  return payments.reduce((sum, p) => sum + Number(p.amount), 0);
-}
+// Para hesapları lib/orders.ts'ten — bu dosyada da ayrı birer kopyası vardı
+// (toplam ALTI kopya), hepsi tek kaynağa bağlandı.
 
 /**
  * /panel gösterge panelinin tek toplama noktası — hepsi gerçek, hesaplanmış veri:
@@ -65,7 +62,7 @@ export async function GET() {
 
     const outstandingBalance = orders
       .filter((o) => o.status !== "CANCELLED")
-      .reduce((sum, o) => sum + Math.max(0, orderTotal(o.items) - orderCollected(o.payments)), 0);
+      .reduce((sum, o) => sum + remainingFrom(orderTotal(o.items), orderCollected(o.payments)), 0);
 
     const statusBreakdown = ["PENDING", "APPROVED", "IN_PRODUCTION", "INVOICED", "CANCELLED"].map((status) => ({
       status,

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/format";
 import { notifyUser } from "@/lib/notify";
+import { orderRemaining } from "@/lib/orders";
 
 /**
  * Vadesi geçmiş ve bakiyesi hâlâ kapanmamış siparişler için muhasebeye (+ admin)
@@ -14,11 +15,7 @@ export async function notifyOverdueOrders(): Promise<number> {
     include: { items: true, payments: true },
   });
 
-  const stillOwing = overdue.filter((o) => {
-    const total = o.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
-    const collected = o.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-    return collected < total;
-  });
+  const stillOwing = overdue.filter((o) => orderRemaining(o.items, o.payments) > 0);
   if (stillOwing.length === 0) return 0;
 
   const managers = await prisma.user.findMany({

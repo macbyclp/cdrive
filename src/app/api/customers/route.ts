@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canAccessOrders, canManageOrders } from "@/lib/access";
+import { orderTotal, orderCollected } from "@/lib/orders";
 import { errorResponse } from "@/lib/api-helpers";
 
 /**
@@ -38,8 +39,8 @@ export async function GET() {
     >();
     for (const o of orders) {
       if (!o.customer) continue;
-      const total = o.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
-      const collected = o.payments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const total = orderTotal(o.items);
+      const collected = orderCollected(o.payments);
       const entry = byCustomer.get(o.customer.id) ?? {
         id: o.customer.id,
         name: o.customer.name,

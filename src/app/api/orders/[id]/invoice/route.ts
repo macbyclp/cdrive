@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { canCreateOrder, canManageOrders } from "@/lib/access";
 import { formatCurrencyTL, formatDate, orderDisplayNumber } from "@/lib/format";
 import { pdfSafe } from "@/lib/pdf-text";
+import { orderTotal, orderCollected, remainingFrom } from "@/lib/orders";
 import { errorResponse } from "@/lib/api-helpers";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -42,9 +43,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const ok = canManageOrders(user) || (canCreateOrder(user) && order.createdById === user.id);
     if (!ok) return NextResponse.json({ error: "Bu siparişe erişiminiz yok" }, { status: 403 });
 
-    const total = order.items.reduce((sum, i) => sum + i.quantity * Number(i.unitPrice), 0);
-    const collected = order.payments.reduce((sum, p) => sum + Number(p.amount), 0);
-    const remaining = Math.max(0, total - collected);
+    const total = orderTotal(order.items);
+    const collected = orderCollected(order.payments);
+    const remaining = remainingFrom(total, collected);
 
     const doc = new PDFDocument({ size: "A4", margin: MARGIN });
     const chunks: Buffer[] = [];

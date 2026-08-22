@@ -58,10 +58,13 @@ export async function generateOrderNumber(): Promise<number | null> {
  * `unitPrice`/`amount` alanları Prisma'da Decimal olduğu için API'den string olarak
  * geliyor; imzalar bilerek `number | string` kabul edip Number()'a çeviriyor.
  */
-// quantity de string olabiliyor: OrderDialog'daki form taslağı (ItemDraft) alanları
-// kullanıcı yazarken string tutar, kaydedilmiş sipariş ise number döner.
-export type OrderAmountItem = { quantity: number | string; unitPrice: number | string };
-export type OrderAmountPayment = { amount: number | string };
+// Bu fonksiyonlar hem SUNUCUDA (Prisma doğrudan Decimal nesnesi döner) hem
+// İSTEMCİDE (API'den JSON string olarak gelir) hem de FORM TASLAĞINDA (kullanıcı
+// yazarken her şey string) çağrılıyor. Üçünü birden karşılamak için tip geniş:
+// Number() Decimal'in valueOf/toString'ini kullanarak doğru sayıyı üretir.
+type Numeric = number | string | { toString(): string };
+export type OrderAmountItem = { quantity: Numeric; unitPrice: Numeric };
+export type OrderAmountPayment = { amount: Numeric };
 
 /** Kalemlerin (adet × birim fiyat) toplamı — siparişin brüt tutarı. */
 export function orderTotal(items: readonly OrderAmountItem[]): number {
