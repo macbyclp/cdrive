@@ -10,6 +10,13 @@ export default defineConfig({
     setupFiles: ["./tests/setup.ts"],
     pool: "forks",
     testTimeout: 15_000,
+    // `next build` (output: "standalone") tüm proje ağacını .next/standalone altına
+    // kopyalıyor — testler dahil. Varsayılan exclude listesi .next'i kapsamadığı için
+    // her test DOSYASI İKİ KEZ toplanıyordu: bir kaynaktan, bir de build çıktısındaki
+    // eski kopyasından. Bu hem test sayısını şişiriyor (7 dosya/75 test -> 14/150) hem
+    // de daha kötüsü, kaynakta düzeltilmiş bir testin build çıktısındaki BAYAT
+    // kopyasının çalışmasına yol açıyor. Varsayılanları koruyup .next'i ekliyoruz.
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**"],
   },
   resolve: {
     alias: {
