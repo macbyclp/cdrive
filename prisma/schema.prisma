@@ -63,6 +63,10 @@ enum AuditAction {
   CUSTOMER_AUTO_UPDATE
   IMPERSONATE_START
   IMPERSONATE_STOP
+  APPROVAL_REQUEST
+  APPROVAL_APPROVE
+  APPROVAL_REJECT
+  APPROVAL_CANCEL
 }
 
 enum NotificationType {
@@ -74,6 +78,15 @@ enum NotificationType {
   ORDER_OVERDUE
   CHAT_DM
   CHAT_MENTION
+  APPROVAL_REQUESTED
+  APPROVAL_DECIDED
+}
+
+enum ApprovalStatus {
+  PENDING // Onay bekliyor
+  APPROVED // Onaylandı
+  REJECTED // Reddedildi
+  CANCELLED // İsteyen kişi geri çekti
 }
 
 enum PaymentMethod {
@@ -173,6 +186,10 @@ model User {
   chatReadStates       ChatReadState[]
   chatChannelMemberships ChatChannelMember[]
   orderTemplatesCreated OrderTemplate[]
+
+  // Belge onay akışı — bkz. FileApproval.
+  approvalsRequested FileApproval[] @relation("ApprovalRequester")
+  approvalsToDecide  FileApproval[] @relation("ApprovalApprover")
 
   @@map("users")
 }
@@ -289,12 +306,53 @@ model File {
   comments    FileComment[]
   orderAttachments OrderAttachment[]
   chatMessages ChatMessage[]
+  approvals   FileApproval[]
 
   @@index([folderId])
   @@index([ownerId])
   @@index([name])
   @@fulltext([searchText])
   @@map("files")
+}
+
+// Belge onay akışı — bir dosyayı belirli bir kişiye "onaya gönderme" kaydı.
+//
+// Tasarım notları:
+// - Bir dosyada aynı anda EN FAZLA BİR bekleyen (PENDING) istek olabilir. MySQL'de
+//   kısmi (partial) benzersiz indeks olmadığı için bu kural kodda uygulanıyor
+//   (bkz. POST /api/files/[id]/approvals).
+// - Karar verildikten sonra kayıt SİLİNMEZ, status değişir — onay geçmişi belgenin
+//   denetim izinin parçası, silinirse "bu belge kim tarafından onaylandı" sorusu
+//   cevapsız kalır.
+// - Onaylayan kişinin dosyaya ayrıca izni olmayabilir: onaya göndermek, o kişiye
+//   dosyayı GÖRME hakkı verir (bkz. lib/access.ts'teki approval fallback'i). Bu,
+//   sohbete dosya ekleme davranışıyla aynı mantık — "gönderme" fiilen "bu kişiyle
+//   paylaşma" demek. VIEW verir, EDIT vermez.
+model FileApproval {
+  id     String         @id @default(cuid())
+  status ApprovalStatus @default(PENDING)
+
+  fileId String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  requestedById String
+  requestedBy   User   @relation("ApprovalRequester", fields: [requestedById], references: [id])
+
+  approverId String
+  approver   User   @relation("ApprovalApprover", fields: [approverId], references: [id])
+
+  // İsteyenin notu ("bu sözleşmeyi onaylar mısın?")
+  note String? @db.Text
+  // Karar verenin gerekçesi — özellikle RED durumunda önemli.
+  decisionNote String? @db.Text
+
+  createdAt  DateTime  @default(now())
+  decidedAt  DateTime?
+
+  @@index([fileId, status])
+  @@index([approverId, status])
+  @@index([requestedById])
+  @@map("file_approvals")
 }
 
 model FileStar {

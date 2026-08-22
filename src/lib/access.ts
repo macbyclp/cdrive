@@ -64,8 +64,21 @@ export async function filePermissionLevel(user: User, fileId: string): Promise<P
   const folderLevel = file.folderId ? await folderPermissionLevel(user, file.folderId) : null;
 
   const levels = [direct?.permission, folderLevel].filter(Boolean) as Permission[];
-  if (levels.length === 0) return null;
-  return levels.includes("EDIT") ? "EDIT" : "VIEW";
+  if (levels.length > 0) {
+    return levels.includes("EDIT") ? "EDIT" : "VIEW";
+  }
+
+  // Onaya gönderilmiş bir belgeyi, onaylayıcının klasör/paylaşım izni olmasa bile
+  // GÖREBİLMESİ gerekir — yoksa "onayla" diyeceği şeyi açamaz. Sohbete dosya ekleme
+  // ile aynı mantık: birine onaya göndermek fiilen o kişiyle paylaşmak demek.
+  // Sadece VIEW verir (EDIT asla) ve geri çekilmiş (CANCELLED) istekler saymaz.
+  const asApprover = await prisma.fileApproval.findFirst({
+    where: { fileId, approverId: user.id, status: { not: "CANCELLED" } },
+    select: { id: true },
+  });
+  if (asApprover) return "VIEW";
+
+  return null;
 }
 
 export async function canAccessFile(user: User, fileId: string, need: Permission) {

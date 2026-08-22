@@ -33,6 +33,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Dosya bulunamadı" }, { status: 404 });
     }
 
+    // ?meta=1 — dosyanın İÇERİĞİNİ değil sadece künyesini döner. Onay bildiriminden
+    // gelen derin bağlantı (/drive?approval=<fileId>) dosyanın adını göstermek için
+    // bunu kullanıyor; dosya o kullanıcının listesinde olmayabilir. İçerik
+    // okunmadığı için denetim günlüğüne indirme kaydı da DÜŞMEZ.
+    if (new URL(req.url).searchParams.get("meta") === "1") {
+      return NextResponse.json({
+        id: file.id,
+        name: file.name,
+        mimeType: file.mimeType,
+        size: file.size.toString(),
+        ownerId: file.ownerId,
+        folderId: file.folderId,
+        createdAt: file.createdAt,
+        updatedAt: file.updatedAt,
+      });
+    }
+
     const buffer = await readFile(file.currentVersion.storageKey);
     const inline = new URL(req.url).searchParams.get("inline") === "1";
     // Önizleme (inline) isteklerini denetim günlüğüne indirme olarak yazmıyoruz;

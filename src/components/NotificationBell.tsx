@@ -72,6 +72,7 @@ export default function NotificationBell({ canManageOrders = false }: { canManag
     if (n.targetType === "order" && n.targetId) {
       router.push(canManageOrders ? `/accounting?open=${n.targetId}` : `/orders?open=${n.targetId}`);
     }
+    else if (n.targetType === "approval" && n.targetId) router.push(`/drive?approval=${n.targetId}`);
     else if (n.targetType === "folder" && n.targetId) router.push(`/drive?folder=${n.targetId}`);
     else if (n.targetType === "chat_dm" && n.targetId) router.push(`/chat?dm=${n.targetId}`);
     else if (n.targetType === "chat_channel" && n.targetId) router.push(`/chat?channel=${n.targetId}`);

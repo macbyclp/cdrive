@@ -10,6 +10,7 @@ import OfficeEditorDialog from "@/components/OfficeEditorDialog";
 import TagDialog from "@/components/TagDialog";
 import ActivityDialog from "@/components/ActivityDialog";
 import CommentsDialog from "@/components/CommentsDialog";
+import ApprovalDialog from "@/components/ApprovalDialog";
 import MoveDialog from "@/components/MoveDialog";
 import RowMenu, { type RowMenuItem } from "@/components/RowMenu";
 import { InputDialog, ConfirmDialog, OfficeOpenModeDialog } from "@/components/Dialogs";
@@ -73,6 +74,10 @@ function DriveInner() {
                 : "root";
   const q = params.get("q") ?? "";
   const canBulk = view === "root";
+  // Onay bildiriminden gelen derin bağlantı: /drive?approval=<fileId>. Dosya bu
+  // kullanıcının listesinde olmayabilir (onaylayıcının klasör izni yok) — o yüzden
+  // listeden aramak yerine dosyayı doğrudan API'den çekip pencereyi açıyoruz.
+  const approvalDeepLinkId = params.get("approval");
 
   const { user, refresh: refreshMe } = useMe();
   const [folders, setFolders] = useState<FolderItem[]>([]);
@@ -92,6 +97,7 @@ function DriveInner() {
     null
   );
   const [commentTarget, setCommentTarget] = useState<{ id: string; name: string } | null>(null);
+  const [approvalTarget, setApprovalTarget] = useState<{ id: string; name: string; ownerId: string } | null>(null);
   const [searchFilters, setSearchFilters] = useState({
     type: "",
     dateFrom: "",
@@ -224,6 +230,22 @@ function DriveInner() {
     load();
     setSelected(new Set());
   }, [load]);
+
+  // Onay bildiriminden gelindiyse (?approval=<fileId>) dosyayı çekip pencereyi aç.
+  useEffect(() => {
+    if (!approvalDeepLinkId) return;
+    let cancelled = false;
+    fetch(withBasePath(`/api/files/${approvalDeepLinkId}?meta=1`))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((f) => {
+        if (cancelled || !f?.id) return;
+        setApprovalTarget({ id: f.id, name: f.name, ownerId: f.ownerId });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [approvalDeepLinkId]);
 
   function goFolder(id: string | null) {
     router.push(id ? `/drive?folder=${id}` : "/drive");
@@ -582,6 +604,10 @@ function DriveInner() {
       {
         label: "Yorumlar",
         onClick: () => setCommentTarget({ id: f.id, name: f.name }),
+      },
+      {
+        label: "Onaya gönder / onay durumu",
+        onClick: () => setApprovalTarget({ id: f.id, name: f.name, ownerId: f.ownerId }),
       },
     ];
   }
@@ -1581,6 +1607,20 @@ function DriveInner() {
           currentUserId={user.id}
           isAdmin={user.role === "ADMIN"}
           onClose={() => setCommentTarget(null)}
+        />
+      )}
+      {approvalTarget && user && (
+        <ApprovalDialog
+          fileId={approvalTarget.id}
+          fileName={approvalTarget.name}
+          currentUserId={user.id}
+          isAdmin={user.role === "ADMIN"}
+          // Onaya gönderme EDIT ister; sunucu her hâlükârda kontrol ediyor (403).
+          // Buradaki sadece arayüzü sadeleştirmek için kaba bir tahmin: sahip veya
+          // admin. Paylaşımla EDIT almış biri formu görmez ama gerçek yetkisi durur —
+          // yanlış tarafa hata yapıyoruz (fazla gösterip 403 yedirmek yerine gizlemek).
+          canRequest={user.role === "ADMIN" || approvalTarget.ownerId === user.id}
+          onClose={() => setApprovalTarget(null)}
         />
       )}
 

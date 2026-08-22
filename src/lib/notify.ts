@@ -6,7 +6,10 @@ import type { NotificationType } from "@prisma/client";
 
 // E-posta SADECE zaman-kritik/eyleme-geçirilebilir türlerde gidiyor — her dosya paylaşımı
 // veya kanaldaki her @bahsetme e-postaya dönüşürse spam olur; bunlar in-app bildirimde kalır.
-const EMAIL_TYPES: readonly NotificationType[] = ["ORDER_CREATED", "ORDER_STATUS_CHANGED", "PAYMENT_RECORDED", "ORDER_OVERDUE", "CHAT_DM"];
+// Onay istekleri de e-posta listesinde: birisi senin kararını BEKLİYOR, uygulamayı
+// açmadığın sürece süreç tıkanıyor — tam olarak "zaman-kritik/eyleme geçirilebilir"
+// tanımına giriyor. Kararın sonucu da isteyene e-postayla dönüyor.
+const EMAIL_TYPES: readonly NotificationType[] = ["ORDER_CREATED", "ORDER_STATUS_CHANGED", "PAYMENT_RECORDED", "ORDER_OVERDUE", "CHAT_DM", "APPROVAL_REQUESTED", "APPROVAL_DECIDED"];
 
 const HEADING: Partial<Record<NotificationType, string>> = {
   ORDER_CREATED: "Yeni sipariş",
@@ -14,11 +17,17 @@ const HEADING: Partial<Record<NotificationType, string>> = {
   PAYMENT_RECORDED: "Tahsilat kaydedildi",
   ORDER_OVERDUE: "Vadesi geçen sipariş",
   CHAT_DM: "Yeni mesaj",
+  APPROVAL_REQUESTED: "Onayınız bekleniyor",
+  APPROVAL_DECIDED: "Onay isteğiniz sonuçlandı",
 };
 
 /** DM'de targetId gönderenin id'si (bkz. ChatScreen deep-link) — diğer türlerde tek, genel bir "Cdrive'ı aç" butonu yeterli. */
 function ctaFor(type: NotificationType, targetId?: string | null): { label: string; url: string } | undefined {
   if (type === "CHAT_DM" && targetId) return { label: "Mesajı gör", url: `${appBaseUrl()}/chat?dm=${targetId}` };
+  // Onay bildirimlerinde targetId dosyanın id'si — doğrudan onay penceresini açan link.
+  if ((type === "APPROVAL_REQUESTED" || type === "APPROVAL_DECIDED") && targetId) {
+    return { label: "Belgeyi gör", url: `${appBaseUrl()}/drive?approval=${targetId}` };
+  }
   if (EMAIL_TYPES.includes(type)) return { label: "Cdrive'ı aç", url: appBaseUrl() };
   return undefined;
 }
