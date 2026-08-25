@@ -6,7 +6,13 @@ import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
 
-const schema = z.object({ email: z.string().email(), password: z.string().min(1) });
+const schema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+  // "Beni hatırla" — verilmezse false (kısa oturum). Eski istemciler bu alanı
+  // hiç göndermez, o yüzden isteğe bağlı ve varsayılanı güvenli olan taraf.
+  remember: z.boolean().optional().default(false),
+});
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Çok fazla deneme yapıldı, biraz sonra tekrar deneyin" }, { status: 429 });
     }
 
-    const { email, password } = schema.parse(await req.json());
+    const { email, password, remember } = schema.parse(await req.json());
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
 
     if (user && isLocked(user)) {
@@ -46,13 +52,14 @@ export async function POST(req: Request) {
     await clearFailedLogins(user.id);
 
     if (user.twoFactorEnabled) {
-      await createPending2FA(user.id);
+      // Oturum 2FA doğrulamasından SONRA açılıyor; seçim o adıma taşınıyor.
+      await createPending2FA(user.id, remember);
       return NextResponse.json({ requiresTwoFactor: true });
     }
 
     const twoFactorRequired = await computeTwoFactorRequired(user);
     await createSession(
-      { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword, twoFactorRequired },
+      { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword, twoFactorRequired, remember },
       { ip, userAgent: req.headers.get("user-agent") }
     );
     await logAudit({ userId: user.id, action: "LOGIN", ip });

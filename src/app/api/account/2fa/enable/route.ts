@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser, createSession } from "@/lib/auth";
+import { requireUser, createSession, currentRemember } from "@/lib/auth";
 import { verifyTotpToken } from "@/lib/totp";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     // middleware'in hemen tekrar /account'a kilitlememesi için oturumu burada yeniden imzalıyoruz
     // (mustChangePassword'daki "JWT re-mint" ile aynı desen).
     await createSession(
-      { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword, twoFactorRequired: false },
+      { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword, twoFactorRequired: false, remember: await currentRemember() },
       { ip: clientIp(req), userAgent: req.headers.get("user-agent") }
     );
 

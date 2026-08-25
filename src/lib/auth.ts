@@ -23,7 +23,28 @@ export type SessionPayload = {
   sessionId: string;
   mustChangePassword: boolean;
   twoFactorRequired: boolean;
+  /**
+   * Giriş ekranındaki "Beni hatırla" seçimi. JWT'nin İÇİNDE taşınıyor çünkü oturum
+   * hayatı boyunca birkaç kez yeniden imzalanıyor (onboarding, 2FA aç/kapa) —
+   * seçim payload'da olmasa her yeniden imzalamada sıfırlanır ve kullanıcı
+   * "beni hatırla" demesine rağmen kısa sürede atılırdı.
+   */
+  remember?: boolean;
 };
+
+/**
+ * Oturum ömürleri.
+ *
+ * "Beni hatırla" İŞARETLENMEDİĞİNDE bilerek 1 gün: ortak/kurum bilgisayarında
+ * bırakılan bir oturumun günlerce açık kalmaması için. İşaretlendiğinde 30 gün.
+ * (Önceden seçimden bağımsız olarak herkes 7 gün alıyordu.)
+ */
+const SESSION_DAYS_DEFAULT = 1;
+const SESSION_DAYS_REMEMBERED = 30;
+
+export function sessionMaxAgeSeconds(remember: boolean | undefined): number {
+  return (remember ? SESSION_DAYS_REMEMBERED : SESSION_DAYS_DEFAULT) * 24 * 60 * 60;
+}
 
 /**
  * SystemSettings.require2faForAdmins açıksa ve bu ADMIN henüz 2FA kurmadıysa true —
@@ -59,10 +80,14 @@ export async function createSession(
     data: { userId: payload.userId, ip: meta?.ip ?? undefined, userAgent: meta?.userAgent ?? undefined },
   });
 
+  // JWT ömrü ile çerez ömrü AYNI olmalı: çerez daha uzun yaşarsa kullanıcı
+  // süresi dolmuş bir token'la gezinip anlamsız hatalar alır.
+  const maxAge = sessionMaxAgeSeconds(payload.remember);
+
   const token = await new SignJWT({ ...payload, sessionId: session.id })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime(`${maxAge}s`)
     .sign(secret);
 
   const store = await cookies();
@@ -71,9 +96,21 @@ export async function createSession(
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge,
   });
   return session.id;
+}
+
+/**
+ * Şu anki oturumun "Beni hatırla" seçimi.
+ *
+ * Oturum hayatı boyunca birkaç kez yeniden imzalanıyor (onboarding bitince, 2FA
+ * açılınca/kapanınca). O noktalarda bu değer taşınmazsa kullanıcı "beni hatırla"
+ * demiş olmasına rağmen oturumu sessizce kısa ömürlüye düşerdi.
+ */
+export async function currentRemember(): Promise<boolean> {
+  const session = await getSession();
+  return session?.remember ?? false;
 }
 
 export async function destroySession() {
@@ -162,10 +199,12 @@ export async function revokeOtherSessions(userId: string, exceptSessionId: strin
 // Şifre doğrulandıktan sonra, TOTP kodu girilene kadar tam oturum açılmaz;
 // bu ara adım kısa ömürlü, ayrı ve daha kısıtlı bir çerezde tutulur.
 
-type Pending2FAPayload = { userId: string };
+// "Beni hatırla" seçimi burada da taşınıyor: 2FA'lı girişte oturum bu adımdan
+// SONRA açılıyor, seçim taşınmazsa 2FA kullanan herkes seçimini kaybederdi.
+type Pending2FAPayload = { userId: string; remember?: boolean };
 
-export async function createPending2FA(userId: string) {
-  const token = await new SignJWT({ userId })
+export async function createPending2FA(userId: string, remember = false) {
+  const token = await new SignJWT({ userId, remember })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("5m")
@@ -258,6 +297,9 @@ export async function startImpersonation(
   });
 
   // cdrive_session çerezini hedefin YENİ oturumuna yazar — admin'in oturumu DB'de kalır.
+  // remember BİLEREK verilmiyor (kısa ömre düşer): taklit oturumu geçici bir teşhis
+  // aracı, admin'in kendi "beni hatırla" seçimi başkasının kimliğine 30 gün boyunca
+  // bürünme hakkına dönüşmemeli.
   const targetTwoFactorRequired = await computeTwoFactorRequired(target);
   await createSession(
     {

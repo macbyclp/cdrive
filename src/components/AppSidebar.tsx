@@ -4,7 +4,17 @@ import { useEffect } from "react";
 import type { MeUser } from "@/lib/types";
 import { withBasePath } from "@/lib/basePath";
 
-export type AppSidebarActive = "panel" | "drive" | "chat" | "sales" | "accounting" | "production" | "customers" | "admin" | "account";
+export type AppSidebarActive =
+  | "panel"
+  | "drive"
+  | "chat"
+  | "sales"
+  | "accounting"
+  | "production"
+  | "customers"
+  | "admin"
+  | "reports"
+  | "account";
 
 function SideLink({ href, label, icon, active = false }: { href: string; label: string; icon: string; active?: boolean }) {
   return (
@@ -49,6 +59,10 @@ function SidebarNav({ user, active }: { user: MeUser; active: AppSidebarActive }
       {canProduction && <SideLink href="/production" label="Üretim" icon="🏭" active={active === "production"} />}
       {canOrders && <SideLink href="/customers" label="Müşteriler" icon="👥" active={active === "customers"} />}
       {canAdmin && <SideLink href="/admin" label="Yönetim" icon="⚙️" active={active === "admin"} />}
+      {/* Rapor endpointleri ADMIN-only olduğu için link de sadece ADMIN'e görünür (MANAGER dahil değil). */}
+      {user.role === "ADMIN" && (
+        <SideLink href="/reports" label="Raporlar" icon="📊" active={active === "reports"} />
+      )}
       <SideLink href="/account" label="Hesap Ayarları" icon="🙍" active={active === "account"} />
     </nav>
   );

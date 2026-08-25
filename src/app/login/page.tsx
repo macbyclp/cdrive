@@ -12,6 +12,7 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [needsTwoFactor, setNeedsTwoFactor] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +23,7 @@ function LoginForm() {
     const res = await fetch(withBasePath("/api/auth/login"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, remember }),
     });
     const d = await res.json().catch(() => ({}));
     setLoading(false);
@@ -108,10 +109,26 @@ function LoginForm() {
                 className="input"
               />
             </label>
+            <label className="flex cursor-pointer items-center gap-2 select-none">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
+              />
+              <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                Beni hatırla
+              </span>
+            </label>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <button disabled={loading} className="btn-primary w-full">
               {loading ? "Giriş yapılıyor…" : "Giriş yap"}
             </button>
+            <p className="text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
+              {remember
+                ? "Bu cihazda 30 gün açık kalırsın."
+                : "Bu cihazda 1 gün sonra tekrar giriş istenir."}
+            </p>
           </form>
         ) : (
           <form onSubmit={submitCode} className="space-y-4">
