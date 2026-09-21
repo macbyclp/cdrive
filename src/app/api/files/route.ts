@@ -2,17 +2,18 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canAccessFolder, assertQuota } from "@/lib/access";
-import { writeFile } from "@/lib/storage";
 import { extractSearchText } from "@/lib/text-extract";
 import { assertFilePolicy } from "@/lib/policy";
-import { saveNewFileVersion } from "@/lib/file-versions";
+import { saveNewFileVersion, createFileFromBuffer } from "@/lib/file-versions";
 import { notifyIfQuotaWarning } from "@/lib/quota-notify";
 import { logAudit } from "@/lib/audit";
-import { errorResponse } from "@/lib/api-helpers";
+import { errorResponse, limitOr429 } from "@/lib/api-helpers";
 
 export async function POST(req: Request) {
   try {
     const user = await requireUser();
+    const limited = limitOr429("upload", user.id, 300, 60000);
+    if (limited) return limited;
     const form = await req.formData();
     const folderIdRaw = form.get("folderId");
     const folderId = typeof folderIdRaw === "string" && folderIdRaw.length > 0 ? folderIdRaw : null;
@@ -32,9 +33,9 @@ export async function POST(req: Request) {
     const size = BigInt(buffer.byteLength);
 
     await assertFilePolicy(file.name, size);
-    await assertQuota(user, size);
 
     // Aynı klasörde aynı isimde dosya varsa -> yeni versiyon olarak ekle
+    // (kota, dosyanın SAHİBİNE karşı ve kilit altında saveNewFileVersion içinde kontrol edilir).
     const existing = await prisma.file.findFirst({
       where: { folderId, name: file.name, deletedAt: null },
     });
@@ -46,29 +47,19 @@ export async function POST(req: Request) {
       return NextResponse.json(serialize(updated));
     }
 
-    const storageKey = await writeFile(buffer);
-    const searchText = await extractSearchText(buffer, file.type || "application/octet-stream");
-
-    const created = await prisma.file.create({
-      data: {
-        name: file.name,
-        mimeType: file.type || "application/octet-stream",
-        size,
-        folderId,
-        ownerId: user.id,
-        searchText,
-      },
+    await assertQuota(user, size); // diske yazmadan önce erken ret (asıl kontrol transaction içinde)
+    const mimeType = file.type || "application/octet-stream";
+    const searchText = await extractSearchText(buffer, mimeType);
+    const finalFile = await createFileFromBuffer({
+      name: file.name,
+      mimeType,
+      folderId,
+      ownerId: user.id,
+      buffer,
+      searchText,
     });
-    const version = await prisma.fileVersion.create({
-      data: { fileId: created.id, versionNo: 1, storageKey, size, uploadedById: user.id },
-    });
-    const finalFile = await prisma.file.update({
-      where: { id: created.id },
-      data: { currentVersionId: version.id },
-    });
-    await prisma.user.update({ where: { id: user.id }, data: { usedBytes: { increment: size } } });
     await notifyIfQuotaWarning(user.id);
-    await logAudit({ userId: user.id, action: "UPLOAD", targetType: "file", targetId: created.id, detail: file.name });
+    await logAudit({ userId: user.id, action: "UPLOAD", targetType: "file", targetId: finalFile.id, detail: file.name });
     return NextResponse.json(serialize(finalFile));
   } catch (err) {
     return errorResponse(err);

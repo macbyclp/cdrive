@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canAccessFile, canAccessFolder, assertQuota } from "@/lib/access";
 import { assertFilePolicy } from "@/lib/policy";
-import { writeFile } from "@/lib/storage";
+import { createFileFromBuffer } from "@/lib/file-versions";
 import { notifyIfQuotaWarning } from "@/lib/quota-notify";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
@@ -109,27 +109,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     await assertFilePolicy(targetName, size);
     await assertQuota(user, size);
 
-    const storageKey = await writeFile(buffer);
-    const created = await prisma.file.create({
-      data: {
-        name: targetName,
-        mimeType: mimeForExt(toExt),
-        size,
-        folderId: file.folderId,
-        ownerId: user.id,
-      },
+    const finalFile = await createFileFromBuffer({
+      name: targetName,
+      mimeType: mimeForExt(toExt),
+      folderId: file.folderId,
+      ownerId: user.id,
+      buffer,
     });
-    const version = await prisma.fileVersion.create({
-      data: { fileId: created.id, versionNo: 1, storageKey, size, uploadedById: user.id },
-    });
-    const finalFile = await prisma.file.update({ where: { id: created.id }, data: { currentVersionId: version.id } });
-    await prisma.user.update({ where: { id: user.id }, data: { usedBytes: { increment: size } } });
     await notifyIfQuotaWarning(user.id);
     await logAudit({
       userId: user.id,
       action: "UPLOAD",
       targetType: "file",
-      targetId: created.id,
+      targetId: finalFile.id,
       detail: `dönüştürüldü (${file.name} → ${toExt}): ${targetName}`,
     });
 

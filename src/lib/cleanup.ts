@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { deleteFile } from "@/lib/storage";
+import { lockUser, adjustUsedBytes } from "@/lib/quota";
 import { purgeFolderRecursive, purgeFile } from "@/lib/trash";
 import { notifyOverdueOrders } from "@/lib/order-reminders";
 
@@ -59,11 +60,18 @@ export async function runCleanup(): Promise<CleanupResult> {
     const cutoff = new Date(Date.now() - settings.versionRetentionDays * 86_400_000);
     const oldVersions = await prisma.fileVersion.findMany({
       where: { createdAt: { lt: cutoff }, currentFor: null },
-      select: { id: true, storageKey: true },
+      select: { id: true, storageKey: true, size: true, file: { select: { ownerId: true, deletedAt: true } } },
     });
     for (const v of oldVersions) {
-      await deleteFile(v.storageKey);
-      await prisma.fileVersion.delete({ where: { id: v.id } });
+      // Önce veritabanı (kota dahil, tek transaction), commit'ten sonra disk.
+      await prisma.$transaction(async (tx) => {
+        await tx.fileVersion.delete({ where: { id: v.id } });
+        if (!v.file.deletedAt) {
+          await lockUser(tx, v.file.ownerId);
+          await adjustUsedBytes(tx, v.file.ownerId, -v.size); // sürüm silinince kota düşer
+        }
+      });
+      await deleteFile(v.storageKey).catch(() => {});
       result.purgedVersions++;
     }
   }

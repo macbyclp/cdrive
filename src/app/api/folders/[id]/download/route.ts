@@ -3,7 +3,8 @@ import { ZipArchive } from "archiver";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canAccessFolder } from "@/lib/access";
-import { readFile } from "@/lib/storage";
+import { openReadStream, statFile } from "@/lib/storage";
+import { Readable } from "stream";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 
@@ -37,29 +38,32 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
     const entries = await collectFolderTree(id, "");
 
-    const archive = new ZipArchive({ zlib: { level: 9 } });
-    const chunks: Buffer[] = [];
-    archive.on("data", (chunk: Buffer) => chunks.push(chunk));
-    const done = new Promise<void>((resolve, reject) => {
-      archive.on("end", resolve);
-      archive.on("error", reject);
-    });
+    // Akışlı ZIP: dosyalar diskten sırayla okunup arşive akıtılır, tüm arşiv belleğe alınmaz.
+    // (Toplam boyut baştan bilinmediği için Content-Length yoktur, yanıt chunked gider.)
+    const archive = new ZipArchive({ zlib: { level: 6 } });
+    archive.on("warning", (e: Error) => console.warn("zip uyarı:", e.message));
+    archive.on("error", (e: Error) => console.error("zip hata:", e));
+    // Dosyalar TEK TEK eklenir (aynı anda binlerce açık dosya tanıtıcısı olmasın); diskte olmayan içerik atlanır.
+    void (async () => {
+      for (const entry of entries) {
+        try {
+          await statFile(entry.storageKey);
+        } catch {
+          continue;
+        }
+        const processed = new Promise<void>((resolve) => archive.once("entry", () => resolve()));
+        archive.append(openReadStream(entry.storageKey), { name: entry.path });
+        await processed;
+      }
+      await archive.finalize();
+    })().catch((e: Error) => archive.destroy(e));
 
-    for (const entry of entries) {
-      const buf = await readFile(entry.storageKey);
-      archive.append(buf, { name: entry.path });
-    }
-    await archive.finalize();
-    await done;
-
-    const zipBuffer = Buffer.concat(chunks);
     await logAudit({ userId: user.id, action: "DOWNLOAD", targetType: "folder", targetId: id, detail: `zip: ${folder.name}` });
 
-    return new NextResponse(new Uint8Array(zipBuffer), {
+    return new Response(Readable.toWeb(archive) as unknown as ReadableStream, {
       headers: {
         "Content-Type": "application/zip",
         "Content-Disposition": `attachment; filename="${encodeURIComponent(folder.name)}.zip"`,
-        "Content-Length": String(zipBuffer.byteLength),
       },
     });
   } catch (err) {

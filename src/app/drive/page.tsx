@@ -714,14 +714,26 @@ function DriveInner() {
 
   // --- Çöp kutusu ---
   async function restoreFolder(folder: FolderItem) {
-    await fetch(withBasePath(`/api/trash/restore/folder/${folder.id}`), { method: "POST" });
+    const res = await fetch(withBasePath(`/api/trash/restore/folder/${folder.id}`), { method: "POST" });
+    if (!res.ok) {
+      // Kota aşımı (413) dahil: kullanıcı neden geri gelmediğini görsün.
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Geri getirilemedi", "error");
+      return;
+    }
     toast(`"${folder.name}" geri getirildi`, "success");
     load();
     refreshMe();
   }
 
   async function restoreFile(file: FileItem) {
-    await fetch(withBasePath(`/api/trash/restore/file/${file.id}`), { method: "POST" });
+    const res = await fetch(withBasePath(`/api/trash/restore/file/${file.id}`), { method: "POST" });
+    if (!res.ok) {
+      // Kota aşımı (413) dahil: kullanıcı neden geri gelmediğini görsün.
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Geri getirilemedi", "error");
+      return;
+    }
     toast(`"${file.name}" geri getirildi`, "success");
     load();
     refreshMe();

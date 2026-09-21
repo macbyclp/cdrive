@@ -20,16 +20,10 @@ export async function POST(
       return NextResponse.json({ error: "Versiyon bulunamadı" }, { status: 404 });
     }
 
-    const file = await prisma.file.findUniqueOrThrow({ where: { id } });
-    const sizeDelta = version.size - file.size;
-
+    // Kota: tüm sürümler zaten kotaya sayıldığı için eski bir sürümü güncel yapmak kullanımı DEĞİŞTİRMEZ.
     const updated = await prisma.file.update({
       where: { id },
       data: { currentVersionId: version.id, size: version.size },
-    });
-    await prisma.user.update({
-      where: { id: file.ownerId },
-      data: { usedBytes: { increment: sizeDelta } },
     });
     await logAudit({
       userId: user.id,

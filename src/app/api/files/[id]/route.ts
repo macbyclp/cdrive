@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { canAccessFile, canAccessFolder } from "@/lib/access";
-import { readFile } from "@/lib/storage";
+import { canAccessFile, canAccessFolder, canAccessChatChannel } from "@/lib/access";
+import { serveStoredFile } from "@/lib/http-range";
 import { logAudit } from "@/lib/audit";
+import { lockUser, adjustUsedBytes, versionBytesByOwner } from "@/lib/quota";
 import { errorResponse } from "@/lib/api-helpers";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -17,14 +18,29 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       // mesaja EKLİ ise indirebilmeli — kanal mesajı herkese açık, DM ise sadece
       // gönderen/alıcıya. "Sohbete ekleme" fiilen "bu görünürlükte paylaşma" anlamına
       // geliyor (gerçek kurum-içi sohbet uygulamalarındaki gibi).
-      const viaChat = await prisma.chatMessage.findFirst({
+      const msgs = await prisma.chatMessage.findMany({
         where: {
           fileId: id,
           OR: [{ channelId: { not: null } }, { senderId: user.id }, { recipientId: user.id }],
         },
-        select: { id: true },
+        select: { channelId: true, senderId: true, recipientId: true },
       });
-      ok = !!viaChat;
+      ok = false;
+      const checked = new Set<string>();
+      for (const m of msgs) {
+        if (m.channelId) {
+          // Gizli kanalda yalnızca üyeler; herkese açık kanalda herkes.
+          if (checked.has(m.channelId)) continue;
+          checked.add(m.channelId);
+          if (await canAccessChatChannel(user, m.channelId)) {
+            ok = true;
+            break;
+          }
+        } else if (m.senderId === user.id || m.recipientId === user.id) {
+          ok = true;
+          break;
+        }
+      }
     }
     if (!ok) return NextResponse.json({ error: "Bu dosyaya erişiminiz yok" }, { status: 403 });
 
@@ -50,19 +66,22 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       });
     }
 
-    const buffer = await readFile(file.currentVersion.storageKey);
     const inline = new URL(req.url).searchParams.get("inline") === "1";
     // Önizleme (inline) isteklerini denetim günlüğüne indirme olarak yazmıyoruz;
     // dosyayı gerçekten indirmek ayrı bir kayıt oluşturur.
-    if (!inline) {
+    // Range devam istekleri (video ileri sarma) her seferinde indirme sayılmasın: yalnız başlangıç isteği loglanır.
+    const rangeHeader = req.headers.get("range");
+    const isContinuation = !!rangeHeader && !/^bytes=0-/.test(rangeHeader);
+    if (!inline && !isContinuation) {
       await logAudit({ userId: user.id, action: "DOWNLOAD", targetType: "file", targetId: file.id, detail: file.name });
     }
 
-    return new NextResponse(new Uint8Array(buffer), {
+    // Akışlı yanıt + HTTP Range (206): tarayıcı içi video/ses ileri sarma ve büyük dosyalarda sabit bellek.
+    return serveStoredFile(req, {
+      storageKey: file.currentVersion.storageKey,
+      contentType: file.mimeType || "application/octet-stream",
       headers: {
-        "Content-Type": file.mimeType || "application/octet-stream",
         "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${encodeURIComponent(file.name)}"`,
-        "Content-Length": String(buffer.byteLength),
       },
     });
   } catch (err) {
@@ -112,10 +131,12 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     const file = await prisma.file.findUnique({ where: { id } });
     if (!file) return NextResponse.json({ error: "Dosya bulunamadı" }, { status: 404 });
 
-    await prisma.file.update({ where: { id }, data: { deletedAt: new Date() } });
-    await prisma.user.update({
-      where: { id: file.ownerId },
-      data: { usedBytes: { decrement: file.size } },
+    if (file.deletedAt) return NextResponse.json({ ok: true }); // zaten çöp kutusunda: kota iki kez düşülmesin
+    await prisma.$transaction(async (tx) => {
+      const freed = await versionBytesByOwner(tx, [file]);
+      await tx.file.update({ where: { id }, data: { deletedAt: new Date() } });
+      await lockUser(tx, file.ownerId);
+      await adjustUsedBytes(tx, file.ownerId, -(freed.get(file.ownerId) ?? 0n)); // tüm sürümler serbest kalır
     });
 
     await logAudit({ userId: user.id, action: "DELETE", targetType: "file", targetId: id, detail: file.name });

@@ -1,4 +1,5 @@
-import { promises as fs } from "fs";
+import { promises as fs, createReadStream } from "fs";
+import type { Readable } from "stream";
 import path from "path";
 import { randomUUID } from "crypto";
 
@@ -29,4 +30,18 @@ export async function deleteFile(storageKey: string): Promise<void> {
 
 export function storagePathFor(storageKey: string) {
   return path.join(STORAGE_ROOT, storageKey);
+}
+
+/** Diskteki dosyanın boyutu (bayt). Dosya yoksa ENOENT fırlatır. */
+export async function statFile(storageKey: string): Promise<{ size: number }> {
+  const st = await fs.stat(path.join(STORAGE_ROOT, storageKey));
+  return { size: st.size };
+}
+
+/**
+ * Dosyayı belleğe almadan akış olarak açar. `range` (kapsayıcı, bayt) verilirse yalnız o aralığı okur —
+ * HTTP Range (206) yanıtları için. Büyük dosyalarda sabit bellek kullanımı sağlar.
+ */
+export function openReadStream(storageKey: string, range?: { start: number; end: number }): Readable {
+  return createReadStream(path.join(STORAGE_ROOT, storageKey), range ? { start: range.start, end: range.end } : undefined);
 }

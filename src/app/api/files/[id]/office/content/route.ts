@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { readFile } from "@/lib/storage";
+import { serveStoredFile } from "@/lib/http-range";
 import { errorResponse } from "@/lib/api-helpers";
 import { verifyOfficeContentToken } from "@/lib/onlyoffice";
 
@@ -23,13 +23,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: "Versiyon bulunamadı" }, { status: 404 });
     }
 
-    const buffer = await readFile(version.storageKey);
-    return new NextResponse(new Uint8Array(buffer), {
-      headers: {
-        "Content-Type": "application/octet-stream",
-        "Content-Length": String(buffer.byteLength),
-      },
-    });
+    return serveStoredFile(req, { storageKey: version.storageKey, contentType: "application/octet-stream" });
   } catch (err) {
     return errorResponse(err);
   }

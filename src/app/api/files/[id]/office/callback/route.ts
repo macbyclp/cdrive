@@ -47,7 +47,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     try {
       await assertFilePolicy(file.name, BigInt(buffer.byteLength));
       const owner = await prisma.user.findUniqueOrThrow({ where: { id: file.ownerId } });
-      await assertQuota(owner, BigInt(buffer.byteLength) - file.size);
+      // Yeni sürümün tamamı eklenir (eski sürümler de kotaya sayılır).
+      await assertQuota(owner, BigInt(buffer.byteLength));
     } catch {
       // Politika/kota reddi: OnlyOffice'e hata bildir, kullanıcı belgeyi kendi
       // tarayıcısında indirip elle kaydedebilir — veri kaybı olmaz.

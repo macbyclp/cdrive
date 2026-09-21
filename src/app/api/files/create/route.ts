@@ -4,11 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canAccessFolder, assertQuota } from "@/lib/access";
 import { assertFilePolicy } from "@/lib/policy";
-import { writeFile } from "@/lib/storage";
+import { createFileFromBuffer } from "@/lib/file-versions";
 import { generateBlankFile, BLANK_KIND_INFO, type BlankKind } from "@/lib/blank-templates";
 import { notifyIfQuotaWarning } from "@/lib/quota-notify";
 import { logAudit } from "@/lib/audit";
-import { errorResponse } from "@/lib/api-helpers";
+import { errorResponse, limitOr429 } from "@/lib/api-helpers";
 
 const schema = z.object({
   kind: z.enum(["docx", "xlsx", "pptx", "txt"]),
@@ -33,6 +33,8 @@ async function uniqueName(folderId: string | null, baseName: string) {
 export async function POST(req: Request) {
   try {
     const user = await requireUser();
+    const limited = limitOr429("upload", user.id, 300, 60000);
+    if (limited) return limited;
     const { kind, folderId } = schema.parse(await req.json());
 
     const fId = folderId ?? null;
@@ -49,21 +51,15 @@ export async function POST(req: Request) {
     await assertQuota(user, size);
 
     const name = await uniqueName(fId, info.defaultName);
-    const storageKey = await writeFile(buffer);
-
-    const created = await prisma.file.create({
-      data: { name, mimeType: info.mimeType, size, folderId: fId, ownerId: user.id },
+    const finalFile = await createFileFromBuffer({
+      name,
+      mimeType: info.mimeType,
+      folderId: fId,
+      ownerId: user.id,
+      buffer,
     });
-    const version = await prisma.fileVersion.create({
-      data: { fileId: created.id, versionNo: 1, storageKey, size, uploadedById: user.id },
-    });
-    const finalFile = await prisma.file.update({
-      where: { id: created.id },
-      data: { currentVersionId: version.id },
-    });
-    await prisma.user.update({ where: { id: user.id }, data: { usedBytes: { increment: size } } });
     await notifyIfQuotaWarning(user.id);
-    await logAudit({ userId: user.id, action: "UPLOAD", targetType: "file", targetId: created.id, detail: `yeni: ${name}` });
+    await logAudit({ userId: user.id, action: "UPLOAD", targetType: "file", targetId: finalFile.id, detail: `yeni: ${name}` });
 
     return NextResponse.json({ ...finalFile, size: finalFile.size.toString(), searchText: undefined });
   } catch (err) {

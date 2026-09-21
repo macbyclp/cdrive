@@ -4,13 +4,12 @@ import mime from "mime-types";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canAccessFolder, assertQuota } from "@/lib/access";
-import { writeFile } from "@/lib/storage";
 import { extractSearchText } from "@/lib/text-extract";
 import { assertFilePolicy } from "@/lib/policy";
-import { saveNewFileVersion } from "@/lib/file-versions";
+import { saveNewFileVersion, createFileFromBuffer } from "@/lib/file-versions";
 import { notifyIfQuotaWarning } from "@/lib/quota-notify";
 import { logAudit } from "@/lib/audit";
-import { errorResponse } from "@/lib/api-helpers";
+import { errorResponse, limitOr429 } from "@/lib/api-helpers";
 
 /**
  * Bir .zip dosyasını hedef klasöre çıkarır: içindeki klasör yapısını gerçek
@@ -20,6 +19,8 @@ import { errorResponse } from "@/lib/api-helpers";
 export async function POST(req: Request) {
   try {
     const user = await requireUser();
+    const limited = limitOr429("zipupload", user.id, 10, 60000);
+    if (limited) return limited;
     const form = await req.formData();
     const zipFileRaw = form.get("file");
     const rootFolderIdRaw = form.get("folderId");
@@ -117,16 +118,8 @@ export async function POST(req: Request) {
         if (existing) {
           await saveNewFileVersion(existing, buffer, user.id, { mimeType });
         } else {
-          const storageKey = await writeFile(buffer);
           const searchText = await extractSearchText(buffer, mimeType);
-          const created = await prisma.file.create({
-            data: { name, mimeType, size, folderId: parentId, ownerId: user.id, searchText },
-          });
-          const version = await prisma.fileVersion.create({
-            data: { fileId: created.id, versionNo: 1, storageKey, size, uploadedById: user.id },
-          });
-          await prisma.file.update({ where: { id: created.id }, data: { currentVersionId: version.id } });
-          await prisma.user.update({ where: { id: user.id }, data: { usedBytes: { increment: size } } });
+          await createFileFromBuffer({ name, mimeType, folderId: parentId, ownerId: user.id, buffer, searchText });
         }
         filesCreated++;
       } catch (e) {

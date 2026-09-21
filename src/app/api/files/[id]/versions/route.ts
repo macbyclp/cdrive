@@ -16,8 +16,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       orderBy: { versionNo: "desc" },
       include: { uploadedBy: { select: { name: true, email: true } } },
     });
+    const file = await prisma.file.findUnique({ where: { id }, select: { currentVersionId: true } });
     return NextResponse.json(
-      versions.map((v) => ({ ...v, size: v.size.toString() }))
+      versions.map((v) => ({ ...v, size: v.size.toString(), isCurrent: v.id === file?.currentVersionId }))
     );
   } catch (err) {
     return errorResponse(err);

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { User, Permission } from "@prisma/client";
+import { quotaError } from "@/lib/quota";
 
 const rank: Record<Permission, number> = { VIEW: 1, EDIT: 2 };
 
@@ -81,19 +82,142 @@ export async function filePermissionLevel(user: User, fileId: string): Promise<P
   return null;
 }
 
+/**
+ * Verilen dosyalardan `user`'ın EN AZ görüntüleme (VIEW) yetkisi olanların id kümesini döner.
+ * `filePermissionLevel` ile aynı kuralları uygular ama dosya başına ayrı sorgu ATMAZ (N+1 yok):
+ * doğrudan izinler, onay atamaları ve klasör ataları toplu sorgularla (sorgu sayısı ≈ klasör derinliği) çözülür.
+ */
+export async function visibleFileIds(
+  user: User,
+  files: { id: string; ownerId: string; folderId: string | null }[]
+): Promise<Set<string>> {
+  const visible = new Set<string>();
+  if (user.role === "ADMIN") return new Set(files.map((f) => f.id));
+  const pending = files.filter((f) => {
+    if (f.ownerId === user.id) {
+      visible.add(f.id);
+      return false;
+    }
+    return true;
+  });
+  if (pending.length === 0) return visible;
+  const ids = pending.map((f) => f.id);
+
+  const [direct, approver] = await Promise.all([
+    prisma.filePermission.findMany({ where: { userId: user.id, fileId: { in: ids } }, select: { fileId: true } }),
+    prisma.fileApproval.findMany({
+      where: { approverId: user.id, fileId: { in: ids }, status: { not: "CANCELLED" } },
+      select: { fileId: true },
+    }),
+  ]);
+  for (const d of direct) visible.add(d.fileId);
+  for (const a of approver) visible.add(a.fileId);
+
+  // Klasör atalarını seviye seviye topla.
+  type F = { id: string; parentId: string | null; ownerId: string; departmentId: string | null };
+  const folderMap = new Map<string, F>();
+  let frontier = [...new Set(pending.map((f) => f.folderId).filter((x): x is string => !!x))];
+  while (frontier.length) {
+    const rows = await prisma.folder.findMany({
+      where: { id: { in: frontier } },
+      select: { id: true, parentId: true, ownerId: true, departmentId: true },
+    });
+    for (const r of rows) folderMap.set(r.id, r);
+    frontier = [...new Set(rows.map((r) => r.parentId).filter((x): x is string => !!x && !folderMap.has(x)))];
+  }
+  const grants = folderMap.size
+    ? await prisma.folderPermission.findMany({
+        where: { userId: user.id, folderId: { in: [...folderMap.keys()] } },
+        select: { folderId: true },
+      })
+    : [];
+  const granted = new Set(grants.map((g) => g.folderId));
+
+  const memo = new Map<string, boolean>();
+  const folderVisible = (folderId: string): boolean => {
+    const cached = memo.get(folderId);
+    if (cached !== undefined) return cached;
+    let result = false;
+    let cur = folderMap.get(folderId);
+    const chain: string[] = [];
+    while (cur) {
+      chain.push(cur.id);
+      const known = memo.get(cur.id);
+      if (known !== undefined) { result = known; break; }
+      if (
+        cur.ownerId === user.id ||
+        granted.has(cur.id) ||
+        (user.role === "MANAGER" && !!cur.departmentId && cur.departmentId === user.departmentId)
+      ) { result = true; break; }
+      cur = cur.parentId ? folderMap.get(cur.parentId) : undefined;
+    }
+    for (const c of chain) memo.set(c, result);
+    return result;
+  };
+  for (const f of pending) {
+    if (!visible.has(f.id) && f.folderId && folderVisible(f.folderId)) visible.add(f.id);
+  }
+  return visible;
+}
+
+/**
+ * Sayfa sayfa aday çekip yetki filtresinden geçirerek `limit` görünür sonuç toplar. Eski yaklaşım
+ * (ilk N adayı çek, sonra süz) yetkisiz adaylar yüzünden sonuçları eksik bırakabiliyordu.
+ */
+export async function collectVisibleFiles<T extends { id: string; ownerId: string; folderId: string | null }>(
+  user: User,
+  fetchPage: (skip: number, take: number) => Promise<T[]>,
+  limit: number,
+  opts: { pageSize?: number; maxScan?: number } = {}
+): Promise<T[]> {
+  const pageSize = opts.pageSize ?? 200;
+  const maxScan = opts.maxScan ?? 2000;
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (let skip = 0; skip < maxScan && out.length < limit; skip += pageSize) {
+    const page = await fetchPage(skip, pageSize);
+    if (page.length === 0) break;
+    const fresh = page.filter((f) => !seen.has(f.id));
+    fresh.forEach((f) => seen.add(f.id));
+    const ok = await visibleFileIds(user, fresh);
+    for (const f of fresh) {
+      if (ok.has(f.id)) out.push(f);
+      if (out.length >= limit) break;
+    }
+  }
+  return out;
+}
+
 export async function canAccessFile(user: User, fileId: string, need: Permission) {
   const level = await filePermissionLevel(user, fileId);
   return level !== null && sufficient(level, need);
 }
 
-export async function assertQuota(user: User, addBytes: bigint) {
-  const projected = user.usedBytes + addBytes;
-  if (projected > user.quotaBytes) {
-    const err = new Error(
-      `Depolama kotası aşıldı: ${formatBytes(user.usedBytes)} / ${formatBytes(user.quotaBytes)} kullanımda.`
+/**
+ * Kullanıcının (ve varsa departmanının) kotasına `addBytes` daha sığar mı kontrol eder.
+ * Departman kontrolü: departmandaki tüm kullanıcıların kullanım toplamı + eklenecek bayt,
+ * `Department.quotaBytes`'ı aşamaz (0 = sınırsız). `db` verilirse (transaction) taze kullanım
+ * o bağlantıdan okunur — kilit altında çağrılmalıdır.
+ */
+export async function assertQuota(user: User, addBytes: bigint, db: Pick<typeof prisma, "user" | "department"> = prisma) {
+  const fresh = (await db.user.findUnique({ where: { id: user.id } })) ?? user;
+  const projected = fresh.usedBytes + addBytes;
+  if (projected > fresh.quotaBytes) {
+    throw quotaError(
+      `Depolama kotası aşıldı: ${formatBytes(fresh.usedBytes)} / ${formatBytes(fresh.quotaBytes)} kullanımda.`
     );
-    (err as Error & { status?: number }).status = 413;
-    throw err;
+  }
+  if (fresh.departmentId && addBytes > 0n) {
+    const dept = await db.department.findUnique({ where: { id: fresh.departmentId } });
+    if (dept && dept.quotaBytes > 0n) {
+      const agg = await db.user.aggregate({ where: { departmentId: dept.id }, _sum: { usedBytes: true } });
+      const deptUsed = agg._sum.usedBytes ?? 0n;
+      if (deptUsed + addBytes > dept.quotaBytes) {
+        throw quotaError(
+          `Departman kotası aşıldı (${dept.name}): ${formatBytes(deptUsed)} / ${formatBytes(dept.quotaBytes)} kullanımda.`
+        );
+      }
+    }
   }
 }
 

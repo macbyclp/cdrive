@@ -12,6 +12,7 @@ type Version = {
   size: string;
   createdAt: string;
   uploadedBy: { name: string; email: string };
+  isCurrent?: boolean;
 };
 
 export default function VersionsDialog({
@@ -48,6 +49,22 @@ export default function VersionsDialog({
     toast(`v${versionNo} geri yüklendi`, "success");
     onRestored();
     onClose();
+  }
+
+  async function remove(versionId: string, versionNo: number) {
+    if (!window.confirm(`v${versionNo} kalıcı olarak silinsin mi? Bu işlem geri alınamaz; kotanız geri kazanılır.`)) return;
+    setBusy(true);
+    const res = await fetch(withBasePath(`/api/files/${fileId}/versions/${versionId}`), { method: "DELETE" });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Sürüm silinemedi", "error");
+      return;
+    }
+    setVersions((vs) => vs.filter((v) => v.id !== versionId));
+    setCompareIds((ids) => ids.filter((id) => id !== versionId));
+    toast(`v${versionNo} silindi`, "success");
+    onRestored(); // liste/kota yenilensin
   }
 
   function toggleCompare(versionId: string) {
@@ -123,17 +140,22 @@ export default function VersionsDialog({
                   <div>
                     <div className="font-medium" style={{ color: "var(--text-primary)" }}>
                       v{v.versionNo}{" "}
-                      {idx === 0 && <span className="badge ml-1">güncel</span>}
+                      {(v.isCurrent ?? idx === 0) && <span className="badge ml-1">güncel</span>}
                     </div>
                     <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
                       {formatBytesStr(v.size)} · {v.uploadedBy.name} · {formatDate(v.createdAt)}
                     </div>
                   </div>
                 </div>
-                {idx !== 0 && (
-                  <button disabled={busy} className="btn-secondary text-xs shrink-0" onClick={() => restore(v.id, v.versionNo)}>
-                    Bu versiyonu geri yükle
-                  </button>
+                {!(v.isCurrent ?? idx === 0) && (
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button disabled={busy} className="btn-secondary text-xs" onClick={() => restore(v.id, v.versionNo)}>
+                      Bu versiyonu geri yükle
+                    </button>
+                    <button disabled={busy} className="btn-ghost text-xs" onClick={() => remove(v.id, v.versionNo)} title="Bu sürümü sil ve kotayı geri kazan">
+                      Sil
+                    </button>
+                  </div>
                 )}
               </div>
             ))}

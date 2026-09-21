@@ -38,6 +38,15 @@ if (typeof (globalThis as Record<string, unknown>).Path2D === "undefined") {
 }
 
 const MAX_CHARS = 200_000;
+// File.searchText MySQL TEXT sütunudur (en çok 65.535 BAYT). Daha uzun değer katı SQL modunda
+// "value too long for column" hatasıyla yüklemeyi 500'e düşürür; bu yüzden bayt cinsinden kırpılır.
+const MAX_BYTES = 60_000;
+
+export function clampForTextColumn(text: string): string {
+  if (Buffer.byteLength(text, "utf8") <= MAX_BYTES) return text;
+  // Çok baytlı bir karakterin ortasından kesilirse sondaki bozuk karakter (U+FFFD) atılır.
+  return Buffer.from(text, "utf8").subarray(0, MAX_BYTES).toString("utf8").replace(/\uFFFD+$/, "");
+}
 
 async function textFromPdf(buffer: Buffer): Promise<string> {
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -72,11 +81,11 @@ async function textFromPdf(buffer: Buffer): Promise<string> {
 export async function extractSearchText(buffer: Buffer, mimeType: string): Promise<string | null> {
   try {
     if (mimeType.startsWith("text/") || mimeType === "application/json") {
-      return buffer.toString("utf-8").slice(0, MAX_CHARS);
+      return clampForTextColumn(buffer.toString("utf-8").slice(0, MAX_CHARS));
     }
     if (mimeType === "application/pdf") {
       const text = await textFromPdf(buffer);
-      return text.slice(0, MAX_CHARS);
+      return clampForTextColumn(text.slice(0, MAX_CHARS));
     }
     return null;
   } catch {
