@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AuthError } from "@/lib/auth";
+import { rateLimit } from "@/lib/rate-limit";
 
 export function errorResponse(err: unknown) {
   if (err instanceof AuthError) {
@@ -19,4 +20,14 @@ export function errorResponse(err: unknown) {
 
 export function clientIp(req: Request) {
   return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+}
+
+/**
+ * Bellek-içi hız sınırı kapısı: limit aşıldıysa 429 yanıtı döner, aksi halde null.
+ * Kullanım: `const limited = limitOr429("upload", user.id, 30, 60_000); if (limited) return limited;`
+ * (Tek Node süreci varsayımı — bkz. lib/rate-limit.ts.)
+ */
+export function limitOr429(bucket: string, key: string, limit: number, windowMs: number) {
+  if (rateLimit(`${bucket}:${key}`, limit, windowMs)) return null;
+  return NextResponse.json({ error: "Çok fazla istek. Lütfen biraz bekleyin." }, { status: 429 });
 }

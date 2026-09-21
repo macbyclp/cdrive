@@ -43,11 +43,39 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
     setUnlocked(true);
   }
 
-  function download() {
-    const url = info?.requiresPassword
-      ? `/api/share/${token}?password=${encodeURIComponent(password)}`
-      : `/api/share/${token}`;
-    window.location.href = withBasePath(url);
+  async function download() {
+    if (!info?.requiresPassword) {
+      window.location.href = withBasePath(`/api/share/${token}`);
+      return;
+    }
+    // Şifre URL'ye yazılmaz: POST gövdesiyle indirilip tarayıcıda blob olarak kaydedilir.
+    setBusy(true);
+    setPasswordError(null);
+    try {
+      const res = await fetch(withBasePath(`/api/share/${token}`), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setPasswordError(d.error ?? "İndirilemedi");
+        return;
+      }
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const match = /filename="([^"]+)"/.exec(disposition);
+      const filename = match ? decodeURIComponent(match[1]) : info?.name ?? "dosya";
+      const url = URL.createObjectURL(await res.blob());
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -104,9 +132,12 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
                 </button>
               </form>
             ) : (
-              <button className="btn-primary w-full" onClick={download}>
-                ⬇ İndir
-              </button>
+              <>
+                {passwordError && <p className="mb-2 text-sm text-red-600 dark:text-red-400">{passwordError}</p>}
+                <button disabled={busy} className="btn-primary w-full" onClick={download}>
+                  {busy ? "İndiriliyor…" : "⬇ İndir"}
+                </button>
+              </>
             )}
           </>
         )}

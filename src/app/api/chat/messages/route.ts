@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canAccessFile, canAccessChatChannel } from "@/lib/access";
-import { errorResponse } from "@/lib/api-helpers";
+import { errorResponse, limitOr429 } from "@/lib/api-helpers";
 import { publishChatMessage } from "@/lib/chat-events";
 import { chatPreview } from "@/lib/chat";
 import { notifyUser } from "@/lib/notify";
@@ -100,6 +100,8 @@ const sendSchema = z
 export async function POST(req: Request) {
   try {
     const user = await requireUser();
+    const limited = limitOr429("chatsend", user.id, 60, 60000);
+    if (limited) return limited;
     const body = sendSchema.parse(await req.json());
 
     let channel: { id: string; isPrivate: boolean } | null = null;

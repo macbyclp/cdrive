@@ -28,6 +28,9 @@ export default function NotificationBell({ canManageOrders = false }: { canManag
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [older, setOlder] = useState<Notification[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   function load() {
@@ -36,8 +39,27 @@ export default function NotificationBell({ canManageOrders = false }: { canManag
       .then((d) => {
         setItems(d.notifications ?? []);
         setUnreadCount(d.unreadCount ?? 0);
+        // Eski sayfalar yüklenmediyse "daha fazla" durumu ilk sayfadan gelir.
+        setOlder((o) => {
+          if (o.length === 0) setHasMore(!!d.hasMore);
+          return o;
+        });
       })
       .catch(() => {});
+  }
+
+  async function loadMore() {
+    const all = [...items, ...older];
+    const last = all[all.length - 1];
+    if (!last) return;
+    setLoadingMore(true);
+    try {
+      const d = await fetch(withBasePath(`/api/notifications?before=${encodeURIComponent(last.createdAt)}&limit=30`)).then((r) => r.json());
+      setOlder((o) => [...o, ...(d.notifications ?? [])]);
+      setHasMore(!!d.hasMore);
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
   useEffect(() => {
@@ -113,7 +135,7 @@ export default function NotificationBell({ canManageOrders = false }: { canManag
                 Henüz bildirim yok.
               </p>
             )}
-            {items.map((n) => (
+            {[...items, ...older].map((n) => (
               <button
                 key={n.id}
                 onClick={() => openNotification(n)}
@@ -126,6 +148,11 @@ export default function NotificationBell({ canManageOrders = false }: { canManag
                 </p>
               </button>
             ))}
+            {hasMore && (
+              <button className="btn-ghost w-full py-2 text-xs" disabled={loadingMore} onClick={loadMore}>
+                {loadingMore ? "Yükleniyor…" : "Daha eski bildirimler"}
+              </button>
+            )}
           </div>
         </div>
       )}

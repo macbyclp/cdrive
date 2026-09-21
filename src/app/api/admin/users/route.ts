@@ -5,13 +5,26 @@ import { requireRole, hashPassword } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 
-export async function GET() {
+// Varsayılan: tüm kullanıcılar (eski davranış, dizi döner). İsteğe bağlı sayfalama/filtre:
+// `?limit=<1-200>&offset=<n>&q=<ad/e-posta>` — toplam sayı `X-Total-Count` başlığında.
+export async function GET(req: Request) {
   try {
     await requireRole("ADMIN");
-    const users = await prisma.user.findMany({
-      include: { department: true },
-      orderBy: { createdAt: "asc" },
-    });
+    const sp = new URL(req.url).searchParams;
+    const q = (sp.get("q") ?? "").trim();
+    const limitRaw = sp.get("limit");
+    const limit = limitRaw ? Math.min(Math.max(Number(limitRaw) || 50, 1), 200) : undefined;
+    const offset = Math.max(Number(sp.get("offset") ?? 0) || 0, 0);
+    const where = q ? { OR: [{ name: { contains: q } }, { email: { contains: q } }] } : {};
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        include: { department: true },
+        orderBy: { createdAt: "asc" },
+        ...(limit ? { take: limit, skip: offset } : {}),
+      }),
+      prisma.user.count({ where }),
+    ]);
     return NextResponse.json(
       users.map((u) => ({
         ...u,
@@ -19,7 +32,8 @@ export async function GET() {
         usedBytes: u.usedBytes.toString(),
         quotaBytes: u.quotaBytes.toString(),
         department: u.department ? { ...u.department, quotaBytes: u.department.quotaBytes.toString() } : null,
-      }))
+      })),
+      { headers: { "X-Total-Count": String(total) } }
     );
   } catch (err) {
     return errorResponse(err);

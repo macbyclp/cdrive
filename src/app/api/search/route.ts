@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { filePermissionLevel } from "@/lib/access";
-import { errorResponse } from "@/lib/api-helpers";
+import { collectVisibleFiles } from "@/lib/access";
+import { errorResponse, limitOr429 } from "@/lib/api-helpers";
 
 /** "type" filtresi için kategori → mimeType eşleşme kalıpları. */
 const TYPE_FILTERS: Record<string, Prisma.FileWhereInput> = {
@@ -20,6 +20,8 @@ const TYPE_FILTERS: Record<string, Prisma.FileWhereInput> = {
 export async function GET(req: Request) {
   try {
     const user = await requireUser();
+    const limited = limitOr429("search", user.id, 60, 60000);
+    if (limited) return limited;
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get("q") ?? "").trim();
     const type = searchParams.get("type") ?? "";
@@ -60,20 +62,21 @@ export async function GET(req: Request) {
       });
     }
 
-    let candidates: Prisma.FileGetPayload<Record<string, never>>[];
+    // MySQL doğal dil modu tam metin araması özel karakterlerde hata verebilir;
+    // sadece harf/rakam/boşluk bırakıp terimleri normalize ediyoruz.
+    const ftsQuery = q.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
 
-    if (q.length < 1) {
-      // Sadece filtre — metin araması yok.
-      candidates = await prisma.file.findMany({
-        where: { deletedAt: null, AND: extraWhere },
-        take: 100,
-        orderBy: { updatedAt: "desc" },
-      });
-    } else {
-      // MySQL doğal dil modu tam metin araması özel karakterlerde hata verebilir;
-      // sadece harf/rakam/boşluk bırakıp terimleri normalize ediyoruz.
-      const ftsQuery = q.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
-
+    type Row = Prisma.FileGetPayload<Record<string, never>>;
+    const fetchPage = async (skip: number, take: number): Promise<Row[]> => {
+      if (q.length < 1) {
+        // Sadece filtre — metin araması yok.
+        return prisma.file.findMany({
+          where: { deletedAt: null, AND: extraWhere },
+          skip,
+          take,
+          orderBy: { updatedAt: "desc" },
+        });
+      }
       const [byName, byContent] = await Promise.all([
         prisma.file.findMany({
           where: {
@@ -83,41 +86,30 @@ export async function GET(req: Request) {
             name: { contains: q },
             AND: extraWhere,
           },
-          take: 100,
+          skip,
+          take,
           orderBy: { updatedAt: "desc" },
         }),
         ftsQuery.length >= 3
           ? prisma.file.findMany({
               where: { deletedAt: null, searchText: { search: ftsQuery }, AND: extraWhere },
-              take: 100,
+              skip,
+              take,
               orderBy: { updatedAt: "desc" },
             })
-          : Promise.resolve([]),
+          : Promise.resolve([] as Row[]),
       ]);
-
       const byId = new Map(byName.map((f) => [f.id, f]));
       for (const f of byContent) if (!byId.has(f.id)) byId.set(f.id, f);
-      candidates = [...byId.values()];
-    }
+      return [...byId.values()].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    };
 
-    const visible: typeof candidates = [];
-    for (const f of candidates) {
-      // mineOnly zaten SQL WHERE'inde ownerId=user.id ile kısıtlandı (yukarıda) — ADMIN
-      // istisnası bile burada uygulanmıyor, bilerek: "Sürücüden ekle" SADECE kendi
-      // dosyalarını göstermeli, admin olsa bile başkasının dosyasını göstermemeli.
-      if (mineOnly) {
-        if (f.ownerId === user.id) visible.push(f);
-        if (visible.length >= 50) break;
-        continue;
-      }
-      if (user.role === "ADMIN" || f.ownerId === user.id) {
-        visible.push(f);
-        continue;
-      }
-      const level = await filePermissionLevel(user, f.id);
-      if (level) visible.push(f);
-      if (visible.length >= 50) break;
-    }
+    // mineOnly zaten SQL WHERE'inde ownerId=user.id ile kısıtlı (yukarıda) — ADMIN istisnası bile
+    // uygulanmıyor, bilerek: "Sürücüden ekle" SADECE kendi dosyalarını göstermeli. Diğer durumlarda
+    // yetki süzgeci sayfa sayfa, toplu sorgularla uygulanır (dosya başına sorgu yok).
+    const visible = mineOnly
+      ? await fetchPage(0, 50)
+      : await collectVisibleFiles(user, fetchPage, 50);
 
     return NextResponse.json({
       files: visible.slice(0, 50).map((f) => ({ ...f, size: f.size.toString(), searchText: undefined })),

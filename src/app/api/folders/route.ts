@@ -23,6 +23,15 @@ export async function GET(req: Request) {
     const user = await requireUser();
     const { searchParams } = new URL(req.url);
     const parentId = searchParams.get("parentId");
+    // Opsiyonel sayfalama (varsayılan: hepsi, eski davranış). `?limit=<1-500>&offset=<n>` her iki listeye de
+    // uygulanır; yanıtta `page: { limit, offset, hasMoreFolders, hasMoreFiles }` döner.
+    const limitRaw = searchParams.get("limit");
+    const limit = limitRaw ? Math.min(Math.max(Number(limitRaw) || 100, 1), 500) : undefined;
+    const offset = Math.max(Number(searchParams.get("offset") ?? 0) || 0, 0);
+    const pg: { take?: number; skip?: number } = limit ? { take: limit + 1, skip: offset } : {};
+    const paged = <T,>(rows: T[]) => (limit ? rows.slice(0, limit) : rows);
+    const pageInfo = (f: unknown[], fl: unknown[]) =>
+      limit ? { page: { limit, offset, hasMoreFolders: f.length > limit, hasMoreFiles: fl.length > limit } } : {};
 
     if (parentId) {
       const ok = await canAccessFolder(user, parentId, "VIEW");
@@ -33,17 +42,20 @@ export async function GET(req: Request) {
           where: { parentId, deletedAt: null },
           orderBy: { name: "asc" },
           include: { tags: { include: { tag: true } } },
+          ...pg,
         }),
         prisma.file.findMany({
           where: { folderId: parentId, deletedAt: null },
           orderBy: { name: "asc" },
           include: { tags: { include: { tag: true } } },
+          ...pg,
         }),
       ]);
       return NextResponse.json({
-        folders: folders.map(serializeFolder),
-        files: files.map(serializeFile),
+        folders: paged(folders).map(serializeFolder),
+        files: paged(files).map(serializeFile),
         breadcrumb: await breadcrumb(parentId),
+        ...pageInfo(folders, files),
       });
     }
 
@@ -67,6 +79,7 @@ export async function GET(req: Request) {
       where,
       orderBy: { name: "asc" },
       include: { tags: { include: { tag: true } } },
+      ...pg,
     });
     const files = await prisma.file.findMany({
       where: {
@@ -76,11 +89,13 @@ export async function GET(req: Request) {
       },
       orderBy: { name: "asc" },
       include: { tags: { include: { tag: true } } },
+      ...pg,
     });
     return NextResponse.json({
-      folders: folders.map(serializeFolder),
-      files: files.map(serializeFile),
+      folders: paged(folders).map(serializeFolder),
+      files: paged(files).map(serializeFile),
       breadcrumb: [],
+      ...pageInfo(folders, files),
     });
   } catch (err) {
     return errorResponse(err);

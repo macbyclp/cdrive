@@ -1614,27 +1614,92 @@ function SettingsTab() {
   );
 }
 
-function AuditTab({ logs }: { logs: AuditLog[] }) {
+const AUDIT_ACTIONS = [
+  "LOGIN", "LOGIN_FAILED", "LOGOUT", "UPLOAD", "DOWNLOAD", "DELETE", "RESTORE", "RENAME", "MOVE", "CREATE_FOLDER",
+  "SHARE_CREATE", "SHARE_REVOKE", "PERMISSION_GRANT", "PERMISSION_REVOKE", "USER_CREATE", "USER_UPDATE",
+  "USER_DEACTIVATE", "DEPARTMENT_CREATE", "DEPARTMENT_UPDATE", "PURGE", "SETTINGS_UPDATE", "AUTO_CLEANUP",
+  "IMPERSONATE_START", "IMPERSONATE_STOP", "APPROVAL_REQUEST", "APPROVAL_APPROVE", "APPROVAL_REJECT",
+];
+const AUDIT_PAGE = 100;
+
+function AuditTab({ logs: initial }: { logs: AuditLog[] }) {
+  const [logs, setLogs] = useState<AuditLog[]>(initial);
+  const [action, setAction] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [hasMore, setHasMore] = useState(initial.length >= AUDIT_PAGE);
+
+  async function fetchLogs(skip: number) {
+    const q = new URLSearchParams({ take: String(AUDIT_PAGE), skip: String(skip) });
+    if (action) q.set("action", action);
+    if (from) q.set("from", from);
+    if (to) q.set("to", `${to}T23:59:59.999Z`);
+    const res = await fetch(withBasePath(`/api/admin/audit?${q}`));
+    return res.ok ? ((await res.json()) as AuditLog[]) : [];
+  }
+  async function apply() {
+    setBusy(true);
+    const rows = await fetchLogs(0);
+    setLogs(rows);
+    setHasMore(rows.length >= AUDIT_PAGE);
+    setBusy(false);
+  }
+  async function more() {
+    setBusy(true);
+    const rows = await fetchLogs(logs.length);
+    setLogs((l) => [...l, ...rows]);
+    setHasMore(rows.length >= AUDIT_PAGE);
+    setBusy(false);
+  }
+
   return (
-    <div className="card overflow-hidden">
-      {logs.map((l) => (
-        <div key={l.id} className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5 text-sm last:border-0" style={{ borderColor: "var(--border)" }}>
-          <span className="w-40 shrink-0 text-xs" style={{ color: "var(--text-tertiary)" }}>
-            {formatDate(l.createdAt)}
-          </span>
-          <span className="badge font-mono">{l.action}</span>
-          <span style={{ color: "var(--text-secondary)" }}>{l.user ? l.user.name : "Anonim"}</span>
-          {l.detail && (
-            <span className="truncate" style={{ color: "var(--text-tertiary)" }}>
-              — {l.detail}
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          Eylem
+          <select className="input mt-1" value={action} onChange={(e) => setAction(e.target.value)} aria-label="Eylem filtresi">
+            <option value="">Tümü</option>
+            {AUDIT_ACTIONS.map((a) => (
+              <option key={a} value={a}>{a}</option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          Başlangıç
+          <input type="date" className="input mt-1" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Başlangıç tarihi" />
+        </label>
+        <label className="text-xs" style={{ color: "var(--text-secondary)" }}>
+          Bitiş
+          <input type="date" className="input mt-1" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Bitiş tarihi" />
+        </label>
+        <button className="btn-primary" disabled={busy} onClick={apply}>Filtrele</button>
+      </div>
+      <div className="card overflow-hidden">
+        {logs.map((l) => (
+          <div key={l.id} className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5 text-sm last:border-0" style={{ borderColor: "var(--border)" }}>
+            <span className="w-40 shrink-0 text-xs" style={{ color: "var(--text-tertiary)" }}>
+              {formatDate(l.createdAt)}
             </span>
-          )}
-        </div>
-      ))}
-      {logs.length === 0 && (
-        <p className="p-4 text-sm" style={{ color: "var(--text-tertiary)" }}>
-          Kayıt yok.
-        </p>
+            <span className="badge font-mono">{l.action}</span>
+            <span style={{ color: "var(--text-secondary)" }}>{l.user ? l.user.name : "Anonim"}</span>
+            {l.detail && (
+              <span className="truncate" style={{ color: "var(--text-tertiary)" }}>
+                — {l.detail}
+              </span>
+            )}
+          </div>
+        ))}
+        {logs.length === 0 && (
+          <p className="p-4 text-sm" style={{ color: "var(--text-tertiary)" }}>
+            Kayıt yok.
+          </p>
+        )}
+      </div>
+      {hasMore && (
+        <button className="btn-ghost" disabled={busy} onClick={more}>
+          {busy ? "Yükleniyor…" : "Daha eski kayıtları yükle"}
+        </button>
       )}
     </div>
   );
