@@ -1,151 +1,83 @@
 <div align="center">
-  <img src="public/icon-192.png" width="88" alt="CDrive logo" />
-  <h1>CDrive</h1>
-  <p><strong>Kurumsal dosyalarınız. Kendi sunucunuzda. Tam kontrolünüzde.</strong></p>
-  <p>Departman, rol ve izin temelli; modern, self-hosted dosya yönetimi ve işbirliği platformu.</p>
 
-  [![Live](https://img.shields.io/badge/live-cdrive.calapverdi.tr-6C63FF?style=for-the-badge)](https://cdrive.calapverdi.tr)
-  ![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
-  ![React](https://img.shields.io/badge/React_19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-  ![MySQL](https://img.shields.io/badge/MySQL-Prisma-23395D?style=for-the-badge&logo=mysql&logoColor=white)
-  ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-</div>
+# CDrive
 
-![CDrive — private cloud, visualized](docs/assets/cdrive-hero.png)
+### Kurumsal dosyalarınız. Kendi sunucunuzda. Tam kontrolünüzde.
 
-<div align="center">
-  <a href="https://cdrive.calapverdi.tr"><strong>Canlı sistemi aç</strong></a>
-  ·
-  <a href="#öne-çıkanlar">Özellikler</a>
-  ·
-  <a href="#hızlı-kurulum">Kurulum</a>
-  ·
-  <a href="#mimari">Mimari</a>
+Departman, rol ve izin temelli, **self-hosted** dosya yönetimi ve işbirliği platformu.
+Google Drive rahatlığı, ama veri sizin diskinizde.
+
+[![Canlı örnek](https://img.shields.io/badge/canlı-cdrive.calapverdi.tr-6C63FF?style=for-the-badge)](https://cdrive.calapverdi.tr)
+![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-MySQL%2FMariaDB-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
+![Self-hosted](https://img.shields.io/badge/self--hosted-evet-16a34a?style=for-the-badge)
+
+![CDrive dosya listesi](docs/readme-assets/drive-folder.png)
+
 </div>
 
 ---
 
-## Neden CDrive?
+## Manifesto
 
-CDrive, kurumsal dosyaları üçüncü taraf bir buluta teslim etmeden Drive benzeri bir deneyim sunar. Veriler sizin diskinizde, yetki politikaları sizin veritabanınızda ve bütün servisler sizin altyapınızda çalışır.
+> **Veri egemenliği önce gelir.**
 
-<p align="center">
-  <img src="docs/assets/cdrive-demo.gif" width="900" alt="CDrive canlı giriş ekranı" />
-</p>
+Şirket dosyaları üçüncü taraf bir buluta ait değildir. CDrive; dosyaların, kullanıcıların ve erişim kayıtlarının kendi VDS veya sunucunuzda kalması için yapıldı. KVKK gibi veri gizliliği konusunda hassas kurumlar için gerçekçi bir alternatif olmayı hedefler.
 
-## Öne çıkanlar
+## Üç rol, net sınırlar
 
-| | Yetenek | Ne sağlar? |
-|---|---|---|
-| 🗂️ | Dosya ve klasör yönetimi | Çoklu yükleme, sürükle-bırak, taşıma, ZIP indirme ve medya önizleme |
-| 🛡️ | Rol tabanlı erişim | Admin, yönetici ve üye rolleri; departman ve öğe bazlı izinler |
-| 🔗 | Güvenli paylaşım | Süreli, indirme limitli ve parola korumalı genel bağlantılar |
-| 🕓 | Versiyon geçmişi | Önceki sürümlere dönme, karşılaştırma ve geri alınabilir silme |
-| 🔎 | İçerik arama | Dosya adı yanında metin ve PDF içeriğinde yetki filtreli arama |
-| 📝 | Office entegrasyonu | OnlyOffice ile Word, Excel ve PowerPoint belgelerini tarayıcıda düzenleme |
-| 💬 | Ekip çalışması | Yorumlar, onay akışları, bildirimler ve gerçek zamanlı sohbet |
-| 📊 | Operasyon paneli | Kota, depolama, kullanıcı, departman ve denetim günlüğü yönetimi |
+| Rol | Ne yapar |
+| --- | --- |
+| **ADMIN** | Tüm sisteme erişir; kullanıcı, departman ve sistem ayarlarını yönetir |
+| **MANAGER** | Kendi departmanının dosya ve klasörlerini yönetir |
+| **MEMBER** | Kendi dosyaları ve kendisiyle paylaşılanlarla çalışır |
 
-## Ürün yaklaşımı
+Klasör ve dosya bazında ayrıca **VIEW / EDIT** izinleri verilir.
 
-> **Veri egemenliği önce gelir.** CDrive; kurumların dosyalarını, kullanıcılarını ve erişim kayıtlarını kendi VDS veya sunucularında tutması için geliştirildi.
+## Gerçek arayüzden
 
-- TOTP tabanlı iki aşamalı doğrulama
-- IP bazlı hız sınırlama ve hesap kilitleme
-- Sunucu tarafından iptal edilebilen oturumlar
-- Geri alınabilir silme ve yapılandırılabilir veri saklama
-- Kullanıcı ve departman bazlı depolama kotaları
-- Denetlenebilir yönetici işlemleri ve kimliğe bürünme kayıtları
+![Giriş ve dosya listesi](docs/readme-assets/gif-giris.gif)
 
-## Mimari
+| Sürüm geçmişi ve fark | Süreli, limitli, parolalı paylaşım |
+| --- | --- |
+| ![sürümler](docs/readme-assets/versions-diff.png) | ![paylaşım](docs/readme-assets/share.png) |
 
-```mermaid
-flowchart LR
-    U[Tarayıcı / PWA] --> N[Next.js 16]
-    N --> A[API + Yetki Katmanı]
-    A --> P[Prisma ORM]
-    P --> M[(MySQL / MariaDB)]
-    A --> S[(Yerel Dosya Deposu)]
-    A --> O[OnlyOffice Document Server]
-    C[Caddy / HTTPS] --> N
-    C --> O
-```
+| Yönetim paneli | Etkinlik (denetim) günlüğü |
+| --- | --- |
+| ![admin](docs/readme-assets/admin-users.png) | ![audit](docs/readme-assets/admin-audit.png) |
 
-## Teknoloji
+<sub>Görüntüler yerel bir kurulumda demo verisiyle alındı; kişi ve e-posta bilgileri örnektir.</sub>
 
-`Next.js 16` · `React 19` · `TypeScript` · `Tailwind CSS 4` · `Prisma` · `MySQL/MariaDB` · `Vitest` · `Docker` · `OnlyOffice`
+## Neler var?
+
+- Klasör ağacı, çoklu yükleme, ZIP yükleme, sürükle-bırak taşıma, çöp kutusu
+- **Sürümleme:** aynı adla yüklenen dosya yeni sürüm olur; sürümleri karşılaştır, eskisine dön
+- **Paylaşım:** süreli, indirme limitli, parola korumalı genel bağlantılar
+- **Denetim kaydı:** kim ne zaman ne yaptı
+- Departman ve kullanıcı bazlı depolama kotaları, depolama analitiği
+- TOTP ile iki aşamalı doğrulama, hesap kilitleme, sunucu tarafından iptal edilebilen oturumlar
+- Dosya adı ve metin/PDF içeriğinde arama, sohbet, sipariş/müşteri modülleri
+- İsteğe bağlı OnlyOffice ile tarayıcıda Word/Excel/PowerPoint düzenleme
+
+## Dene
+
+Canlı sistem: **https://cdrive.calapverdi.tr**. Kendi sunucunda kurmak için [Hızlı kurulum](#hızlı-kurulum).
 
 ## Hızlı kurulum
 
-### Docker ile
+Gereksinim: Node.js ≥ 20.9, MySQL/MariaDB.
 
 ```bash
-git clone https://github.com/macbyclp/cdrive.git
-cd cdrive/deploy/vds
-# docker-compose.yml içindeki replace-with-* değerlerini değiştirin
-docker compose up -d --build
-```
-
-### Yerel geliştirme
-
-```bash
-git clone https://github.com/macbyclp/cdrive.git
-cd cdrive
+git clone https://github.com/macbyclp/cdrive.git && cd cdrive
 npm install
+# .env: DATABASE_URL, SESSION_SECRET (>=32 karakter), STORAGE_ROOT, APP_URL
 npx prisma migrate deploy
 npm run dev
 ```
+İlk açılışta kullanıcı yoksa kurulum sihirbazı ilk yöneticiyi oluşturur.
 
-Uygulama `http://localhost:3000` adresinde açılır. İlk çalıştırmada henüz kullanıcı yoksa kurulum sihirbazı ilk yöneticiyi oluşturur.
-
-### Temel ortam değişkenleri
-
-```dotenv
-DATABASE_URL=mysql://USER:PASSWORD@HOST:3306/cdrive
-SESSION_SECRET=replace-with-a-long-random-value
-STORAGE_ROOT=./storage
-APP_URL=https://drive.example.com
-```
-
-OnlyOffice kullanacaksanız ayrıca `ONLYOFFICE_URL` ve `ONLYOFFICE_JWT_SECRET` tanımlayın. Üretim sırlarını hiçbir zaman repoya eklemeyin.
-
-## Test ve kalite
-
-```bash
-npm run lint
-npm test
-npm run build
-```
-
-Test paketi; erişim hesaplama, onay akışları, sohbet, siparişler, raporlar, oturum ömrü, paylaşım ve TOTP gibi kritik alanları kapsar. Entegrasyon testleri yalnızca ayrı bir test veritabanında çalıştırılmalıdır.
-
-## Proje haritası
-
-```text
-src/app/          Sayfalar ve REST API uçları
-src/components/   Arayüz ve iş akışı bileşenleri
-src/lib/          Yetki, güvenlik, depolama ve servis katmanı
-prisma/           Veri modeli ve migration'lar
-deploy/           VDS ve OnlyOffice Docker tanımları
-tests/            Birim ve entegrasyon testleri
-```
-
-## Dağıtım
-
-- **VDS / Docker:** Önerilen üretim yolu; Next.js, MySQL ve depolama kalıcı volume'larla çalışır.
-- **cPanel:** Node.js App + MySQL ile desteklenir; düşük bellek limitlerinde build işlemi VDS üzerinde yapılmalıdır.
-- **OnlyOffice:** Ayrı Document Server servisi olarak opsiyoneldir; kapalı olduğunda ilgili özellikler arayüzden gizlenir.
-
-## Durum
-
-CDrive gerçek bir üretim ortamında çalışmaktadır: [cdrive.calapverdi.tr](https://cdrive.calapverdi.tr). Proje aktif olarak geliştirilen kişisel/self-hosted bir üründür; henüz genel SaaS hizmeti veya müşteri referansı iddiası taşımaz.
-
-## Lisans
-
-Bu proje [LICENSE](LICENSE) dosyasındaki koşullar altında sunulur.
+<div align="center"><sub>Verin senin sunucunda. Kontrol senin elinde.</sub></div>
 
 ---
 
-<div align="center">
-  <sub>Verin senin sunucunda. Kontrol senin elinde.</sub>
-</div>
+Ayrıntılı önceki README: [`docs/README-detailed.md`](docs/README-detailed.md)
