@@ -31,6 +31,8 @@ WORKDIR /app
 # Prisma'nın query engine binary'si Alpine'da (musl) OpenSSL'e dinamik link olur.
 RUN apk add --no-cache openssl su-exec
 ENV NODE_ENV=production
+# Next standalone, Docker'un verdiği HOSTNAME (konteyner kimliği) adresine bağlanır; 127.0.0.1 healthcheck'i ve port yayınlama için tüm arayüzlerde dinle.
+ENV HOSTNAME=0.0.0.0
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
