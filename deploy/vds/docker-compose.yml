@@ -25,6 +25,9 @@ services:
       - MYSQL_PASSWORD=replace-with-a-strong-password
     volumes:
       - cdrive_db_data:/var/lib/mysql
+    # Kaynak limitleri: ortamda CDRIVE_DB_MEM_LIMIT ile ezilebilir (varsayılanlar makul bir başlangıçtır; sunucunuza göre ayarlayın).
+    mem_limit: ${CDRIVE_DB_MEM_LIMIT:-1g}
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-preplace-with-a-strong-password"]
       interval: 5s
@@ -54,8 +57,17 @@ services:
       - PORT=3000
     volumes:
       - cdrive_storage:/app/storage
+    mem_limit: ${CDRIVE_MEM_LIMIT:-1g}
+    cpus: ${CDRIVE_CPUS:-1.5}
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
     ports:
       - "3001:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
 volumes:
   cdrive_db_data:

@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from "jose";
+import { resolveSecret } from "@/lib/session-secret";
 import { officeDocType, extOf } from "@/lib/format";
 
 export { officeDocType, extOf };
@@ -20,7 +21,7 @@ export { officeDocType, extOf };
  */
 
 const officeTokenSecret = new TextEncoder().encode(
-  process.env.OFFICE_TOKEN_SECRET ?? process.env.SESSION_SECRET ?? "insecure-dev-secret-change-me"
+  resolveSecret(process.env.OFFICE_TOKEN_SECRET)
 );
 
 export function isOnlyOfficeConfigured() {

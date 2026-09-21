@@ -17,6 +17,14 @@ export default defineConfig({
     // de daha kötüsü, kaynakta düzeltilmiş bir testin build çıktısındaki BAYAT
     // kopyasının çalışmasına yol açıyor. Varsayılanları koruyup .next'i ekliyoruz.
     exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**"],
+    coverage: {
+      provider: "v8",
+      include: ["src/lib/**", "src/middleware.ts", "src/app/api/**"],
+      reporter: ["text-summary", "lcov"],
+      reportsDirectory: "coverage",
+      // Gerileme tabanı (mevcut ölçüm ~%19): eşik altına düşen değişiklik CI'da fail eder; test eklendikçe yükseltin.
+      thresholds: { statements: 15, branches: 15, functions: 15, lines: 15 },
+    },
   },
   resolve: {
     alias: {

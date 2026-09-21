@@ -7,8 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "migrate": "prisma migrate deploy",
     "deploy": "npx prisma migrate deploy > deploy.log 2>&1; echo EXIT_CODE:$? >> deploy.log; echo ---BUILD--- >> deploy.log; npx next build >> deploy.log 2>&1; echo EXIT_CODE:$? >> deploy.log"
   },
@@ -52,6 +54,7 @@
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.10",
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",

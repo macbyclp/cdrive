@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { resolveSecret } from "@/lib/session-secret";
 import { jwtVerify } from "jose";
 
 const secret = new TextEncoder().encode(
-  process.env.SESSION_SECRET ?? "insecure-dev-secret-change-me"
+  resolveSecret()
 );
 
 export async function middleware(req: NextRequest) {

@@ -1,0 +1,43 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    services:
+      # Entegrasyon testleri (tests/integration) gerçek bir MySQL test veritabanı ister.
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-only
+          MYSQL_DATABASE: cdrive_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-root-only"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DATABASE_URL: mysql://root:ci-root-only@127.0.0.1:3306/cdrive_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Test veritabanı şemasını kur
+        run: npx prisma migrate deploy
+      - name: .env.test (yalnız CI test veritabanı; gizli değer yok)
+        run: |
+          {
+            echo "DATABASE_URL=$DATABASE_URL"
+            echo "SESSION_SECRET=ci-test-secret-ci-test-secret-ci-test-1"
+            echo "STORAGE_ROOT=./.test-storage"
+          } > .env.test
+      - run: npm run test:coverage
+      - run: npm run build
+        env:
+          SESSION_SECRET: ci-build-only-secret-not-used-at-runtime-000

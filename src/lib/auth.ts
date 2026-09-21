@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { resolveSecret } from "@/lib/session-secret";
 import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
@@ -12,7 +13,7 @@ const PENDING_2FA_COOKIE = "cdrive_2fa_pending";
 // sadece bu çerezle "geri dönüş anahtarı" saklanır.
 const IMPERSONATOR_COOKIE = "cdrive_impersonator";
 const secret = new TextEncoder().encode(
-  process.env.SESSION_SECRET ?? "insecure-dev-secret-change-me"
+  resolveSecret()
 );
 
 export type SessionPayload = {

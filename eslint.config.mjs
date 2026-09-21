@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // cPanel/Passenger'ın doğrudan çalıştırdığı CommonJS giriş dosyası — Next'in
     // ESM tabanlı kod tabanının parçası değil.
     "server.js",
+    "coverage/**",
+    "scripts/**",
   ]),
 ]);
 

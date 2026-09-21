@@ -28,6 +28,36 @@ const nextConfig: NextConfig = {
   // basePath'i process.env.NEXT_PUBLIC_BASE_PATH üzerinden okuyor — basePath
   // "NEXT_PUBLIC_" önekiyle başlamadığı için Next.js'in otomatik client-env
   // inline mekanizması onu görmez, bu yüzden burada elle expose ediyoruz.
+  async headers() {
+    // CSP varsayılan olarak Report-Only: OnlyOffice iframe/script istisnaları canlıda doğrulanmadan
+    // zorlanmaz. Doğruladıktan sonra CSP_ENFORCE=1 ile (DERLEME zamanında: Dockerfile build-arg CSP_ENFORCE) aynı politika ZORLANIR;
+    // kod değişikliği gerekmez, geri almak için değişkeni kaldırmak yeter. Diğer başlıklar doğrudan uygulanır.
+    const cspHeader = process.env.CSP_ENFORCE === "1" ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only";
+    const office = process.env.ONLYOFFICE_URL ?? "";
+    const csp = [
+      "default-src 'self'",
+      `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${office}`.trim(),
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "img-src 'self' data: blob:",
+      `connect-src 'self' ${office}`.trim(),
+      `frame-src 'self' ${office}`.trim(),
+      "frame-ancestors 'self'",
+    ].join("; ");
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Strict-Transport-Security", value: "max-age=15552000; includeSubDomains" },
+          { key: cspHeader, value: csp },
+        ],
+      },
+    ];
+  },
   env: {
     NEXT_PUBLIC_BASE_PATH: basePath,
   },
