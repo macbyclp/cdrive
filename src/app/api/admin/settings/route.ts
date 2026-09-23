@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
+import { byteSize } from "@/lib/validation";
 
 async function getOrCreateSettings() {
   return prisma.systemSettings.upsert({
@@ -36,7 +37,7 @@ export async function GET() {
 const schema = z.object({
   trashRetentionDays: z.number().int().positive().nullable().optional(),
   versionRetentionDays: z.number().int().positive().nullable().optional(),
-  maxFileSizeBytes: z.number().positive().nullable().optional(),
+  maxFileSizeBytes: byteSize.nullable().optional(),
   blockedExtensions: z.string().nullable().optional(),
   uiSkin: z.enum(["modern", "archive", "panel"]).optional(),
   require2faForAdmins: z.boolean().optional(),

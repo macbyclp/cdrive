@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { canAccessOrders, canCreateOrder, canManageOrders, canManageProduction, canAccessFile } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
+import { parseOrderStatusFilter } from "@/lib/validation";
 import { orderIncludeShape as includeShape, serializeOrder, findOrCreateCustomer, generateOrderNumber } from "@/lib/orders";
 import { notifyUsers } from "@/lib/notify";
 
@@ -22,7 +23,9 @@ export async function GET(req: Request) {
     // ekranda gezerken bile sadece KENDİ açtığı siparişleri görsün diye (iki ekranın birbirine
     // karışmaması için) — Muhasebe ekranı bu parametreyi hiç göndermez, herkesi görür.
     const mine = searchParams.get("mine") === "1";
-    const statusFilter = status && status !== "ALL" ? { status: status as "PENDING" | "APPROVED" | "IN_PRODUCTION" | "INVOICED" | "CANCELLED" } : {};
+    const parsedStatus = parseOrderStatusFilter(status);
+    if (parsedStatus === undefined) return NextResponse.json({ error: "Geçersiz durum filtresi" }, { status: 400 });
+    const statusFilter = parsedStatus ? { status: parsedStatus } : {};
     const qFilter = q ? { customerName: { contains: q } } : {};
     const customerFilter = customerId ? { customerId } : {};
 

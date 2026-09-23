@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, hashPassword } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
+import { byteSize } from "@/lib/validation";
 
 // Varsayılan: tüm kullanıcılar (eski davranış, dizi döner). İsteğe bağlı sayfalama/filtre:
 // `?limit=<1-200>&offset=<n>&q=<ad/e-posta>` — toplam sayı `X-Total-Count` başlığında.
@@ -46,7 +47,7 @@ const createSchema = z.object({
   password: z.string().min(8),
   role: z.enum(["ADMIN", "MANAGER", "MEMBER"]).default("MEMBER"),
   departmentId: z.string().nullable().optional(),
-  quotaBytes: z.number().optional(),
+  quotaBytes: byteSize.optional(),
 });
 
 export async function POST(req: Request) {
