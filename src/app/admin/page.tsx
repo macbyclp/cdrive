@@ -1630,11 +1630,17 @@ function AuditTab({ logs: initial }: { logs: AuditLog[] }) {
   const [busy, setBusy] = useState(false);
   const [hasMore, setHasMore] = useState(initial.length >= AUDIT_PAGE);
 
-  async function fetchLogs(skip: number) {
-    const q = new URLSearchParams({ take: String(AUDIT_PAGE), skip: String(skip) });
+  function filterQuery() {
+    const q = new URLSearchParams();
     if (action) q.set("action", action);
     if (from) q.set("from", from);
     if (to) q.set("to", `${to}T23:59:59.999Z`);
+    return q;
+  }
+  async function fetchLogs(skip: number) {
+    const q = filterQuery();
+    q.set("take", String(AUDIT_PAGE));
+    q.set("skip", String(skip));
     const res = await fetch(withBasePath(`/api/admin/audit?${q}`));
     return res.ok ? ((await res.json()) as AuditLog[]) : [];
   }
@@ -1674,6 +1680,13 @@ function AuditTab({ logs: initial }: { logs: AuditLog[] }) {
           <input type="date" className="input mt-1" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Bitiş tarihi" />
         </label>
         <button className="btn-primary" disabled={busy} onClick={apply}>Filtrele</button>
+        <a
+          href={withBasePath(`/api/admin/audit?${filterQuery()}&format=csv`)}
+          className="btn-secondary"
+          title="Seçili filtrelerle en fazla 10.000 kaydı CSV olarak indir"
+        >
+          CSV indir
+        </a>
       </div>
       <div className="card overflow-hidden">
         {logs.map((l) => (
