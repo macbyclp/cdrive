@@ -7,6 +7,7 @@ import { serveStoredFile } from "@/lib/http-range";
 import { logAudit } from "@/lib/audit";
 import { lockUser, adjustUsedBytes, versionBytesByOwner } from "@/lib/quota";
 import { errorResponse } from "@/lib/api-helpers";
+import { contentDisposition } from "@/lib/download-names";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -81,7 +82,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       storageKey: file.currentVersion.storageKey,
       contentType: file.mimeType || "application/octet-stream",
       headers: {
-        "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${encodeURIComponent(file.name)}"`,
+        "Content-Disposition": contentDisposition(inline ? "inline" : "attachment", file.name),
       },
     });
   } catch (err) {

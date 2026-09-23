@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { formatBytesStr, iconForMime } from "@/lib/format";
 import { withBasePath } from "@/lib/basePath";
+import { fileNameFromDisposition } from "@/lib/download-names";
 
 type Info = { name: string; mimeType: string; size: string; requiresPassword: boolean };
 
@@ -62,9 +63,7 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
         setPasswordError(d.error ?? "İndirilemedi");
         return;
       }
-      const disposition = res.headers.get("Content-Disposition") ?? "";
-      const match = /filename="([^"]+)"/.exec(disposition);
-      const filename = match ? decodeURIComponent(match[1]) : info?.name ?? "dosya";
+      const filename = fileNameFromDisposition(res.headers.get("Content-Disposition")) ?? info?.name ?? "dosya";
       const url = URL.createObjectURL(await res.blob());
       const a = document.createElement("a");
       a.href = url;
