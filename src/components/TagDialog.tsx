@@ -87,8 +87,13 @@ export default function TagDialog({
 
   async function deleteTag(tag: Tag) {
     setBusy(true);
-    await fetch(withBasePath(`/api/tags/${tag.id}`), { method: "DELETE" });
+    const res = await fetch(withBasePath(`/api/tags/${tag.id}`), { method: "DELETE" });
     setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Etiket silinemedi", "error");
+      return;
+    }
     setAllTags((prev) => prev.filter((t) => t.id !== tag.id));
     setApplied((s) => {
       const next = new Set(s);
