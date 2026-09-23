@@ -574,6 +574,23 @@ function DriveInner() {
     refreshMe();
   }
 
+  async function copyFile(f: FileItem) {
+    const res = await fetch(withBasePath(`/api/files/${f.id}/copy`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? "Kopyalanamadı", "error");
+      return;
+    }
+    const created = await res.json();
+    toast(`"${created.name}" oluşturuldu`, "success");
+    load();
+    refreshMe();
+  }
+
   /** docx/xlsx/pptx gibi dosyalar için "PDF'e dönüştür" menü öğesi (uygunsa), aksi halde boş dizi. */
   function convertMenuItem(f: FileItem): RowMenuItem[] {
     return officeDocType(f.name) && extOf(f.name) !== "pdf"
@@ -1255,6 +1272,7 @@ function DriveInner() {
                           { label: "İndir", onClick: () => downloadFile(f) },
                           ...officeMenuItem(f),
                           ...convertMenuItem(f),
+                          { label: "Kopyasını oluştur", onClick: () => copyFile(f) },
                           { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
                           { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
                           ...tagMenuItem("file", f),
@@ -1524,6 +1542,7 @@ function DriveInner() {
                               { label: "İndir", onClick: () => downloadFile(f) },
                               ...officeMenuItem(f),
                               ...convertMenuItem(f),
+                              { label: "Kopyasını oluştur", onClick: () => copyFile(f) },
                               { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
                               { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
                               ...tagMenuItem("file", f),
