@@ -33,6 +33,9 @@ RUN apk add --no-cache openssl su-exec
 ENV NODE_ENV=production
 # Next standalone, Docker'un verdiği HOSTNAME (konteyner kimliği) adresine bağlanır; 127.0.0.1 healthcheck'i ve port yayınlama için tüm arayüzlerde dinle.
 ENV HOSTNAME=0.0.0.0
+# Sağlık kontrolü URL'si basePath'i bilmeli (builder'daki build-arg ile aynı değer verilmeli).
+ARG NEXT_BASE_PATH=""
+ENV NEXT_BASE_PATH=$NEXT_BASE_PATH
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
@@ -51,7 +54,7 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh && chown -R node:node /app
 
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:${PORT:-3000}/ >/dev/null 2>&1 || exit 1
+  CMD wget -qO- http://127.0.0.1:${PORT:-3000}${NEXT_BASE_PATH}/api/health >/dev/null 2>&1 || exit 1
 # Her başlangıçta migration'ları uygular (idempotent — zaten uygulanmışsa
 # atlar), sonra sunucuyu başlatır. `./node_modules/.bin/prisma` sembolik
 # linkini KOPYALAMADIK (sadece hedef paketleri) — bu yüzden CLI'nin gerçek
