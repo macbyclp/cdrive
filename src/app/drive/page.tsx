@@ -1229,26 +1229,13 @@ function DriveInner() {
           )}
 
           {!loading && folders.length === 0 && files.length === 0 && (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-16 text-center" style={{ borderColor: "var(--border)" }}>
-              <span className="text-3xl">
-                {view === "shared" ? "🤝" : view === "search" ? "🔍" : view === "recent" ? "🕒" : view === "starred" ? "⭐" : view === "trash" ? "🗑️" : view === "media" ? "🎬" : "📂"}
-              </span>
-              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                {view === "shared"
-                  ? "Henüz sizinle paylaşılan bir şey yok."
-                  : view === "search"
-                    ? "Sonuç bulunamadı."
-                    : view === "recent"
-                      ? "Henüz açtığınız/indirdiğiniz bir dosya yok."
-                      : view === "starred"
-                        ? "Henüz yıldızladığınız bir şey yok."
-                        : view === "trash"
-                          ? "Çöp kutusu boş."
-                          : view === "media"
-                            ? "Henüz erişebildiğiniz bir video/müzik dosyası yok."
-                            : "Bu klasör boş."}
-              </p>
-            </div>
+            <DriveEmptyState
+              view={view}
+              inSubfolder={!!folderId}
+              onUpload={() => fileInputRef.current?.click()}
+              onNewFolder={() => setPending({ kind: "new-folder" })}
+              onGoRoot={() => goFolder(null)}
+            />
           )}
 
           {!loading && (folders.length > 0 || files.length > 0) && viewMode === "grid" && (
@@ -1967,5 +1954,97 @@ export default function DrivePage() {
     <Suspense>
       <DriveInner />
     </Suspense>
+  );
+}
+
+const EMPTY_STATE: Record<View, { icon: string; title: string; hint: string }> = {
+  root: {
+    icon: "📂",
+    title: "Burası henüz boş",
+    hint: "Dosyaları bu alana sürükleyip bırakabilir ya da aşağıdan yükleyebilirsin.",
+  },
+  shared: {
+    icon: "🤝",
+    title: "Seninle paylaşılan bir şey yok",
+    hint: "Bir iş arkadaşın bir dosya ya da klasörü seninle paylaştığında burada görünür.",
+  },
+  search: {
+    icon: "🔍",
+    title: "Sonuç bulunamadı",
+    hint: "Farklı bir kelime dene ya da filtreleri gevşet. Arama, PDF ve metin dosyalarının içeriğinde de yapılır.",
+  },
+  recent: {
+    icon: "🕒",
+    title: "Henüz yakın zamanda açılan dosya yok",
+    hint: "Açtığın ve indirdiğin dosyalar hızlı erişim için burada listelenir.",
+  },
+  starred: {
+    icon: "⭐",
+    title: "Yıldızlı öğen yok",
+    hint: "Sık kullandığın dosya ve klasörlerin yanındaki ☆ işaretine basarak buraya ekleyebilirsin.",
+  },
+  trash: {
+    icon: "🗑️",
+    title: "Çöp kutusu boş",
+    hint: "Sildiğin öğeler kalıcı olarak silinene kadar burada bekler.",
+  },
+  media: {
+    icon: "🎬",
+    title: "Video ya da müzik dosyası yok",
+    hint: "Erişebildiğin video ve ses dosyaları tarayıcıda oynatmak için burada toplanır.",
+  },
+};
+
+/** Liste boşken ne olduğunu ve bir sonraki adımı anlatan durum kartı. */
+function DriveEmptyState({
+  view,
+  inSubfolder,
+  onUpload,
+  onNewFolder,
+  onGoRoot,
+}: {
+  view: View;
+  inSubfolder: boolean;
+  onUpload: () => void;
+  onNewFolder: () => void;
+  onGoRoot: () => void;
+}) {
+  const { icon, title, hint } = EMPTY_STATE[view];
+  return (
+    <div
+      className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 py-14 text-center"
+      style={{ borderColor: "var(--border)" }}
+    >
+      <span
+        className="flex h-14 w-14 items-center justify-center rounded-2xl text-3xl"
+        style={{ background: "var(--accent-soft)" }}
+        aria-hidden
+      >
+        {icon}
+      </span>
+      <div className="max-w-sm space-y-1">
+        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          {view === "root" && inSubfolder ? "Bu klasör boş" : title}
+        </p>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          {hint}
+        </p>
+      </div>
+      {view === "root" && (
+        <div className="mt-1 flex flex-wrap justify-center gap-2">
+          <button className="btn-primary" onClick={onUpload}>
+            ⬆ Dosya yükle
+          </button>
+          <button className="btn-secondary" onClick={onNewFolder}>
+            📁 Yeni klasör
+          </button>
+        </div>
+      )}
+      {(view === "shared" || view === "recent" || view === "starred") && (
+        <button className="btn-secondary mt-1" onClick={onGoRoot}>
+          Sürücüme git
+        </button>
+      )}
+    </div>
   );
 }
