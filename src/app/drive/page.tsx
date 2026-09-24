@@ -1218,11 +1218,13 @@ function DriveInner() {
 
           {loading && (
             <div className="card overflow-hidden">
-              {[0, 1, 2].map((i) => (
+              {/* Gerçek satırla aynı ölçüler (9x9 simge, ad, boyut, tarih) — yüklenince düzen zıplamasın. */}
+              {[0, 1, 2, 3, 4].map((i) => (
                 <div key={i} className="flex items-center gap-3 border-b px-4 py-3 last:border-0" style={{ borderColor: "var(--border)" }}>
-                  <div className="skeleton h-6 w-6 rounded" />
-                  <div className="skeleton h-4 flex-1 max-w-[12rem]" />
-                  <div className="skeleton h-3 w-16" />
+                  <div className="skeleton h-9 w-9 shrink-0 rounded-lg" />
+                  <div className="skeleton h-4 flex-1" style={{ maxWidth: `${14 - (i % 3) * 3}rem` }} />
+                  <div className="skeleton ml-auto h-3 w-12" />
+                  <div className="skeleton hidden h-3 w-28 sm:block" />
                 </div>
               ))}
             </div>
