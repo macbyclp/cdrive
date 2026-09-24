@@ -314,44 +314,68 @@ export default function ShareDialog({
                   </div>
                 </div>
 
-                <label className="flex items-center gap-2 text-xs" style={{ color: "var(--text-primary)" }}>
-                  <input
-                    type="checkbox"
-                    checked={limitEnabled}
-                    onChange={(e) => setLimitEnabled(e.target.checked)}
-                    className="h-3.5 w-3.5"
-                  />
-                  İndirme sayısını sınırla
+                {/* Onay kutusu + etiket tek satırda; açılınca giriş alanı etiketin hizasında altta belirir.
+                    (.input "width: 100%" taşıdığı için eskiden aynı satırda etiketi sıkıştırıp kırıyordu.) */}
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-xs font-medium" style={{ color: "var(--text-primary)" }}>
+                    <input
+                      type="checkbox"
+                      checked={limitEnabled}
+                      onChange={(e) => setLimitEnabled(e.target.checked)}
+                      className="h-3.5 w-3.5 shrink-0"
+                    />
+                    İndirme sayısını sınırla
+                  </label>
                   {limitEnabled && (
-                    <input
-                      type="number"
-                      min={1}
-                      value={maxDownloads}
-                      onChange={(e) => setMaxDownloads(Number(e.target.value))}
-                      className="input w-16 px-2 py-1 text-xs"
-                    />
+                    <div className="flex items-center gap-2 pl-5.5">
+                      <input
+                        type="number"
+                        min={1}
+                        max={100000}
+                        step={1}
+                        value={maxDownloads}
+                        onChange={(e) => setMaxDownloads(Math.max(1, Math.floor(Number(e.target.value) || 1)))}
+                        className="input py-1.5 text-sm"
+                        style={{ width: "6rem" }}
+                        aria-label="En fazla indirme sayısı"
+                      />
+                      <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                        indirmeden sonra bağlantı kapanır
+                      </span>
+                    </div>
                   )}
-                </label>
+                </div>
 
-                <label className="flex items-center gap-2 text-xs" style={{ color: "var(--text-primary)" }}>
-                  <input
-                    type="checkbox"
-                    checked={passwordEnabled}
-                    onChange={(e) => setPasswordEnabled(e.target.checked)}
-                    className="h-3.5 w-3.5"
-                  />
-                  Şifreyle koru
-                  {passwordEnabled && (
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 text-xs font-medium" style={{ color: "var(--text-primary)" }}>
                     <input
-                      type="text"
-                      minLength={4}
-                      placeholder="şifre"
-                      value={linkPassword}
-                      onChange={(e) => setLinkPassword(e.target.value)}
-                      className="input w-28 px-2 py-1 text-xs"
+                      type="checkbox"
+                      checked={passwordEnabled}
+                      onChange={(e) => setPasswordEnabled(e.target.checked)}
+                      className="h-3.5 w-3.5 shrink-0"
                     />
+                    Şifreyle koru
+                  </label>
+                  {passwordEnabled && (
+                    <div className="pl-5.5">
+                      <input
+                        type="text"
+                        minLength={4}
+                        maxLength={100}
+                        autoComplete="off"
+                        spellCheck={false}
+                        placeholder="En az 4 karakter"
+                        value={linkPassword}
+                        onChange={(e) => setLinkPassword(e.target.value)}
+                        className="input py-1.5 text-sm"
+                        aria-label="Bağlantı şifresi"
+                      />
+                      <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
+                        Şifreyi bağlantıdan ayrı bir kanaldan ilet.
+                      </p>
+                    </div>
                   )}
-                </label>
+                </div>
 
                 <div className="flex justify-end gap-2 pt-1">
                   <button type="button" className="btn-ghost text-xs" onClick={() => setCreatingLink(false)}>

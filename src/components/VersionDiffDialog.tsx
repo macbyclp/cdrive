@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { formatBytesStr } from "@/lib/format";
 import { withBasePath } from "@/lib/basePath";
+import { diffLineStats, partLines, type DiffPart } from "@/lib/diff-stats";
 
-type DiffPart = { added: boolean; removed: boolean; value: string };
 type DiffResult =
   | { binary: true; sizeFrom: string; sizeTo: string; versionNoFrom: number; versionNoTo: number }
   | { binary: false; versionNoFrom: number; versionNoTo: number; parts: DiffPart[] };
@@ -35,6 +35,9 @@ export default function VersionDiffDialog({
       .catch((e) => setError(e instanceof Error ? e.message : "Fark hesaplanamadı"));
   }, [fileId, fromVersionId, toVersionId]);
 
+  const stats = result && !result.binary ? diffLineStats(result.parts) : null;
+  const identical = !!stats && stats.added === 0 && stats.removed === 0;
+
   return (
     <div className="dialog-overlay fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
       <div
@@ -50,6 +53,12 @@ export default function VersionDiffDialog({
               {fileName}
               {result && ` · v${result.versionNoFrom} → v${result.versionNoTo}`}
             </p>
+            {stats && !identical && (
+              <p className="mt-1 flex gap-3 text-xs font-medium">
+                <span style={{ color: "var(--success)" }}>+{stats.added} satır eklendi</span>
+                <span style={{ color: "var(--danger)" }}>−{stats.removed} satır silindi</span>
+              </p>
+            )}
           </div>
           <button onClick={onClose} className="btn-ghost">
             Kapat
@@ -80,7 +89,12 @@ export default function VersionDiffDialog({
               </div>
             </div>
           )}
-          {!error && result && !result.binary && (
+          {!error && result && !result.binary && identical && (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              Fark yok — iki sürümün içeriği aynı.
+            </p>
+          )}
+          {!error && result && !result.binary && !identical && (
             <pre
               className="whitespace-pre-wrap rounded-lg border p-3 font-mono text-xs leading-relaxed"
               style={{ borderColor: "var(--border)", background: "var(--surface-muted)" }}
@@ -98,18 +112,14 @@ export default function VersionDiffDialog({
                     color: p.added ? "var(--success)" : p.removed ? "var(--danger)" : "var(--text-secondary)",
                   }}
                 >
-                  {p.value
-                    .split("\n")
-                    .filter((_, idx, arr) => idx < arr.length - 1 || arr.length === 1)
-                    .map((line, j) => (
-                      <span key={j} style={{ display: "block" }}>
-                        {p.added ? "+ " : p.removed ? "- " : "  "}
-                        {line}
-                      </span>
-                    ))}
+                  {partLines(p.value).map((line, j) => (
+                    <span key={j} style={{ display: "block" }}>
+                      {p.added ? "+ " : p.removed ? "- " : "  "}
+                      {line}
+                    </span>
+                  ))}
                 </span>
               ))}
-              {result.parts.length === 0 && "Fark yok — içerik aynı."}
             </pre>
           )}
         </div>
