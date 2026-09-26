@@ -64,6 +64,7 @@ function AccountInner() {
           <PasswordCard />
           <TwoFactorCard user={user} onChange={refresh} />
           <SessionsCard />
+          <ShareLinksCard />
         </div>
       </main>
       <Footer />
@@ -429,6 +430,113 @@ function SessionsCard() {
           {sessions.length === 0 && (
             <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
               Aktif oturum bulunamadı.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type MyShareLink = {
+  id: string;
+  token: string;
+  expiresAt: string | null;
+  maxDownloads: number | null;
+  downloadCount: number;
+  hasPassword: boolean;
+  createdAt: string;
+  status: "active" | "expired" | "limit";
+  file: { id: string; name: string };
+};
+
+const SHARE_STATUS_LABEL: Record<MyShareLink["status"], string> = {
+  active: "etkin",
+  expired: "süresi doldu",
+  limit: "limit doldu",
+};
+
+function ShareLinksCard() {
+  const toast = useToast();
+  const [links, setLinks] = useState<MyShareLink[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  function load() {
+    fetch(withBasePath("/api/share/mine"))
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d: MyShareLink[]) => {
+        setLinks(d);
+        setLoading(false);
+      });
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function revoke(id: string) {
+    const res = await fetch(withBasePath(`/api/share/revoke/${id}`), { method: "POST" });
+    if (!res.ok) {
+      toast("Bağlantı iptal edilemedi", "error");
+      return;
+    }
+    toast("Bağlantı iptal edildi");
+    load();
+  }
+
+  function copy(token: string) {
+    navigator.clipboard
+      .writeText(`${window.location.origin}${withBasePath(`/s/${token}`)}`)
+      .then(() => toast("Bağlantı kopyalandı", "success"))
+      .catch(() => toast("Kopyalanamadı", "error"));
+  }
+
+  return (
+    <div className="card p-5">
+      <h2 className="mb-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+        Paylaşım bağlantılarım
+      </h2>
+      <p className="mb-4 text-sm" style={{ color: "var(--text-secondary)" }}>
+        Oluşturduğun ve henüz iptal edilmemiş genel bağlantılar. Artık gerekmeyenleri iptal et.
+      </p>
+
+      {loading && <div className="skeleton h-12 w-full" />}
+
+      {!loading && (
+        <div className="space-y-2">
+          {links.map((l) => (
+            <div
+              key={l.id}
+              className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 font-medium" style={{ color: "var(--text-primary)" }}>
+                  <span className="truncate">{l.file.name}</span>
+                  <span className="badge shrink-0">{SHARE_STATUS_LABEL[l.status]}</span>
+                  {l.hasPassword && <span className="shrink-0" title="Parola korumalı">🔒</span>}
+                </div>
+                <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
+                  {l.downloadCount}
+                  {l.maxDownloads ? ` / ${l.maxDownloads}` : ""} indirme ·{" "}
+                  {l.expiresAt ? `bitiş ${new Date(l.expiresAt).toLocaleString("tr-TR")}` : "süresiz"}
+                </div>
+              </div>
+              <div className="flex shrink-0 gap-1">
+                {l.status === "active" && (
+                  <button className="btn-ghost text-xs" onClick={() => copy(l.token)}>
+                    Kopyala
+                  </button>
+                )}
+                <button className="btn-ghost text-xs text-red-600 dark:text-red-400" onClick={() => revoke(l.id)}>
+                  İptal et
+                </button>
+              </div>
+            </div>
+          ))}
+          {links.length === 0 && (
+            <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
+              Açık paylaşım bağlantın yok.
             </p>
           )}
         </div>

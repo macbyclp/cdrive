@@ -10,7 +10,7 @@ import { errorResponse } from "@/lib/api-helpers";
 const schema = z.object({
   fileId: z.string(),
   expiresInHours: z.number().min(1).max(24 * 30).optional(),
-  maxDownloads: z.number().min(1).optional(),
+  maxDownloads: z.number().int().min(1).max(100_000).optional(),
   password: z.string().min(4).max(100).optional(),
 });
 
