@@ -11,7 +11,7 @@ const CSV_MAX_ROWS = 10_000;
 
 export async function GET(req: Request) {
   try {
-    await requireRole("ADMIN", "MANAGER");
+    const me = await requireRole("ADMIN", "MANAGER");
     const { searchParams } = new URL(req.url);
     const csv = searchParams.get("format") === "csv";
     const take = csv ? CSV_MAX_ROWS : Math.min(Number(searchParams.get("take") ?? 100) || 100, 300);
@@ -22,6 +22,13 @@ export async function GET(req: Request) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
     if (userId) where.userId = userId;
+    // Departman yöneticisi yalnız kendi departmanındaki kullanıcıların kayıtlarını
+    // görür (departmanı yoksa yalnız kendininkileri). Aksi halde kurumun tamamındaki
+    // giriş IP'leri, başka departmanların dosya adları ve yönetici işlemleri açığa
+    // çıkıyordu — kullanıcı listesi bile yalnız ADMIN'e açıkken.
+    if (me.role !== "ADMIN") {
+      where.user = me.departmentId ? { departmentId: me.departmentId } : { id: me.id };
+    }
     if (action) {
       // Geçersiz eylem adı Prisma'ya enum olarak gitseydi 500 dönerdi.
       if (!Object.hasOwn(AuditAction, action)) {
