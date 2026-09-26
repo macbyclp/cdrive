@@ -1,4 +1,4 @@
-import { promises as fs, createReadStream } from "fs";
+import { promises as fs, constants as fsConstants, createReadStream } from "fs";
 import type { Readable } from "stream";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -44,4 +44,15 @@ export async function statFile(storageKey: string): Promise<{ size: number }> {
  */
 export function openReadStream(storageKey: string, range?: { start: number; end: number }): Readable {
   return createReadStream(path.join(STORAGE_ROOT, storageKey), range ? { start: range.start, end: range.end } : undefined);
+}
+
+/** Depolama kökü var ve bu süreç tarafından yazılabilir mi (sağlık kontrolü için; dosya yazmaz). */
+export async function isStorageWritable(): Promise<boolean> {
+  try {
+    await ensureRoot();
+    await fs.access(STORAGE_ROOT, fsConstants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
 }
