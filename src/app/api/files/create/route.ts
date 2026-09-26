@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { canAccessFolder, assertQuota } from "@/lib/access";
 import { assertFilePolicy } from "@/lib/policy";
 import { createFileFromBuffer } from "@/lib/file-versions";
+import { uniqueFileName } from "@/lib/file-names";
 import { generateBlankFile, BLANK_KIND_INFO, type BlankKind } from "@/lib/blank-templates";
 import { notifyIfQuotaWarning } from "@/lib/quota-notify";
 import { logAudit } from "@/lib/audit";
@@ -14,21 +14,6 @@ const schema = z.object({
   kind: z.enum(["docx", "xlsx", "pptx", "txt"]),
   folderId: z.string().nullable().optional(),
 });
-
-/** Klasörde aynı isim varsa "ad (2).ext", "ad (3).ext" ... şeklinde benzersizleştirir. */
-async function uniqueName(folderId: string | null, baseName: string) {
-  const dot = baseName.lastIndexOf(".");
-  const stem = dot === -1 ? baseName : baseName.slice(0, dot);
-  const ext = dot === -1 ? "" : baseName.slice(dot);
-
-  let name = baseName;
-  let n = 2;
-  while (await prisma.file.findFirst({ where: { folderId, name, deletedAt: null } })) {
-    name = `${stem} (${n})${ext}`;
-    n++;
-  }
-  return name;
-}
 
 export async function POST(req: Request) {
   try {
@@ -50,7 +35,7 @@ export async function POST(req: Request) {
     await assertFilePolicy(info.defaultName, size);
     await assertQuota(user, size);
 
-    const name = await uniqueName(fId, info.defaultName);
+    const name = await uniqueFileName(fId, info.defaultName);
     const finalFile = await createFileFromBuffer({
       name,
       mimeType: info.mimeType,

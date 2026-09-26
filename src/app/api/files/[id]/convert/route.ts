@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { canAccessFile, canAccessFolder, assertQuota } from "@/lib/access";
 import { assertFilePolicy } from "@/lib/policy";
 import { createFileFromBuffer } from "@/lib/file-versions";
+import { uniqueFileName } from "@/lib/file-names";
 import { notifyIfQuotaWarning } from "@/lib/quota-notify";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
@@ -18,20 +19,6 @@ import {
 
 const ALLOWED_TARGETS = ["pdf", "docx", "xlsx", "pptx", "odt", "ods", "odp", "rtf", "txt", "csv"];
 const schema = z.object({ toExt: z.enum(ALLOWED_TARGETS as [string, ...string[]]) });
-
-/** Klasörde aynı isim varsa "ad (2).ext" ... şeklinde benzersizleştirir. */
-async function uniqueName(folderId: string | null, baseName: string) {
-  const dot = baseName.lastIndexOf(".");
-  const stem = dot === -1 ? baseName : baseName.slice(0, dot);
-  const ext = dot === -1 ? "" : baseName.slice(dot);
-  let name = baseName;
-  let n = 2;
-  while (await prisma.file.findFirst({ where: { folderId, name, deletedAt: null } })) {
-    name = `${stem} (${n})${ext}`;
-    n++;
-  }
-  return name;
-}
 
 /**
  * Bir Office belgesini başka bir formata (ör. docx → pdf) dönüştürür ve
@@ -104,7 +91,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const size = BigInt(buffer.byteLength);
 
     const stem = file.name.slice(0, file.name.length - fromExt.length - 1);
-    const targetName = await uniqueName(file.folderId, `${stem}.${toExt}`);
+    const targetName = await uniqueFileName(file.folderId, `${stem}.${toExt}`);
 
     await assertFilePolicy(targetName, size);
     await assertQuota(user, size);
