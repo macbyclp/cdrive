@@ -7,10 +7,11 @@ import { openReadStream, statFile } from "@/lib/storage";
 import { Readable } from "stream";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
+import { contentDisposition, dedupeZipPath, safeZipSegment } from "@/lib/download-names";
 
 type ZipEntry = { path: string; storageKey: string };
 
-async function collectFolderTree(folderId: string, basePath: string): Promise<ZipEntry[]> {
+async function collectFolderTree(folderId: string, basePath: string, used: Set<string>): Promise<ZipEntry[]> {
   const [files, subfolders] = await Promise.all([
     prisma.file.findMany({ where: { folderId, deletedAt: null }, include: { currentVersion: true } }),
     prisma.folder.findMany({ where: { parentId: folderId, deletedAt: null } }),
@@ -18,10 +19,10 @@ async function collectFolderTree(folderId: string, basePath: string): Promise<Zi
 
   const entries: ZipEntry[] = files
     .filter((f) => f.currentVersion)
-    .map((f) => ({ path: `${basePath}${f.name}`, storageKey: f.currentVersion!.storageKey }));
+    .map((f) => ({ path: dedupeZipPath(`${basePath}${safeZipSegment(f.name)}`, used), storageKey: f.currentVersion!.storageKey }));
 
   for (const sf of subfolders) {
-    entries.push(...(await collectFolderTree(sf.id, `${basePath}${sf.name}/`)));
+    entries.push(...(await collectFolderTree(sf.id, `${basePath}${safeZipSegment(sf.name)}/`, used)));
   }
   return entries;
 }
@@ -36,7 +37,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const folder = await prisma.folder.findUnique({ where: { id } });
     if (!folder || folder.deletedAt) return NextResponse.json({ error: "Klasör bulunamadı" }, { status: 404 });
 
-    const entries = await collectFolderTree(id, "");
+    // Adlar güvenli parçalara indirgenir (zip slip) ve çakışan yollar ayrıştırılır — bkz. lib/download-names.ts.
+    const entries = await collectFolderTree(id, "", new Set());
 
     // Akışlı ZIP: dosyalar diskten sırayla okunup arşive akıtılır, tüm arşiv belleğe alınmaz.
     // (Toplam boyut baştan bilinmediği için Content-Length yoktur, yanıt chunked gider.)
@@ -63,7 +65,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new Response(Readable.toWeb(archive) as unknown as ReadableStream, {
       headers: {
         "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${encodeURIComponent(folder.name)}.zip"`,
+        "Content-Disposition": contentDisposition("attachment", `${folder.name}.zip`),
       },
     });
   } catch (err) {

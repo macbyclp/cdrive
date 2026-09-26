@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
 import { shareLinkStatus } from "@/lib/share";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
+import { contentDisposition } from "@/lib/download-names";
 
 // Herkese açık indirme uç noktası — oturum gerektirmez, sadece geçerli token
 // (ve varsa şifre). Şifre URL'de TAŞINMAZ (loglara/Referer'a sızar): tercih edilen yol POST gövdesi
@@ -67,7 +68,7 @@ async function serve(req: Request, token: string, password: string) {
     return serveStoredFile(req, {
       storageKey: link.file.currentVersion.storageKey,
       contentType: link.file.mimeType || "application/octet-stream",
-      headers: { "Content-Disposition": `attachment; filename="${encodeURIComponent(link.file.name)}"` },
+      headers: { "Content-Disposition": contentDisposition("attachment", link.file.name) },
     });
   } catch (err) {
     return errorResponse(err);

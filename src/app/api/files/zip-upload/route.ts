@@ -16,6 +16,12 @@ import { errorResponse, limitOr429 } from "@/lib/api-helpers";
  * Folder kayıtlarıyla yeniden kurar, dosyaları normal yükleme akışıyla
  * (versiyon/quota/politika/arama metni dahil) tek tek işler.
  */
+// "." / ".." parçaları klasör adı olarak oluşturulmaz (ör. "a/../b" → "a/b"); bu tür
+// adlar sonradan ZIP indirmesinde yol geçişine yol açabiliyordu.
+function isSafeSegment(s: string) {
+  return s !== "" && s !== "." && s !== "..";
+}
+
 export async function POST(req: Request) {
   try {
     const user = await requireUser();
@@ -52,7 +58,7 @@ export async function POST(req: Request) {
 
     async function ensureFolderPath(dirPath: string): Promise<string | null> {
       if (folderCache.has(dirPath)) return folderCache.get(dirPath)!;
-      const parts = dirPath.split("/").filter(Boolean);
+      const parts = dirPath.split("/").filter(isSafeSegment);
       let currentPath = "";
       let currentParentId = rootFolderId;
       for (const part of parts) {
@@ -97,7 +103,7 @@ export async function POST(req: Request) {
       }
 
       const fullPath = entry.entryName.replace(/\\/g, "/");
-      const segments = fullPath.split("/").filter(Boolean);
+      const segments = fullPath.split("/").filter(isSafeSegment);
       const name = segments.pop();
       if (!name || name.startsWith(".")) {
         skipped++;
