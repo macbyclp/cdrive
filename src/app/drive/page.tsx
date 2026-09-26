@@ -629,6 +629,60 @@ function DriveInner() {
     ];
   }
 
+  /**
+   * Bir klasör/dosya için "⋯" menüsünün TAM listesi — liste, ızgara ve mobil görünüm
+   * aynı diziyi kullanır (önceden dört ayrı kopyaydı ve birbirinden sapmıştı).
+   * Sıralama: sık kullanılanlar üstte, düzenleme ortada, yıkıcı eylem en altta.
+   */
+  function folderMenuItems(f: FolderItem): RowMenuItem[] {
+    if (isTrash) {
+      return [
+        { label: "Geri getir", onClick: () => restoreFolder(f) },
+        { label: "Kalıcı sil", onClick: () => setPending({ kind: "purge-folder", folder: f }), danger: true },
+      ];
+    }
+    return [
+      { label: "İndir (.zip)", onClick: () => downloadFolderZip(f) },
+      { label: "Paylaş", onClick: () => setShareTarget({ type: "folder", id: f.id, name: f.name }) },
+      ...tagMenuItem("folder", f),
+      ...activityMenuItem("folder", f),
+      ...(view === "root"
+        ? [
+            { label: "Taşı", onClick: () => setPending({ kind: "move-folder" as const, folder: f }) },
+            { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-folder" as const, folder: f }) },
+            { label: "Sil", onClick: () => setPending({ kind: "delete-folder" as const, folder: f }), danger: true },
+          ]
+        : []),
+    ];
+  }
+
+  function fileMenuItems(f: FileItem): RowMenuItem[] {
+    if (isTrash) {
+      return [
+        { label: "Geri getir", onClick: () => restoreFile(f) },
+        { label: "Kalıcı sil", onClick: () => setPending({ kind: "purge-file", file: f }), danger: true },
+      ];
+    }
+    return [
+      { label: "İndir", onClick: () => downloadFile(f) },
+      { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
+      ...officeMenuItem(f),
+      ...convertMenuItem(f),
+      { label: "Kopyasını oluştur", onClick: () => copyFile(f) },
+      { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
+      ...tagMenuItem("file", f),
+      ...activityMenuItem("file", f),
+      ...commentMenuItem(f),
+      ...(view === "root"
+        ? [
+            { label: "Taşı", onClick: () => setPending({ kind: "move-file" as const, file: f }) },
+            { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-file" as const, file: f }) },
+            { label: "Sil", onClick: () => setPending({ kind: "delete-file" as const, file: f }), danger: true },
+          ]
+        : []),
+    ];
+  }
+
   async function submitMoveFolder(folder: FolderItem, destFolderId: string | null) {
     setPending(null);
     const res = await fetch(withBasePath(`/api/folders/${folder.id}`), {
@@ -1164,37 +1218,26 @@ function DriveInner() {
 
           {loading && (
             <div className="card overflow-hidden">
-              {[0, 1, 2].map((i) => (
+              {/* Gerçek satırla aynı ölçüler (9x9 simge, ad, boyut, tarih) — yüklenince düzen zıplamasın. */}
+              {[0, 1, 2, 3, 4].map((i) => (
                 <div key={i} className="flex items-center gap-3 border-b px-4 py-3 last:border-0" style={{ borderColor: "var(--border)" }}>
-                  <div className="skeleton h-6 w-6 rounded" />
-                  <div className="skeleton h-4 flex-1 max-w-[12rem]" />
-                  <div className="skeleton h-3 w-16" />
+                  <div className="skeleton h-9 w-9 shrink-0 rounded-lg" />
+                  <div className="skeleton h-4 flex-1" style={{ maxWidth: `${14 - (i % 3) * 3}rem` }} />
+                  <div className="skeleton ml-auto h-3 w-12" />
+                  <div className="skeleton hidden h-3 w-28 sm:block" />
                 </div>
               ))}
             </div>
           )}
 
           {!loading && folders.length === 0 && files.length === 0 && (
-            <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-16 text-center" style={{ borderColor: "var(--border)" }}>
-              <span className="text-3xl">
-                {view === "shared" ? "🤝" : view === "search" ? "🔍" : view === "recent" ? "🕒" : view === "starred" ? "⭐" : view === "trash" ? "🗑️" : view === "media" ? "🎬" : "📂"}
-              </span>
-              <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                {view === "shared"
-                  ? "Henüz sizinle paylaşılan bir şey yok."
-                  : view === "search"
-                    ? "Sonuç bulunamadı."
-                    : view === "recent"
-                      ? "Henüz açtığınız/indirdiğiniz bir dosya yok."
-                      : view === "starred"
-                        ? "Henüz yıldızladığınız bir şey yok."
-                        : view === "trash"
-                          ? "Çöp kutusu boş."
-                          : view === "media"
-                            ? "Henüz erişebildiğiniz bir video/müzik dosyası yok."
-                            : "Bu klasör boş."}
-              </p>
-            </div>
+            <DriveEmptyState
+              view={view}
+              inSubfolder={!!folderId}
+              onUpload={() => fileInputRef.current?.click()}
+              onNewFolder={() => setPending({ kind: "new-folder" })}
+              onGoRoot={() => goFolder(null)}
+            />
           )}
 
           {!loading && (folders.length > 0 || files.length > 0) && viewMode === "grid" && (
@@ -1227,26 +1270,7 @@ function DriveInner() {
                     setDropTargetId((cur) => (cur === f.id ? undefined : cur));
                   }}
                   onCardDrop={handleDropOn(f.id)}
-                  menuItems={
-                    isTrash
-                      ? [
-                          { label: "Geri getir", onClick: () => restoreFolder(f) },
-                          { label: "Kalıcı sil", onClick: () => setPending({ kind: "purge-folder", folder: f }), danger: true },
-                        ]
-                      : [
-                          { label: "Paylaş", onClick: () => setShareTarget({ type: "folder", id: f.id, name: f.name }) },
-                          { label: "İndir (.zip)", onClick: () => downloadFolderZip(f) },
-                          ...tagMenuItem("folder", f),
-                          ...activityMenuItem("folder", f),
-                          ...(view === "root"
-                            ? [
-                                { label: "Taşı", onClick: () => setPending({ kind: "move-folder" as const, folder: f }) },
-                                { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-folder" as const, folder: f }) },
-                                { label: "Sil", onClick: () => setPending({ kind: "delete-folder" as const, folder: f }), danger: true },
-                              ]
-                            : []),
-                        ]
-                  }
+                  menuItems={folderMenuItems(f)}
                 />
               ))}
               {files.map((f) => (
@@ -1262,31 +1286,7 @@ function DriveInner() {
                   draggable={view === "root"}
                   onDragStart={handleDragStart("file", f.id)}
                   onDragEnd={handleDragEnd}
-                  menuItems={
-                    isTrash
-                      ? [
-                          { label: "Geri getir", onClick: () => restoreFile(f) },
-                          { label: "Kalıcı sil", onClick: () => setPending({ kind: "purge-file", file: f }), danger: true },
-                        ]
-                      : [
-                          { label: "İndir", onClick: () => downloadFile(f) },
-                          ...officeMenuItem(f),
-                          ...convertMenuItem(f),
-                          { label: "Kopyasını oluştur", onClick: () => copyFile(f) },
-                          { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
-                          { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
-                          ...tagMenuItem("file", f),
-                          ...activityMenuItem("file", f),
-                          ...commentMenuItem(f),
-                          ...(view === "root"
-                            ? [
-                                { label: "Taşı", onClick: () => setPending({ kind: "move-file" as const, file: f }) },
-                                { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-file" as const, file: f }) },
-                                { label: "Sil", onClick: () => setPending({ kind: "delete-file" as const, file: f }), danger: true },
-                              ]
-                            : []),
-                        ]
-                  }
+                  menuItems={fileMenuItems(f)}
                 />
               ))}
             </div>
@@ -1370,61 +1370,21 @@ function DriveInner() {
                       </>
                     ) : (
                       <>
+                        <button className="btn-ghost" onClick={() => downloadFolderZip(f)}>
+                          İndir
+                        </button>
                         <button className="btn-ghost" onClick={() => setShareTarget({ type: "folder", id: f.id, name: f.name })}>
                           Paylaş
                         </button>
-                        <button className="btn-ghost" onClick={() => downloadFolderZip(f)}>
-                          .zip
-                        </button>
-                        <button
-                          className="btn-ghost"
-                          onClick={() => setTagTarget({ type: "folder", id: f.id, name: f.name, tags: f.tags ?? [] })}
-                        >
-                          Etiketler
-                        </button>
-                        <button className="btn-ghost" onClick={() => setActivityTarget({ type: "folder", id: f.id, name: f.name })}>
-                          Geçmiş
-                        </button>
-                        {view === "root" && (
-                          <>
-                            <button className="btn-ghost" onClick={() => setPending({ kind: "move-folder", folder: f })}>
-                              Taşı
-                            </button>
-                            <button className="btn-ghost" onClick={() => setPending({ kind: "rename-folder", folder: f })}>
-                              Yeniden adlandır
-                            </button>
-                            <button className="btn-ghost text-red-600 dark:text-red-400" onClick={() => setPending({ kind: "delete-folder", folder: f })}>
-                              Sil
-                            </button>
-                          </>
-                        )}
                       </>
                     )}
                   </RowActions>
-                  <div className="sm:hidden">
-                    <RowMenu
-                      items={
-                        isTrash
-                          ? [
-                              { label: "Geri getir", onClick: () => restoreFolder(f) },
-                              { label: "Kalıcı sil", onClick: () => setPending({ kind: "purge-folder", folder: f }), danger: true },
-                            ]
-                          : [
-                              { label: "Paylaş", onClick: () => setShareTarget({ type: "folder", id: f.id, name: f.name }) },
-                              { label: "İndir (.zip)", onClick: () => downloadFolderZip(f) },
-                              ...tagMenuItem("folder", f),
-                          ...activityMenuItem("folder", f),
-                              ...(view === "root"
-                                ? [
-                                    { label: "Taşı", onClick: () => setPending({ kind: "move-folder" as const, folder: f }) },
-                                    { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-folder" as const, folder: f }) },
-                                    { label: "Sil", onClick: () => setPending({ kind: "delete-folder" as const, folder: f }), danger: true },
-                                  ]
-                                : []),
-                            ]
-                      }
-                    />
-                  </div>
+                  {!isTrash && <RowMenu items={folderMenuItems(f)} />}
+                  {isTrash && (
+                    <div className="sm:hidden">
+                      <RowMenu items={folderMenuItems(f)} />
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -1486,79 +1446,18 @@ function DriveInner() {
                         <button className="btn-ghost" onClick={() => downloadFile(f)}>
                           İndir
                         </button>
-                        {officeDocType(f.name) && (
-                          <button className="btn-ghost" onClick={() => setOfficeChoiceTarget(f)}>
-                            Office ile aç
-                          </button>
-                        )}
-                        {officeDocType(f.name) && extOf(f.name) !== "pdf" && (
-                          <button className="btn-ghost" onClick={() => convertToPdf(f)}>
-                            PDF&apos;e dönüştür
-                          </button>
-                        )}
                         <button className="btn-ghost" onClick={() => setShareTarget({ type: "file", id: f.id, name: f.name })}>
                           Paylaş
                         </button>
-                        <button className="btn-ghost" onClick={() => setVersionsTarget({ id: f.id, name: f.name })}>
-                          Versiyonlar
-                        </button>
-                        <button
-                          className="btn-ghost"
-                          onClick={() => setTagTarget({ type: "file", id: f.id, name: f.name, tags: f.tags ?? [] })}
-                        >
-                          Etiketler
-                        </button>
-                        <button className="btn-ghost" onClick={() => setActivityTarget({ type: "file", id: f.id, name: f.name })}>
-                          Geçmiş
-                        </button>
-                        <button className="btn-ghost" onClick={() => setCommentTarget({ id: f.id, name: f.name })}>
-                          Yorumlar
-                        </button>
-                        {view === "root" && (
-                          <>
-                            <button className="btn-ghost" onClick={() => setPending({ kind: "move-file", file: f })}>
-                              Taşı
-                            </button>
-                            <button className="btn-ghost" onClick={() => setPending({ kind: "rename-file", file: f })}>
-                              Yeniden adlandır
-                            </button>
-                            <button className="btn-ghost text-red-600 dark:text-red-400" onClick={() => setPending({ kind: "delete-file", file: f })}>
-                              Sil
-                            </button>
-                          </>
-                        )}
                       </>
                     )}
                   </RowActions>
-                  <div className="sm:hidden">
-                    <RowMenu
-                      items={
-                        isTrash
-                          ? [
-                              { label: "Geri getir", onClick: () => restoreFile(f) },
-                              { label: "Kalıcı sil", onClick: () => setPending({ kind: "purge-file", file: f }), danger: true },
-                            ]
-                          : [
-                              { label: "İndir", onClick: () => downloadFile(f) },
-                              ...officeMenuItem(f),
-                              ...convertMenuItem(f),
-                              { label: "Kopyasını oluştur", onClick: () => copyFile(f) },
-                              { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
-                              { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
-                              ...tagMenuItem("file", f),
-                          ...activityMenuItem("file", f),
-                          ...commentMenuItem(f),
-                              ...(view === "root"
-                                ? [
-                                    { label: "Taşı", onClick: () => setPending({ kind: "move-file" as const, file: f }) },
-                                    { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-file" as const, file: f }) },
-                                    { label: "Sil", onClick: () => setPending({ kind: "delete-file" as const, file: f }), danger: true },
-                                  ]
-                                : []),
-                            ]
-                      }
-                    />
-                  </div>
+                  {!isTrash && <RowMenu items={fileMenuItems(f)} />}
+                  {isTrash && (
+                    <div className="sm:hidden">
+                      <RowMenu items={fileMenuItems(f)} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -2057,5 +1956,97 @@ export default function DrivePage() {
     <Suspense>
       <DriveInner />
     </Suspense>
+  );
+}
+
+const EMPTY_STATE: Record<View, { icon: string; title: string; hint: string }> = {
+  root: {
+    icon: "📂",
+    title: "Burası henüz boş",
+    hint: "Dosyaları bu alana sürükleyip bırakabilir ya da aşağıdan yükleyebilirsin.",
+  },
+  shared: {
+    icon: "🤝",
+    title: "Seninle paylaşılan bir şey yok",
+    hint: "Bir iş arkadaşın bir dosya ya da klasörü seninle paylaştığında burada görünür.",
+  },
+  search: {
+    icon: "🔍",
+    title: "Sonuç bulunamadı",
+    hint: "Farklı bir kelime dene ya da filtreleri gevşet. Arama, PDF ve metin dosyalarının içeriğinde de yapılır.",
+  },
+  recent: {
+    icon: "🕒",
+    title: "Henüz yakın zamanda açılan dosya yok",
+    hint: "Açtığın ve indirdiğin dosyalar hızlı erişim için burada listelenir.",
+  },
+  starred: {
+    icon: "⭐",
+    title: "Yıldızlı öğen yok",
+    hint: "Sık kullandığın dosya ve klasörlerin yanındaki ☆ işaretine basarak buraya ekleyebilirsin.",
+  },
+  trash: {
+    icon: "🗑️",
+    title: "Çöp kutusu boş",
+    hint: "Sildiğin öğeler kalıcı olarak silinene kadar burada bekler.",
+  },
+  media: {
+    icon: "🎬",
+    title: "Video ya da müzik dosyası yok",
+    hint: "Erişebildiğin video ve ses dosyaları tarayıcıda oynatmak için burada toplanır.",
+  },
+};
+
+/** Liste boşken ne olduğunu ve bir sonraki adımı anlatan durum kartı. */
+function DriveEmptyState({
+  view,
+  inSubfolder,
+  onUpload,
+  onNewFolder,
+  onGoRoot,
+}: {
+  view: View;
+  inSubfolder: boolean;
+  onUpload: () => void;
+  onNewFolder: () => void;
+  onGoRoot: () => void;
+}) {
+  const { icon, title, hint } = EMPTY_STATE[view];
+  return (
+    <div
+      className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 py-14 text-center"
+      style={{ borderColor: "var(--border)" }}
+    >
+      <span
+        className="flex h-14 w-14 items-center justify-center rounded-2xl text-3xl"
+        style={{ background: "var(--accent-soft)" }}
+        aria-hidden
+      >
+        {icon}
+      </span>
+      <div className="max-w-sm space-y-1">
+        <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          {view === "root" && inSubfolder ? "Bu klasör boş" : title}
+        </p>
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          {hint}
+        </p>
+      </div>
+      {view === "root" && (
+        <div className="mt-1 flex flex-wrap justify-center gap-2">
+          <button className="btn-primary" onClick={onUpload}>
+            ⬆ Dosya yükle
+          </button>
+          <button className="btn-secondary" onClick={onNewFolder}>
+            📁 Yeni klasör
+          </button>
+        </div>
+      )}
+      {(view === "shared" || view === "recent" || view === "starred") && (
+        <button className="btn-secondary mt-1" onClick={onGoRoot}>
+          Sürücüme git
+        </button>
+      )}
+    </div>
   );
 }
