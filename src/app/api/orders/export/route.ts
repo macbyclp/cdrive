@@ -6,6 +6,7 @@ import { canAccessOrders, canManageOrders, canManageProduction } from "@/lib/acc
 import { formatDate } from "@/lib/format";
 import { orderTotal, orderCollected, remainingFrom } from "@/lib/orders";
 import { errorResponse } from "@/lib/api-helpers";
+import { parseOrderStatusFilter } from "@/lib/validation";
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "Beklemede",
@@ -25,7 +26,9 @@ export async function GET(req: Request) {
     const status = searchParams.get("status");
     const q = searchParams.get("q")?.trim();
     const mine = searchParams.get("mine") === "1";
-    const statusFilter = status && status !== "ALL" ? { status: status as "PENDING" | "APPROVED" | "IN_PRODUCTION" | "INVOICED" | "CANCELLED" } : {};
+    const parsedStatus = parseOrderStatusFilter(status);
+    if (parsedStatus === undefined) return NextResponse.json({ error: "Geçersiz durum filtresi" }, { status: 400 });
+    const statusFilter = parsedStatus ? { status: parsedStatus } : {};
     const qFilter = q ? { customerName: { contains: q } } : {};
 
     const scoped = mine || (!canManageOrders(user) && !canManageProduction(user));

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, requireUser } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
+import { byteSize } from "@/lib/validation";
 
 export async function GET() {
   try {
@@ -18,7 +19,7 @@ export async function GET() {
   }
 }
 
-const schema = z.object({ name: z.string().min(1), quotaBytes: z.number().optional() });
+const schema = z.object({ name: z.string().min(1), quotaBytes: byteSize.optional() });
 
 export async function POST(req: Request) {
   try {

@@ -4,13 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, hashPassword } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
+import { byteSize } from "@/lib/validation";
 
 const schema = z.object({
   name: z.string().min(2).optional(),
   role: z.enum(["ADMIN", "MANAGER", "MEMBER"]).optional(),
   active: z.boolean().optional(),
   departmentId: z.string().nullable().optional(),
-  quotaBytes: z.number().optional(),
+  quotaBytes: byteSize.optional(),
   password: z.string().min(8).optional(),
   canCreateOrders: z.boolean().optional(),
   canManageOrders: z.boolean().optional(),

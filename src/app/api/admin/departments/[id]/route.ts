@@ -4,10 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
+import { byteSize } from "@/lib/validation";
 
 const schema = z.object({
   name: z.string().min(1).optional(),
-  quotaBytes: z.number().positive().optional(),
+  quotaBytes: byteSize.optional(),
 });
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
