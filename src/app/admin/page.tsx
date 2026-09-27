@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import AppShell from "@/components/AppShell";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
@@ -46,6 +47,7 @@ type TemplateMember = { user: GroupUser | null; group: { id: string; name: strin
 type Template = { id: string; name: string; permission: "VIEW" | "EDIT"; members: TemplateMember[] };
 
 export default function AdminPage() {
+  const t = useTranslations("admin");
   const { user, refresh: refreshMe } = useMe();
   const [tab, setTab] = useState<Tab>("users");
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -72,7 +74,7 @@ export default function AdminPage() {
       const t = await fetch(withBasePath("/api/admin/permission-templates")).then((r) => (r.ok ? r.json() : []));
       setTemplates(t);
     } catch {
-      setError("Bu sayfayı görüntüleme yetkiniz yok.");
+      setError(t("loadError"));
     } finally {
       setLoading(false);
     }
@@ -91,36 +93,24 @@ export default function AdminPage() {
     <AppShell user={user} active="admin">
       <div className="mx-auto max-w-5xl">
         <h1 className="mb-1 text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
-          Yönetim paneli
+          {t("title")}
         </h1>
         <p className="mb-6 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Kullanıcılar, departmanlar ve etkinlik günlüğü
+          {t("subtitle")}
         </p>
 
         <div className="mb-6 flex flex-wrap gap-1 border-b" style={{ borderColor: "var(--border)" }}>
-          {(["users", "departments", "groups", "templates", "analytics", "settings", "audit"] as Tab[]).map((t) => (
+          {(["users", "departments", "groups", "templates", "analytics", "settings", "audit"] as Tab[]).map((tabKey) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={tabKey}
+              onClick={() => setTab(tabKey)}
               className="border-b-2 px-4 py-2 text-sm font-medium"
               style={{
-                borderColor: tab === t ? "var(--accent)" : "transparent",
-                color: tab === t ? "var(--text-primary)" : "var(--text-secondary)",
+                borderColor: tab === tabKey ? "var(--accent)" : "transparent",
+                color: tab === tabKey ? "var(--text-primary)" : "var(--text-secondary)",
               }}
             >
-              {t === "users"
-                ? "Kullanıcılar"
-                : t === "departments"
-                  ? "Departmanlar"
-                  : t === "groups"
-                    ? "Gruplar"
-                    : t === "templates"
-                      ? "İzin şablonları"
-                      : t === "analytics"
-                        ? "Depolama analitiği"
-                        : t === "settings"
-                          ? "Sistem ayarları"
-                          : "Etkinlik günlüğü"}
+              {t(`tabs.${tabKey}`)}
             </button>
           ))}
         </div>
@@ -166,6 +156,7 @@ function UsersTab({
   currentUserId: string;
   currentUserRole: "ADMIN" | "MANAGER" | "MEMBER";
 }) {
+  const t = useTranslations("admin");
   const toast = useToast();
   const [impersonating, setImpersonating] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -197,10 +188,10 @@ function UsersTab({
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setError(d.error ?? "Kullanıcı oluşturulamadı");
+      setError(d.error ?? t("users.createFailed"));
       return;
     }
-    toast(`${form.name} eklendi`, "success");
+    toast(t("users.addedToast", { name: form.name }), "success");
     setForm({ name: "", email: "", password: "", role: "MEMBER", departmentId: "" });
     setShowNew(false);
     reload();
@@ -214,7 +205,7 @@ function UsersTab({
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Güncellenemedi", "error");
+      toast(d.error ?? t("users.updateFailed"), "error");
       return;
     }
     if (message) toast(message, "success");
@@ -228,7 +219,7 @@ function UsersTab({
   function resetPassword(userId: string) {
     const pw = passwordDrafts[userId] ?? "";
     if (pw.length < 8) {
-      toast("Yeni şifre en az 8 karakter olmalı", "error");
+      toast(t("users.passwordTooShort"), "error");
       return;
     }
     // mustChangePassword: true — kullanıcı bir sonraki girişte kendi yeni şifresini
@@ -237,7 +228,7 @@ function UsersTab({
     update(
       userId,
       { password: pw, mustChangePassword: true },
-      "Şifre sıfırlandı — kullanıcı bir sonraki girişte yeni şifresini kendisi belirleyecek"
+      t("users.passwordResetToast")
     );
     setPasswordDrafts((d) => {
       const next = { ...d };
@@ -252,7 +243,7 @@ function UsersTab({
     const res = await fetch(withBasePath(`/api/admin/users/${userId}/impersonate`), { method: "POST" });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Kullanıcı olarak girilemedi", "error");
+      toast(d.error ?? t("users.impersonateFailed"), "error");
       setImpersonating(null);
       return;
     }
@@ -264,11 +255,11 @@ function UsersTab({
     if (raw === undefined) return;
     const gb = Number(raw);
     if (!Number.isFinite(gb) || gb <= 0) {
-      toast("Geçerli bir kota (GB) gir", "error");
+      toast(t("users.quotaInvalid"), "error");
       return;
     }
     const bytes = Math.round(gb * 1024 ** 3);
-    update(userId, { quotaBytes: bytes }, "Depolama kotası güncellendi");
+    update(userId, { quotaBytes: bytes }, t("users.quotaUpdatedToast"));
     setQuotaDrafts((d) => {
       const next = { ...d };
       delete next[userId];
@@ -280,22 +271,22 @@ function UsersTab({
     <div>
       <div className="mb-4 flex justify-end">
         <button className="btn-primary" onClick={() => setShowNew((s) => !s)}>
-          {showNew ? "Vazgeç" : "+ Yeni kullanıcı"}
+          {showNew ? t("users.cancel") : t("users.newUser")}
         </button>
       </div>
 
       {showNew && (
         <form onSubmit={createUser} className="card mb-6 grid grid-cols-1 gap-3 p-4 sm:grid-cols-2">
-          <input required placeholder="Ad Soyad" className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input required type="email" placeholder="E-posta" className="input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <input required minLength={8} type="password" placeholder="Geçici şifre" className="input" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+          <input required placeholder={t("users.form.namePlaceholder")} className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input required type="email" placeholder={t("users.form.emailPlaceholder")} className="input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <input required minLength={8} type="password" placeholder={t("users.form.passwordPlaceholder")} className="input" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
           <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-            <option value="MEMBER">Üye</option>
-            <option value="MANAGER">Yönetici (Departman)</option>
-            <option value="ADMIN">Admin</option>
+            <option value="MEMBER">{t("users.form.roleMember")}</option>
+            <option value="MANAGER">{t("users.form.roleManagerDept")}</option>
+            <option value="ADMIN">{t("users.form.roleAdmin")}</option>
           </select>
           <select className="input sm:col-span-2" value={form.departmentId} onChange={(e) => setForm({ ...form, departmentId: e.target.value })}>
-            <option value="">Departman yok</option>
+            <option value="">{t("users.form.noDepartment")}</option>
             {departments.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
@@ -304,7 +295,7 @@ function UsersTab({
           </select>
           {error && <p className="text-sm text-red-600 dark:text-red-400 sm:col-span-2">{error}</p>}
           <button disabled={busy} className="btn-primary sm:col-span-2">
-            Oluştur
+            {t("users.form.submit")}
           </button>
         </form>
       )}
@@ -326,12 +317,12 @@ function UsersTab({
                     {u.name}
                     {!u.active && (
                       <span className="ml-2 text-xs font-normal" style={{ color: "var(--danger)" }}>
-                        (pasif)
+                        {t("users.inactiveLabel")}
                       </span>
                     )}
                     {u.mustChangePassword && (
                       <span className="ml-2 text-xs font-normal" style={{ color: "var(--warning, #b45309)" }}>
-                        (ilk giriş bekleniyor)
+                        {t("users.pendingFirstLoginLabel")}
                       </span>
                     )}
                   </div>
@@ -342,7 +333,7 @@ function UsersTab({
                 <span
                   className="shrink-0 text-sm transition-transform"
                   style={{ color: "var(--text-tertiary)", transform: isOpen ? "rotate(180deg)" : "none" }}
-                  aria-label={isOpen ? "Daralt" : "Genişlet"}
+                  aria-label={isOpen ? t("users.collapseLabel") : t("users.expandLabel")}
                 >
                   ▾
                 </span>
@@ -354,39 +345,39 @@ function UsersTab({
                     <button
                       disabled={u.id === currentUserId}
                       className={`btn-ghost text-xs ${u.active ? "text-red-600 dark:text-red-400" : "text-emerald-600 dark:text-emerald-400"}`}
-                      onClick={() => update(u.id, { active: !u.active }, u.active ? "Kullanıcı pasifleştirildi" : "Kullanıcı aktifleştirildi")}
+                      onClick={() => update(u.id, { active: !u.active }, u.active ? t("users.deactivatedToast") : t("users.activatedToast"))}
                     >
-                      {u.active ? "Pasifleştir" : "Aktifleştir"}
+                      {u.active ? t("users.deactivate") : t("users.activate")}
                     </button>
                   </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Rol
+                    {t("users.roleLabel")}
                   </span>
                   <select
                     className="input w-full"
                     value={u.role}
                     disabled={u.id === currentUserId}
-                    onChange={(e) => update(u.id, { role: e.target.value }, "Rol güncellendi")}
+                    onChange={(e) => update(u.id, { role: e.target.value }, t("users.roleUpdatedToast"))}
                   >
-                    <option value="MEMBER">Üye</option>
-                    <option value="MANAGER">Yönetici</option>
-                    <option value="ADMIN">Admin</option>
+                    <option value="MEMBER">{t("users.form.roleMember")}</option>
+                    <option value="MANAGER">{t("users.roleManager")}</option>
+                    <option value="ADMIN">{t("users.form.roleAdmin")}</option>
                   </select>
                 </label>
 
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Departman
+                    {t("users.departmentLabel")}
                   </span>
                   <select
                     className="input w-full"
                     value={u.department?.id ?? ""}
-                    onChange={(e) => update(u.id, { departmentId: e.target.value || null }, "Departman güncellendi")}
+                    onChange={(e) => update(u.id, { departmentId: e.target.value || null }, t("users.departmentUpdatedToast"))}
                   >
-                    <option value="">Departman yok</option>
+                    <option value="">{t("users.form.noDepartment")}</option>
                     {departments.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name}
@@ -397,7 +388,7 @@ function UsersTab({
 
                 <div className="block">
                   <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Sipariş yetkisi
+                    {t("users.orderPermissionLabel")}
                   </span>
                   <div className="flex flex-col gap-1 pt-1.5 text-xs" style={{ color: "var(--text-primary)" }}>
                     <label className="flex items-center gap-1.5">
@@ -405,34 +396,34 @@ function UsersTab({
                         type="checkbox"
                         className="h-3.5 w-3.5"
                         checked={u.canCreateOrders}
-                        onChange={(e) => update(u.id, { canCreateOrders: e.target.checked }, "Sipariş oluşturma yetkisi güncellendi")}
+                        onChange={(e) => update(u.id, { canCreateOrders: e.target.checked }, t("users.canCreateOrdersUpdatedToast"))}
                       />
-                      Oluşturabilir (pazarlama)
+                      {t("users.canCreateOrdersLabel")}
                     </label>
                     <label className="flex items-center gap-1.5">
                       <input
                         type="checkbox"
                         className="h-3.5 w-3.5"
                         checked={u.canManageOrders}
-                        onChange={(e) => update(u.id, { canManageOrders: e.target.checked }, "Sipariş yönetme yetkisi güncellendi")}
+                        onChange={(e) => update(u.id, { canManageOrders: e.target.checked }, t("users.canManageOrdersUpdatedToast"))}
                       />
-                      Yönetebilir (muhasebe)
+                      {t("users.canManageOrdersLabel")}
                     </label>
                     <label className="flex items-center gap-1.5">
                       <input
                         type="checkbox"
                         className="h-3.5 w-3.5"
                         checked={u.canManageProduction}
-                        onChange={(e) => update(u.id, { canManageProduction: e.target.checked }, "Üretim yetkisi güncellendi")}
+                        onChange={(e) => update(u.id, { canManageProduction: e.target.checked }, t("users.canManageProductionUpdatedToast"))}
                       />
-                      Üretimi yönetebilir
+                      {t("users.canManageProductionLabel")}
                     </label>
                   </div>
                 </div>
 
                 <div className="block">
                   <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Depolama kotası
+                    {t("users.quotaLabel")}
                   </span>
                   <div className="mb-1 flex justify-between text-[11px]" style={{ color: "var(--text-secondary)" }}>
                     <span>{formatBytesStr(u.usedBytes)}</span>
@@ -458,10 +449,10 @@ function UsersTab({
                       }}
                     />
                     <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                      GB
+                      {t("users.gbSuffix")}
                     </span>
                     <button className="btn-ghost shrink-0 text-xs" onClick={() => saveQuota(u.id)}>
-                      Kaydet
+                      {t("users.save")}
                     </button>
                   </div>
                 </div>
@@ -469,17 +460,16 @@ function UsersTab({
 
               <div className="mt-4">
                 <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                  Şifreyi sıfırla
+                  {t("users.resetPasswordLabel")}
                 </span>
                 <p className="mb-1.5 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
-                  Kullanıcı şifresini unuttuysa buradan geçici bir şifre belirle — bir sonraki
-                  girişte kendi yeni şifresini kendisi belirlemeye zorlanır.
+                  {t("users.resetPasswordHint")}
                 </p>
                 <div className="flex items-center gap-1">
                   <input
                     type="password"
                     minLength={8}
-                    placeholder="Yeni geçici şifre (en az 8 karakter)"
+                    placeholder={t("users.newPasswordPlaceholder")}
                     className="input min-w-0 flex-1 px-2 py-1 text-xs"
                     value={passwordDrafts[u.id] ?? ""}
                     onChange={(e) => setPasswordDrafts((d) => ({ ...d, [u.id]: e.target.value }))}
@@ -488,7 +478,7 @@ function UsersTab({
                     }}
                   />
                   <button className="btn-ghost shrink-0 text-xs" onClick={() => resetPassword(u.id)}>
-                    Sıfırla
+                    {t("users.resetButton")}
                   </button>
                 </div>
               </div>
@@ -496,19 +486,18 @@ function UsersTab({
               {currentUserRole === "ADMIN" && u.role !== "ADMIN" && u.id !== currentUserId && (
                 <div className="mt-4">
                   <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Kullanıcı olarak gir
+                    {t("users.impersonateLabel")}
                   </span>
                   <p className="mb-1.5 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
-                    Şifresine hiç dokunmadan bu kullanıcının gördüğünü gör — destek/hata ayıklama
-                    için. Üstte sabit bir uyarı şeridi görünür, oradan geri dönebilirsin.
-                    {u.mustChangePassword && " (bu kullanıcı henüz ilk girişini tamamlamadığı için şu an kullanılamıyor)"}
+                    {t("users.impersonateHint")}
+                    {u.mustChangePassword && t("users.impersonateDisabledHint")}
                   </p>
                   <button
                     disabled={impersonating === u.id || u.mustChangePassword}
                     className="btn-ghost text-xs"
                     onClick={() => impersonate(u.id)}
                   >
-                    {impersonating === u.id ? "Giriliyor…" : "🕵️ Kullanıcı olarak gir"}
+                    {impersonating === u.id ? t("users.impersonateInProgress") : t("users.impersonateButton")}
                   </button>
                 </div>
               )}
@@ -523,6 +512,7 @@ function UsersTab({
 }
 
 function DepartmentsTab({ departments, reload }: { departments: Department[]; reload: () => void }) {
+  const t = useTranslations("admin");
   const toast = useToast();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -540,10 +530,10 @@ function DepartmentsTab({ departments, reload }: { departments: Department[]; re
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Departman oluşturulamadı", "error");
+      toast(d.error ?? t("departments.createFailed"), "error");
       return;
     }
-    toast(`"${name}" departmanı eklendi`, "success");
+    toast(t("departments.addedToast", { name }), "success");
     setName("");
     reload();
   }
@@ -551,9 +541,9 @@ function DepartmentsTab({ departments, reload }: { departments: Department[]; re
   return (
     <div>
       <form onSubmit={create} className="mb-6 flex gap-2">
-        <input className="input" placeholder="Departman adı" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className="input" placeholder={t("departments.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
         <button disabled={busy} className="btn-primary shrink-0">
-          + Ekle
+          {t("departments.add")}
         </button>
       </form>
       <div className="card overflow-hidden">
@@ -564,12 +554,12 @@ function DepartmentsTab({ departments, reload }: { departments: Department[]; re
                 {d.name}
               </span>
               <span className="ml-2 text-xs" style={{ color: "var(--text-tertiary)" }}>
-                {d._count.users} kullanıcı
+                {t("departments.usersCount", { count: d._count.users })}
               </span>
             </div>
             <div className="flex items-center gap-1">
               <span className="text-xs" style={{ color: "var(--text-secondary)" }}>
-                Kota: {formatBytesStr(d.quotaBytes)}
+                {t("departments.quotaPrefix")} {formatBytesStr(d.quotaBytes)}
               </span>
               <input
                 type="number"
@@ -581,14 +571,14 @@ function DepartmentsTab({ departments, reload }: { departments: Department[]; re
                 onChange={(e) => setQuotaDrafts((q) => ({ ...q, [d.id]: e.target.value }))}
               />
               <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                GB
+                {t("departments.gbSuffix")}
               </span>
               <button
                 className="btn-ghost text-xs"
                 onClick={async () => {
                   const gb = Number(quotaDrafts[d.id]);
                   if (!Number.isFinite(gb) || gb <= 0) {
-                    toast("Geçerli bir kota (GB) gir", "error");
+                    toast(t("departments.quotaInvalid"), "error");
                     return;
                   }
                   const res = await fetch(withBasePath(`/api/admin/departments/${d.id}`), {
@@ -598,10 +588,10 @@ function DepartmentsTab({ departments, reload }: { departments: Department[]; re
                   });
                   if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
-                    toast(err.error ?? "Departman kotası güncellenemedi", "error");
+                    toast(err.error ?? t("departments.quotaUpdateFailed"), "error");
                     return;
                   }
-                  toast("Departman kotası güncellendi", "success");
+                  toast(t("departments.quotaUpdatedToast"), "success");
                   setQuotaDrafts((q) => {
                     const next = { ...q };
                     delete next[d.id];
@@ -610,14 +600,14 @@ function DepartmentsTab({ departments, reload }: { departments: Department[]; re
                   reload();
                 }}
               >
-                Kaydet
+                {t("departments.save")}
               </button>
             </div>
           </div>
         ))}
         {departments.length === 0 && (
           <p className="p-4 text-sm" style={{ color: "var(--text-tertiary)" }}>
-            Henüz departman yok.
+            {t("departments.empty")}
           </p>
         )}
       </div>
@@ -626,6 +616,7 @@ function DepartmentsTab({ departments, reload }: { departments: Department[]; re
 }
 
 function GroupsTab({ groups, reload }: { groups: Group[]; reload: () => void }) {
+  const t = useTranslations("admin");
   const toast = useToast();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -643,17 +634,17 @@ function GroupsTab({ groups, reload }: { groups: Group[]; reload: () => void }) 
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Grup oluşturulamadı", "error");
+      toast(d.error ?? t("groups.createFailed"), "error");
       return;
     }
-    toast(`"${name}" grubu eklendi`, "success");
+    toast(t("groups.addedToast", { name }), "success");
     setName("");
     reload();
   }
 
   async function remove(id: string, groupName: string) {
     await fetch(withBasePath(`/api/admin/groups/${id}`), { method: "DELETE" });
-    toast(`"${groupName}" grubu silindi`);
+    toast(t("groups.deletedToast", { name: groupName }));
     reload();
   }
 
@@ -667,7 +658,7 @@ function GroupsTab({ groups, reload }: { groups: Group[]; reload: () => void }) 
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Eklenemedi", "error");
+      toast(d.error ?? t("groups.addMemberFailed"), "error");
       return;
     }
     setEmailDrafts((d) => ({ ...d, [groupId]: "" }));
@@ -682,9 +673,9 @@ function GroupsTab({ groups, reload }: { groups: Group[]; reload: () => void }) 
   return (
     <div>
       <form onSubmit={create} className="mb-6 flex gap-2">
-        <input className="input" placeholder="Grup adı (ör. Pazarlama)" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className="input" placeholder={t("groups.namePlaceholder")} value={name} onChange={(e) => setName(e.target.value)} />
         <button disabled={busy} className="btn-primary shrink-0">
-          + Ekle
+          {t("groups.add")}
         </button>
       </form>
       <div className="space-y-3">
@@ -695,7 +686,7 @@ function GroupsTab({ groups, reload }: { groups: Group[]; reload: () => void }) 
                 {g.name}
               </h3>
               <button className="btn-ghost text-xs text-red-600 dark:text-red-400" onClick={() => remove(g.id, g.name)}>
-                Grubu sil
+                {t("groups.deleteGroup")}
               </button>
             </div>
             <div className="mb-2 flex flex-wrap gap-1.5">
@@ -709,14 +700,14 @@ function GroupsTab({ groups, reload }: { groups: Group[]; reload: () => void }) 
               ))}
               {g.members.length === 0 && (
                 <span className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-                  Henüz üye yok.
+                  {t("groups.noMembers")}
                 </span>
               )}
             </div>
             <div className="flex gap-2">
               <input
                 type="email"
-                placeholder="kullanici@sirket.com"
+                placeholder={t("groups.emailPlaceholder")}
                 className="input px-2 py-1 text-xs"
                 value={emailDrafts[g.id] ?? ""}
                 onChange={(e) => setEmailDrafts((d) => ({ ...d, [g.id]: e.target.value }))}
@@ -725,14 +716,14 @@ function GroupsTab({ groups, reload }: { groups: Group[]; reload: () => void }) 
                 }}
               />
               <button className="btn-ghost text-xs" onClick={() => addMember(g.id)}>
-                Üye ekle
+                {t("groups.addMember")}
               </button>
             </div>
           </div>
         ))}
         {groups.length === 0 && (
           <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
-            Henüz grup yok.
+            {t("groups.empty")}
           </p>
         )}
       </div>
@@ -749,6 +740,7 @@ function TemplatesTab({
   groups: Group[];
   reload: () => void;
 }) {
+  const t = useTranslations("admin");
   const toast = useToast();
   const [showNew, setShowNew] = useState(false);
   const [name, setName] = useState("");
@@ -777,10 +769,10 @@ function TemplatesTab({
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Şablon oluşturulamadı", "error");
+      toast(d.error ?? t("templates.createFailed"), "error");
       return;
     }
-    toast(`"${name}" şablonu eklendi`, "success");
+    toast(t("templates.addedToast", { name }), "success");
     setName("");
     setEmails("");
     setSelectedGroups([]);
@@ -790,7 +782,7 @@ function TemplatesTab({
 
   async function remove(id: string, templateName: string) {
     await fetch(withBasePath(`/api/admin/permission-templates/${id}`), { method: "DELETE" });
-    toast(`"${templateName}" şablonu silindi`);
+    toast(t("templates.deletedToast", { name: templateName }));
     reload();
   }
 
@@ -798,21 +790,21 @@ function TemplatesTab({
     <div>
       <div className="mb-4 flex justify-end">
         <button className="btn-primary" onClick={() => setShowNew((s) => !s)}>
-          {showNew ? "Vazgeç" : "+ Yeni şablon"}
+          {showNew ? t("templates.cancel") : t("templates.newTemplate")}
         </button>
       </div>
 
       {showNew && (
         <form onSubmit={create} className="card mb-6 space-y-3 p-4">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <input required placeholder="Şablon adı (ör. Sadece görüntüleme)" className="input" value={name} onChange={(e) => setName(e.target.value)} />
+            <input required placeholder={t("templates.namePlaceholder")} className="input" value={name} onChange={(e) => setName(e.target.value)} />
             <select className="input" value={permission} onChange={(e) => setPermission(e.target.value as "VIEW" | "EDIT")}>
-              <option value="VIEW">Görüntüle</option>
-              <option value="EDIT">Düzenle</option>
+              <option value="VIEW">{t("templates.viewOption")}</option>
+              <option value="EDIT">{t("templates.editOption")}</option>
             </select>
           </div>
           <input
-            placeholder="E-posta adresleri (virgülle ayır)"
+            placeholder={t("templates.emailsPlaceholder")}
             className="input"
             value={emails}
             onChange={(e) => setEmails(e.target.value)}
@@ -820,7 +812,7 @@ function TemplatesTab({
           {groups.length > 0 && (
             <div>
               <span className="mb-1.5 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-                Gruplar
+                {t("templates.groupsLabel")}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {groups.map((g) => (
@@ -842,36 +834,36 @@ function TemplatesTab({
             </div>
           )}
           <button disabled={busy} className="btn-primary">
-            Oluştur
+            {t("templates.submit")}
           </button>
         </form>
       )}
 
       <div className="space-y-3">
-        {templates.map((t) => (
-          <div key={t.id} className="card flex items-start justify-between gap-3 p-4">
+        {templates.map((tpl) => (
+          <div key={tpl.id} className="card flex items-start justify-between gap-3 p-4">
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-                  {t.name}
+                  {tpl.name}
                 </h3>
-                <span className="badge">{t.permission === "EDIT" ? "Düzenle" : "Görüntüle"}</span>
+                <span className="badge">{tpl.permission === "EDIT" ? t("templates.editOption") : t("templates.viewOption")}</span>
               </div>
               <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
-                {t.members
-                  .map((m) => m.user?.name ?? (m.group ? `👥 ${m.group.name}` : null))
+                {tpl.members
+                  .map((m) => m.user?.name ?? (m.group ? `${t("templates.groupPrefix")} ${m.group.name}` : null))
                   .filter(Boolean)
-                  .join(", ") || "Üye yok"}
+                  .join(", ") || t("templates.noMembers")}
               </p>
             </div>
-            <button className="btn-ghost text-xs text-red-600 dark:text-red-400" onClick={() => remove(t.id, t.name)}>
-              Sil
+            <button className="btn-ghost text-xs text-red-600 dark:text-red-400" onClick={() => remove(tpl.id, tpl.name)}>
+              {t("templates.delete")}
             </button>
           </div>
         ))}
         {templates.length === 0 && (
           <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
-            Henüz şablon yok.
+            {t("templates.empty")}
           </p>
         )}
       </div>
@@ -880,6 +872,7 @@ function TemplatesTab({
 }
 
 function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments: Department[] }) {
+  const t = useTranslations("admin");
   const totalUsed = users.reduce((sum, u) => sum + Number(u.usedBytes), 0);
   const totalQuota = users.reduce((sum, u) => sum + Number(u.quotaBytes), 0);
 
@@ -898,7 +891,7 @@ function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments:
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="card p-4">
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            Toplam kullanılan alan
+            {t("analytics.totalUsed")}
           </p>
           <p className="mt-1 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
             {formatBytesStr(totalUsed)}
@@ -906,7 +899,7 @@ function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments:
         </div>
         <div className="card p-4">
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            Toplam tanımlı kota
+            {t("analytics.totalQuota")}
           </p>
           <p className="mt-1 text-2xl font-semibold" style={{ color: "var(--text-primary)" }}>
             {formatBytesStr(totalQuota)}
@@ -916,7 +909,7 @@ function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments:
 
       <div>
         <h3 className="mb-3 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          Departmana göre kullanım
+          {t("analytics.usageByDepartment")}
         </h3>
         <div className="card space-y-4 p-4">
           {byDept.map((d) => {
@@ -925,7 +918,7 @@ function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments:
               <div key={d.id}>
                 <div className="mb-1 flex justify-between text-xs" style={{ color: "var(--text-secondary)" }}>
                   <span>
-                    {d.name} · {d.userCount} kullanıcı
+                    {t("analytics.deptUsageLabel", { name: d.name, count: d.userCount })}
                   </span>
                   <span>
                     {formatBytesStr(d.used)} / {formatBytesStr(d.quota)}
@@ -943,7 +936,7 @@ function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments:
           {noDeptUsed > 0 && (
             <div>
               <div className="mb-1 flex justify-between text-xs" style={{ color: "var(--text-secondary)" }}>
-                <span>Departmansız kullanıcılar</span>
+                <span>{t("analytics.noDeptUsers")}</span>
                 <span>{formatBytesStr(noDeptUsed)}</span>
               </div>
               <div className="h-2 w-full rounded-full" style={{ background: "var(--surface-muted)" }}>
@@ -953,7 +946,7 @@ function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments:
           )}
           {byDept.length === 0 && noDeptUsed === 0 && (
             <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
-              Henüz veri yok.
+              {t("analytics.noData")}
             </p>
           )}
         </div>
@@ -961,7 +954,7 @@ function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments:
 
       <div>
         <h3 className="mb-3 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          En çok yer kaplayan kullanıcılar
+          {t("analytics.topUsers")}
         </h3>
         <div className="card space-y-3 p-4">
           {topUsers.map((u) => {
@@ -983,7 +976,7 @@ function AnalyticsTab({ users, departments }: { users: AdminUser[]; departments:
           })}
           {topUsers.length === 0 && (
             <p className="text-sm" style={{ color: "var(--text-tertiary)" }}>
-              Henüz kullanıcı yok.
+              {t("analytics.noUsers")}
             </p>
           )}
         </div>
@@ -1009,6 +1002,7 @@ type BackupEntry = {
  * işaret eder), o yüzden dosya yedeği hiç yoksa kart açık bir uyarı gösterir.
  */
 function BackupsCard() {
+  const t = useTranslations("admin");
   const [data, setData] = useState<{
     configured: boolean;
     backups: BackupEntry[];
@@ -1034,7 +1028,7 @@ function BackupsCard() {
   return (
     <div className="card space-y-3 p-5">
       <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-        Yedekler
+        {t("backups.title")}
       </h2>
       {data.error ? (
         <p className="text-sm" style={{ color: "var(--danger)" }}>
@@ -1042,31 +1036,31 @@ function BackupsCard() {
         </p>
       ) : data.backups.length === 0 ? (
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          Henüz hiç yedek bulunamadı.
+          {t("backups.empty")}
         </p>
       ) : (
         <>
           <div className="space-y-1.5">
             <p className="text-sm" style={{ color: "var(--text-primary)" }}>
-              🗄️ Veritabanı:{" "}
+              {t("backups.databaseLabel")}{" "}
               {latestDb ? (
                 <>
                   <strong>{formatDate(latestDb.modifiedAt)}</strong> · {formatBytesStr(latestDb.sizeBytes)} ·{" "}
-                  {dbBackups.length} dosya
+                  {t("backups.filesCount", { count: dbBackups.length })}
                 </>
               ) : (
-                <span style={{ color: "var(--danger)" }}>yedek yok</span>
+                <span style={{ color: "var(--danger)" }}>{t("backups.noBackup")}</span>
               )}
             </p>
             <p className="text-sm" style={{ color: "var(--text-primary)" }}>
-              📁 Yüklenen dosyalar:{" "}
+              {t("backups.storageLabel")}{" "}
               {latestStorage ? (
                 <>
                   <strong>{formatDate(latestStorage.modifiedAt)}</strong> ·{" "}
-                  {formatBytesStr(latestStorage.sizeBytes)} · {storageBackups.length} dosya
+                  {formatBytesStr(latestStorage.sizeBytes)} · {t("backups.filesCount", { count: storageBackups.length })}
                 </>
               ) : (
-                <span style={{ color: "var(--danger)" }}>yedek yok</span>
+                <span style={{ color: "var(--danger)" }}>{t("backups.noBackup")}</span>
               )}
             </p>
           </div>
@@ -1075,15 +1069,12 @@ function BackupsCard() {
               className="rounded-lg px-3 py-2 text-xs"
               style={{ backgroundColor: "var(--danger-bg, #fef2f2)", color: "var(--danger)" }}
             >
-              <strong>Dikkat:</strong> Yüklenen dosyaların hiç yedeği yok. Bu haliyle bir disk
-              kaybında veritabanı geri gelse bile dosyalar kurtarılamaz. Sunucudaki yedekleme
-              görevinin <code>backup-all.sh</code> scriptini çalıştırdığından emin ol.
+              <strong>{t("backups.warningTitle")}</strong> {t("backups.warningBody")}{" "}
+              <code>backup-all.sh</code> {t("backups.warningBodySuffix")}
             </p>
           )}
           <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
-            30 gün rotasyonlu, her gece 03:30. Geri yükleme bilerek buradan yapılamıyor —
-            yanlışlıkla production verisinin üzerine yazma riskini önlemek için elle bir SSH
-            işlemi olarak kalıyor.
+            {t("backups.rotationNote")}
           </p>
         </>
       )}
@@ -1113,6 +1104,7 @@ type SystemSettingsData = {
  * yeni bir şifre girilmeden kaydedilirse eskisi (varsa) korunur.
  */
 function SmtpCard() {
+  const t = useTranslations("admin");
   const toast = useToast();
   const [host, setHost] = useState("");
   const [port, setPort] = useState("");
@@ -1158,12 +1150,12 @@ function SmtpCard() {
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Kaydedilemedi", "error");
+      toast(d.error ?? t("smtp.saveFailed"), "error");
       return;
     }
     setPass("");
     load();
-    toast("SMTP ayarları kaydedildi", "success");
+    toast(t("smtp.savedToast"), "success");
   }
 
   async function sendTest(e: React.FormEvent) {
@@ -1178,63 +1170,62 @@ function SmtpCard() {
     setTestBusy(false);
     const d = await res.json().catch(() => ({}));
     if (!res.ok) {
-      toast(d.error ?? "Gönderilemedi", "error");
+      toast(d.error ?? t("smtp.testEmailFailed"), "error");
       return;
     }
-    toast(`Test e-postası ${testTo.trim()} adresine gönderildi`, "success");
+    toast(t("smtp.testEmailSentToast", { to: testTo.trim() }), "success");
   }
 
   return (
     <div className="card space-y-4 p-5">
       <div>
         <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          E-posta (SMTP)
+          {t("smtp.title")}
         </h2>
         <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Sipariş/ödeme/sohbet bildirimleri ve şifre sıfırlama e-postaları buradan gönderilir.
-          Sunucu ortam değişkeni/SSH gerekmez — hepsi buradan yönetilir.
+          {t("smtp.description")}
         </p>
       </div>
       <form onSubmit={save} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="block">
           <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-            SMTP sunucusu
+            {t("smtp.hostLabel")}
           </span>
-          <input className="input" value={host} onChange={(e) => setHost(e.target.value)} placeholder="mail.ornek.tr" />
+          <input className="input" value={host} onChange={(e) => setHost(e.target.value)} placeholder={t("smtp.hostPlaceholder")} />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-            Port
+            {t("smtp.portLabel")}
           </span>
-          <input type="number" className="input" value={port} onChange={(e) => setPort(e.target.value)} placeholder="465" />
+          <input type="number" className="input" value={port} onChange={(e) => setPort(e.target.value)} placeholder={t("smtp.portPlaceholder")} />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-            Kullanıcı adı
+            {t("smtp.userLabel")}
           </span>
-          <input className="input" value={user} onChange={(e) => setUser(e.target.value)} placeholder="bildirim@ornek.tr" />
+          <input className="input" value={user} onChange={(e) => setUser(e.target.value)} placeholder={t("smtp.userPlaceholder")} />
         </label>
         <label className="block">
           <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-            Şifre
+            {t("smtp.passwordLabel")}
           </span>
           <input
             type="password"
             className="input"
             value={pass}
             onChange={(e) => setPass(e.target.value)}
-            placeholder={passwordSet ? "•••••••• (değiştirmek için yaz)" : "Şifre gir"}
+            placeholder={passwordSet ? t("smtp.passwordPlaceholderSet") : t("smtp.passwordPlaceholderUnset")}
           />
         </label>
         <label className="block sm:col-span-2">
           <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-            Gönderen adresi (From)
+            {t("smtp.fromLabel")}
           </span>
-          <input type="email" className="input" value={from} onChange={(e) => setFrom(e.target.value)} placeholder="bildirim@ornek.tr" />
+          <input type="email" className="input" value={from} onChange={(e) => setFrom(e.target.value)} placeholder={t("smtp.fromPlaceholder")} />
         </label>
         <div className="sm:col-span-2">
           <button disabled={busy} className="btn-primary">
-            {busy ? "Kaydediliyor…" : "SMTP ayarlarını kaydet"}
+            {busy ? t("smtp.saving") : t("smtp.save")}
           </button>
         </div>
       </form>
@@ -1245,10 +1236,10 @@ function SmtpCard() {
           className="input flex-1"
           value={testTo}
           onChange={(e) => setTestTo(e.target.value)}
-          placeholder="Test e-postası gönderilecek adres"
+          placeholder={t("smtp.testEmailPlaceholder")}
         />
         <button disabled={testBusy} className="btn-secondary shrink-0">
-          {testBusy ? "Gönderiliyor…" : "Test e-postası gönder"}
+          {testBusy ? t("smtp.testEmailSending") : t("smtp.testEmailSend")}
         </button>
       </form>
     </div>
@@ -1256,6 +1247,7 @@ function SmtpCard() {
 }
 
 function SettingsTab() {
+  const t = useTranslations("admin");
   const toast = useToast();
   const [settings, setSettings] = useState<SystemSettingsData | null>(null);
   const [trashDays, setTrashDays] = useState("");
@@ -1293,11 +1285,11 @@ function SettingsTab() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Kaydedilemedi", "error");
+      toast(d.error ?? t("settings.security.saveFailed"), "error");
       setRequire2fa(!next);
       return;
     }
-    toast(next ? "Adminler için 2FA zorunlu kılındı" : "2FA zorunluluğu kaldırıldı", "success");
+    toast(next ? t("settings.security.enabledToast") : t("settings.security.disabledToast"), "success");
   }
 
   async function saveOrgName(e: React.FormEvent) {
@@ -1313,10 +1305,10 @@ function SettingsTab() {
     setOrgNameBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Kaydedilemedi", "error");
+      toast(d.error ?? t("settings.orgName.saveFailed"), "error");
       return;
     }
-    toast("Kurum adı güncellendi — footer ve e-postalarda yansıyacak", "success");
+    toast(t("settings.orgName.savedToast"), "success");
   }
 
   async function saveSkin(skin: "modern" | "archive" | "panel") {
@@ -1328,16 +1320,16 @@ function SettingsTab() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Kaydedilemedi", "error");
+      toast(d.error ?? t("settings.uiSkin.saveFailed"), "error");
       return;
     }
     const label =
       skin === "archive"
-        ? "Kurumsal Arşiv Dosya Dolabı"
+        ? t("settings.uiSkin.archiveTitle")
         : skin === "panel"
-          ? "Panel (Genel Bakış)"
-          : "Modern";
-    toast(`Arayüz görünümü "${label}" olarak ayarlandı`, "success");
+          ? t("settings.uiSkin.panelTitle")
+          : t("settings.uiSkin.modernTitle");
+    toast(t("settings.uiSkin.savedToast", { label }), "success");
   }
 
   useEffect(() => {
@@ -1360,10 +1352,10 @@ function SettingsTab() {
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Kaydedilemedi", "error");
+      toast(d.error ?? t("settings.cleanup.saveFailed"), "error");
       return;
     }
-    toast("Ayarlar kaydedildi", "success");
+    toast(t("settings.cleanup.savedToast"), "success");
     load();
   }
 
@@ -1374,14 +1366,19 @@ function SettingsTab() {
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Çalıştırılamadı", "error");
+      toast(d.error ?? t("settings.runCleanup.runFailed"), "error");
       return;
     }
     const d = await res.json();
     setCleanupResult(
-      `${d.purgedFolders} klasör, ${d.purgedFiles} dosya, ${d.purgedVersions} versiyon kalıcı silindi; ${d.overdueOrdersNotified ?? 0} vadesi geçmiş sipariş hatırlatması gönderildi.`
+      t("settings.runCleanup.resultText", {
+        folders: d.purgedFolders,
+        files: d.purgedFiles,
+        versions: d.purgedVersions,
+        orders: d.overdueOrdersNotified ?? 0,
+      })
     );
-    toast("Temizlik tamamlandı", "success");
+    toast(t("settings.runCleanup.completedToast"), "success");
   }
 
   if (!settings) return <div className="skeleton h-40 w-full" />;
@@ -1391,12 +1388,10 @@ function SettingsTab() {
       <form onSubmit={saveOrgName} className="card space-y-3 p-5">
         <div>
           <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-            Kurum adı
+            {t("settings.orgName.title")}
           </h2>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            Footer&apos;daki telif satırında ve gönderilen tüm e-postaların altında görünür
-            (örn. &ldquo;© {new Date().getFullYear()} {orgName || "…"} — Tüm Hakları Saklıdır&rdquo;).
-            &ldquo;Cdrive&rdquo; ürün adı bundan etkilenmez.
+            {t("settings.orgName.description", { year: new Date().getFullYear(), orgName: orgName || "…" })}
           </p>
         </div>
         <div className="flex gap-2">
@@ -1406,10 +1401,10 @@ function SettingsTab() {
             className="input flex-1"
             value={orgName}
             onChange={(e) => setOrgName(e.target.value)}
-            placeholder="örn. Çalapverdi Gıda"
+            placeholder={t("settings.orgName.placeholder")}
           />
           <button disabled={orgNameBusy} className="btn-primary shrink-0">
-            {orgNameBusy ? "Kaydediliyor…" : "Kaydet"}
+            {orgNameBusy ? t("settings.orgName.saving") : t("settings.orgName.save")}
           </button>
         </div>
       </form>
@@ -1421,11 +1416,10 @@ function SettingsTab() {
       <div className="card space-y-4 p-5">
         <div>
           <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-            Arayüz görünümü
+            {t("settings.uiSkin.title")}
           </h2>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            Sürücü sayfasının görsel dilini seç — tüm kullanıcılar için geçerli olur. İkisi de tam
-            işlevsel, sadece görünüm değişir.
+            {t("settings.uiSkin.description")}
           </p>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1442,12 +1436,12 @@ function SettingsTab() {
             <div className="flex items-center gap-2">
               <span className="text-lg">🗂️</span>
               <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                Modern
+                {t("settings.uiSkin.modernTitle")}
               </span>
-              {uiSkin === "modern" && <span className="badge">Aktif</span>}
+              {uiSkin === "modern" && <span className="badge">{t("settings.uiSkin.active")}</span>}
             </div>
             <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
-              Mevcut varsayılan görünüm — indigo/mor vurgu, düz kartlar.
+              {t("settings.uiSkin.modernDesc")}
             </p>
           </button>
           <button
@@ -1463,12 +1457,12 @@ function SettingsTab() {
             <div className="flex items-center gap-2">
               <span className="text-lg">🗄️</span>
               <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                Kurumsal Arşiv Dosya Dolabı
+                {t("settings.uiSkin.archiveTitle")}
               </span>
-              {uiSkin === "archive" && <span className="badge">Aktif</span>}
+              {uiSkin === "archive" && <span className="badge">{t("settings.uiSkin.active")}</span>}
             </div>
             <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
-              Kraft/pirinç tonlarında, klasörler asma dosya sekmesi gibi görünür.
+              {t("settings.uiSkin.archiveDesc")}
             </p>
           </button>
           <button
@@ -1484,12 +1478,12 @@ function SettingsTab() {
             <div className="flex items-center gap-2">
               <span className="text-lg">📊</span>
               <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                Panel (Genel Bakış)
+                {t("settings.uiSkin.panelTitle")}
               </span>
-              {uiSkin === "panel" && <span className="badge">Aktif</span>}
+              {uiSkin === "panel" && <span className="badge">{t("settings.uiSkin.active")}</span>}
             </div>
             <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
-              Sürücü, gerçek verilerle özetleyen bir gösterge paneline (/panel) açılır.
+              {t("settings.uiSkin.panelDesc")}
             </p>
           </button>
         </div>
@@ -1497,7 +1491,7 @@ function SettingsTab() {
 
       <div className="card space-y-3 p-5">
         <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          Güvenlik
+          {t("settings.security.title")}
         </h2>
         <label className="flex items-start gap-3">
           <input
@@ -1508,13 +1502,10 @@ function SettingsTab() {
           />
           <span>
             <span className="block text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-              Adminler için 2FA zorunlu kıl
+              {t("settings.security.require2faLabel")}
             </span>
             <span className="block text-xs" style={{ color: "var(--text-secondary)" }}>
-              Açılırsa, henüz iki adımlı doğrulama kurmamış her ADMIN hesabı BİR SONRAKİ
-              girişinde /account dışında hiçbir sayfaya erişemez — kuruluncaya kadar (halihazırda
-              açık oturumlar bu değişikliği ancak yeniden giriş yapınca görür). Sadece ADMIN
-              rolünü etkiler.
+              {t("settings.security.require2faHint")}
             </span>
           </span>
         </label>
@@ -1522,17 +1513,17 @@ function SettingsTab() {
 
       <form onSubmit={save} className="card space-y-4 p-5">
         <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          Otomatik veri temizleme
+          {t("settings.cleanup.title")}
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-              Çöp kutusu saklama süresi (gün)
+              {t("settings.cleanup.trashRetentionLabel")}
             </span>
             <input
               type="number"
               min={1}
-              placeholder="Kapalı (hiç silinmez)"
+              placeholder={t("settings.cleanup.disabledPlaceholder")}
               className="input"
               value={trashDays}
               onChange={(e) => setTrashDays(e.target.value)}
@@ -1540,12 +1531,12 @@ function SettingsTab() {
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-              Eski versiyon saklama süresi (gün)
+              {t("settings.cleanup.versionRetentionLabel")}
             </span>
             <input
               type="number"
               min={1}
-              placeholder="Kapalı (hiç silinmez)"
+              placeholder={t("settings.cleanup.disabledPlaceholder")}
               className="input"
               value={versionDays}
               onChange={(e) => setVersionDays(e.target.value)}
@@ -1553,21 +1544,21 @@ function SettingsTab() {
           </label>
         </div>
         <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
-          Boş bırakılırsa o politika devre dışı kalır. Güncel (current) dosya versiyonu asla silinmez.
+          {t("settings.cleanup.retentionHint")}
         </p>
 
         <h2 className="pt-2 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          Dosya yükleme politikaları
+          {t("settings.cleanup.uploadPoliciesTitle")}
         </h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-              Maksimum dosya boyutu (MB)
+              {t("settings.cleanup.maxFileSizeLabel")}
             </span>
             <input
               type="number"
               min={1}
-              placeholder="Sınırsız"
+              placeholder={t("settings.cleanup.unlimitedPlaceholder")}
               className="input"
               value={maxSizeMb}
               onChange={(e) => setMaxSizeMb(e.target.value)}
@@ -1575,11 +1566,11 @@ function SettingsTab() {
           </label>
           <label className="block">
             <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-primary)" }}>
-              Engellenen uzantılar
+              {t("settings.cleanup.blockedExtensionsLabel")}
             </span>
             <input
               type="text"
-              placeholder=".exe, .bat, .sh"
+              placeholder={t("settings.cleanup.blockedExtensionsPlaceholder")}
               className="input"
               value={blockedExt}
               onChange={(e) => setBlockedExt(e.target.value)}
@@ -1588,21 +1579,22 @@ function SettingsTab() {
         </div>
 
         <button disabled={busy} className="btn-primary">
-          Ayarları kaydet
+          {t("settings.cleanup.save")}
         </button>
       </form>
 
       <div className="card p-5">
         <h2 className="mb-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          Temizliği şimdi çalıştır
+          {t("settings.runCleanup.title")}
         </h2>
         <p className="mb-3 text-sm" style={{ color: "var(--text-secondary)" }}>
-          Kaydedilmiş politikayı hemen uygular — beklemeden test etmek için. cPanel&apos;de bir Cron Job kurup{" "}
-          <code className="text-xs">POST /api/admin/cleanup</code> adresine <code className="text-xs">Authorization: Bearer CRON_SECRET</code>{" "}
-          ile günlük istek atarak otomatikleştirebilirsiniz (README&apos;ye bakın).
+          {t("settings.runCleanup.descBefore")}{" "}
+          <code className="text-xs">POST /api/admin/cleanup</code> {t("settings.runCleanup.descMiddle")}{" "}
+          <code className="text-xs">Authorization: Bearer CRON_SECRET</code>{" "}
+          {t("settings.runCleanup.descAfter")}
         </p>
         <button disabled={busy} className="btn-secondary" onClick={runNow}>
-          Şimdi çalıştır
+          {t("settings.runCleanup.run")}
         </button>
         {cleanupResult && (
           <p className="mt-3 text-sm" style={{ color: "var(--text-secondary)" }}>
@@ -1623,6 +1615,7 @@ const AUDIT_ACTIONS = [
 const AUDIT_PAGE = 100;
 
 function AuditTab({ logs: initial }: { logs: AuditLog[] }) {
+  const t = useTranslations("admin");
   const [logs, setLogs] = useState<AuditLog[]>(initial);
   const [action, setAction] = useState("");
   const [from, setFrom] = useState("");
@@ -1663,29 +1656,29 @@ function AuditTab({ logs: initial }: { logs: AuditLog[] }) {
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
         <label className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          Eylem
-          <select className="input mt-1" value={action} onChange={(e) => setAction(e.target.value)} aria-label="Eylem filtresi">
-            <option value="">Tümü</option>
+          {t("audit.actionLabel")}
+          <select className="input mt-1" value={action} onChange={(e) => setAction(e.target.value)} aria-label={t("audit.actionFilterAria")}>
+            <option value="">{t("audit.actionAll")}</option>
             {AUDIT_ACTIONS.map((a) => (
               <option key={a} value={a}>{a}</option>
             ))}
           </select>
         </label>
         <label className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          Başlangıç
-          <input type="date" className="input mt-1" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Başlangıç tarihi" />
+          {t("audit.fromLabel")}
+          <input type="date" className="input mt-1" value={from} onChange={(e) => setFrom(e.target.value)} aria-label={t("audit.fromAria")} />
         </label>
         <label className="text-xs" style={{ color: "var(--text-secondary)" }}>
-          Bitiş
-          <input type="date" className="input mt-1" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Bitiş tarihi" />
+          {t("audit.toLabel")}
+          <input type="date" className="input mt-1" value={to} onChange={(e) => setTo(e.target.value)} aria-label={t("audit.toAria")} />
         </label>
-        <button className="btn-primary" disabled={busy} onClick={apply}>Filtrele</button>
+        <button className="btn-primary" disabled={busy} onClick={apply}>{t("audit.filter")}</button>
         <a
           href={withBasePath(`/api/admin/audit?${filterQuery()}&format=csv`)}
           className="btn-secondary"
-          title="Seçili filtrelerle en fazla 10.000 kaydı CSV olarak indir"
+          title={t("audit.csvDownloadTitle")}
         >
-          CSV indir
+          {t("audit.csvDownload")}
         </a>
       </div>
       <div className="card overflow-hidden">
@@ -1695,7 +1688,7 @@ function AuditTab({ logs: initial }: { logs: AuditLog[] }) {
               {formatDate(l.createdAt)}
             </span>
             <span className="badge font-mono">{l.action}</span>
-            <span style={{ color: "var(--text-secondary)" }}>{l.user ? l.user.name : "Anonim"}</span>
+            <span style={{ color: "var(--text-secondary)" }}>{l.user ? l.user.name : t("audit.anonymous")}</span>
             {l.detail && (
               <span className="truncate" style={{ color: "var(--text-tertiary)" }}>
                 — {l.detail}
@@ -1705,13 +1698,13 @@ function AuditTab({ logs: initial }: { logs: AuditLog[] }) {
         ))}
         {logs.length === 0 && (
           <p className="p-4 text-sm" style={{ color: "var(--text-tertiary)" }}>
-            Kayıt yok.
+            {t("audit.noRecords")}
           </p>
         )}
       </div>
       {hasMore && (
         <button className="btn-ghost" disabled={busy} onClick={more}>
-          {busy ? "Yükleniyor…" : "Daha eski kayıtları yükle"}
+          {busy ? t("audit.loading") : t("audit.loadOlder")}
         </button>
       )}
     </div>

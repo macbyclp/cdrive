@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 
 // Cdrive, calapverdi.tr'nin KÖKÜNDE değil "/cdrive" alt-yolunda barınıyor
 // (cPanel Node.js App "Application URL" alanına calapverdi.tr/cdrive girildi).
@@ -63,4 +64,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
+
+export default withNextIntl(nextConfig);

@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import AppShell from "@/components/AppShell";
 import ShareDialog from "@/components/ShareDialog";
 import VersionsDialog from "@/components/VersionsDialog";
@@ -54,6 +55,7 @@ function selKey(type: "file" | "folder", id: string) {
 }
 
 function DriveInner() {
+  const t = useTranslations("drive");
   const router = useRouter();
   const params = useSearchParams();
   const toast = useToast();
@@ -206,7 +208,7 @@ function DriveInner() {
         const res = await fetch(withBasePath(`/api/folders${qs}`));
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
-          throw new Error(d.error ?? "Yüklenemedi");
+          throw new Error(d.error ?? t("toast.loadFailed"));
         }
         const data = await res.json();
         setFolders(data.folders ?? []);
@@ -214,11 +216,11 @@ function DriveInner() {
         setBreadcrumb(data.breadcrumb ?? []);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Bir hata oluştu");
+      setError(e instanceof Error ? e.message : t("toast.genericError"));
     } finally {
       setLoading(false);
     }
-  }, [folderId, view, q, searchFilters]);
+  }, [folderId, view, q, searchFilters, t]);
 
   useEffect(() => {
     refreshMe();
@@ -320,11 +322,11 @@ function DriveInner() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Belge oluşturulamadı", "error");
+      toast(d.error ?? t("toast.docCreateFailed"), "error");
       return;
     }
     const file = await res.json();
-    toast(`"${file.name}" oluşturuldu`, "success");
+    toast(t("toast.createdNamed", { name: file.name }), "success");
     load();
     refreshMe();
     window.open(withBasePath(`/office/${file.id}`), "_blank");
@@ -339,10 +341,10 @@ function DriveInner() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Klasör oluşturulamadı", "error");
+      toast(d.error ?? t("toast.folderCreateFailed"), "error");
       return;
     }
-    toast(`"${name}" klasörü oluşturuldu`, "success");
+    toast(t("toast.folderCreatedNamed", { name }), "success");
     load();
   }
 
@@ -356,12 +358,12 @@ function DriveInner() {
       const res = await fetch(withBasePath("/api/files"), { method: "POST", body: fd });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        toast(`${file.name}: ${d.error ?? "yüklenemedi"}`, "error");
+        toast(`${file.name}: ${d.error ?? t("toast.uploadFailed")}`, "error");
       } else {
         ok++;
       }
     }
-    if (ok > 0) toast(ok === 1 ? "Dosya yüklendi" : `${ok} dosya yüklendi`, "success");
+    if (ok > 0) toast(ok === 1 ? t("toast.fileUploaded") : t("toast.filesUploadedCount", { count: ok }), "success");
     load();
     refreshMe();
   }
@@ -377,12 +379,13 @@ function DriveInner() {
     setZipUploading(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Zip yüklenemedi", "error");
+      toast(d.error ?? t("toast.zipUploadFailed"), "error");
       return;
     }
     const d = await res.json();
     toast(
-      `Zip'ten ${d.filesCreated} dosya, ${d.foldersCreated} klasör çıkarıldı${d.skipped ? ` (${d.skipped} atlandı)` : ""}`,
+      t("toast.zipExtracted", { files: d.filesCreated, folders: d.foldersCreated }) +
+        (d.skipped ? t("toast.zipSkippedSuffix", { skipped: d.skipped }) : ""),
       "success"
     );
     load();
@@ -422,7 +425,7 @@ function DriveInner() {
       const res = await fetch(withBasePath("/api/files"), { method: "POST", body: fd });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        toast(`${entry.name}: ${d.error ?? "yüklenemedi"}`, "error");
+        toast(`${entry.name}: ${d.error ?? t("toast.uploadFailed")}`, "error");
       }
       return res.ok;
     }
@@ -434,7 +437,7 @@ function DriveInner() {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        toast(`"${entry.name}" klasörü oluşturulamadı: ${d.error ?? "hata"}`, "error");
+        toast(t("toast.folderCreateFailedNamed", { name: entry.name, error: d.error ?? t("toast.genericErrorLower") }), "error");
         return false;
       }
       const newFolder = await res.json();
@@ -464,7 +467,7 @@ function DriveInner() {
     for (const entry of entries) {
       if (await uploadEntry(entry, folderId)) ok++;
     }
-    if (ok > 0) toast(`${ok}/${entries.length} öğe yüklendi`, "success");
+    if (ok > 0) toast(t("toast.itemsUploaded", { ok, total: entries.length }), "success");
     load();
     refreshMe();
   }
@@ -492,10 +495,10 @@ function DriveInner() {
     const res = await fetch(withBasePath(`/api/folders/${folder.id}`), { method: "DELETE" });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Silinemedi", "error");
+      toast(d.error ?? t("toast.deleteFailed"), "error");
       return;
     }
-    toast("Klasör çöp kutusuna taşındı");
+    toast(t("toast.folderTrashed"));
     load();
     refreshMe();
   }
@@ -516,10 +519,10 @@ function DriveInner() {
     const res = await fetch(withBasePath(`/api/files/${file.id}`), { method: "DELETE" });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Silinemedi", "error");
+      toast(d.error ?? t("toast.deleteFailed"), "error");
       return;
     }
-    toast("Dosya çöp kutusuna taşındı");
+    toast(t("toast.fileTrashed"));
     load();
     refreshMe();
   }
@@ -530,7 +533,7 @@ function DriveInner() {
 
   function downloadFolderZip(f: FolderItem) {
     window.open(withBasePath(`/api/folders/${f.id}/download`), "_blank");
-    toast("Zip indirmesi başladı", "success");
+    toast(t("toast.zipDownloadStarted"), "success");
   }
 
   function openFile(f: FileItem) {
@@ -553,11 +556,11 @@ function DriveInner() {
 
   /** Word/Excel/PowerPoint dosyaları için menüye eklenecek "Office ile aç" öğesi (uygunsa), aksi halde boş dizi. */
   function officeMenuItem(f: FileItem): RowMenuItem[] {
-    return officeDocType(f.name) ? [{ label: "Office ile aç", onClick: () => setOfficeChoiceTarget(f) }] : [];
+    return officeDocType(f.name) ? [{ label: t("menu.openWithOffice"), onClick: () => setOfficeChoiceTarget(f) }] : [];
   }
 
   async function convertToPdf(f: FileItem) {
-    toast(`"${f.name}" PDF'e dönüştürülüyor…`);
+    toast(t("toast.convertingToPdf", { name: f.name }));
     const res = await fetch(withBasePath(`/api/files/${f.id}/convert`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -565,11 +568,11 @@ function DriveInner() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Dönüştürülemedi", "error");
+      toast(d.error ?? t("toast.convertFailed"), "error");
       return;
     }
     const created = await res.json();
-    toast(`"${created.name}" oluşturuldu`, "success");
+    toast(t("toast.createdNamed", { name: created.name }), "success");
     load();
     refreshMe();
   }
@@ -582,11 +585,11 @@ function DriveInner() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Kopyalanamadı", "error");
+      toast(d.error ?? t("toast.copyFailed"), "error");
       return;
     }
     const created = await res.json();
-    toast(`"${created.name}" oluşturuldu`, "success");
+    toast(t("toast.createdNamed", { name: created.name }), "success");
     load();
     refreshMe();
   }
@@ -594,14 +597,14 @@ function DriveInner() {
   /** docx/xlsx/pptx gibi dosyalar için "PDF'e dönüştür" menü öğesi (uygunsa), aksi halde boş dizi. */
   function convertMenuItem(f: FileItem): RowMenuItem[] {
     return officeDocType(f.name) && extOf(f.name) !== "pdf"
-      ? [{ label: "PDF'e dönüştür", onClick: () => convertToPdf(f) }]
+      ? [{ label: t("menu.convertToPdf"), onClick: () => convertToPdf(f) }]
       : [];
   }
 
   function tagMenuItem(type: "file" | "folder", item: FileItem | FolderItem): RowMenuItem[] {
     return [
       {
-        label: "Etiketler",
+        label: t("menu.tags"),
         onClick: () => setTagTarget({ type, id: item.id, name: item.name, tags: item.tags ?? [] }),
       },
     ];
@@ -610,7 +613,7 @@ function DriveInner() {
   function activityMenuItem(type: "file" | "folder", item: FileItem | FolderItem): RowMenuItem[] {
     return [
       {
-        label: "Erişim geçmişi",
+        label: t("menu.activity"),
         onClick: () => setActivityTarget({ type, id: item.id, name: item.name }),
       },
     ];
@@ -619,11 +622,11 @@ function DriveInner() {
   function commentMenuItem(f: FileItem): RowMenuItem[] {
     return [
       {
-        label: "Yorumlar",
+        label: t("menu.comments"),
         onClick: () => setCommentTarget({ id: f.id, name: f.name }),
       },
       {
-        label: "Onaya gönder / onay durumu",
+        label: t("menu.approval"),
         onClick: () => setApprovalTarget({ id: f.id, name: f.name, ownerId: f.ownerId }),
       },
     ];
@@ -637,20 +640,20 @@ function DriveInner() {
   function folderMenuItems(f: FolderItem): RowMenuItem[] {
     if (isTrash) {
       return [
-        { label: "Geri getir", onClick: () => restoreFolder(f) },
-        { label: "Kalıcı sil", onClick: () => setPending({ kind: "purge-folder", folder: f }), danger: true },
+        { label: t("menu.restore"), onClick: () => restoreFolder(f) },
+        { label: t("menu.purge"), onClick: () => setPending({ kind: "purge-folder", folder: f }), danger: true },
       ];
     }
     return [
-      { label: "İndir (.zip)", onClick: () => downloadFolderZip(f) },
-      { label: "Paylaş", onClick: () => setShareTarget({ type: "folder", id: f.id, name: f.name }) },
+      { label: t("menu.downloadZip"), onClick: () => downloadFolderZip(f) },
+      { label: t("menu.share"), onClick: () => setShareTarget({ type: "folder", id: f.id, name: f.name }) },
       ...tagMenuItem("folder", f),
       ...activityMenuItem("folder", f),
       ...(view === "root"
         ? [
-            { label: "Taşı", onClick: () => setPending({ kind: "move-folder" as const, folder: f }) },
-            { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-folder" as const, folder: f }) },
-            { label: "Sil", onClick: () => setPending({ kind: "delete-folder" as const, folder: f }), danger: true },
+            { label: t("menu.move"), onClick: () => setPending({ kind: "move-folder" as const, folder: f }) },
+            { label: t("menu.rename"), onClick: () => setPending({ kind: "rename-folder" as const, folder: f }) },
+            { label: t("menu.delete"), onClick: () => setPending({ kind: "delete-folder" as const, folder: f }), danger: true },
           ]
         : []),
     ];
@@ -659,25 +662,25 @@ function DriveInner() {
   function fileMenuItems(f: FileItem): RowMenuItem[] {
     if (isTrash) {
       return [
-        { label: "Geri getir", onClick: () => restoreFile(f) },
-        { label: "Kalıcı sil", onClick: () => setPending({ kind: "purge-file", file: f }), danger: true },
+        { label: t("menu.restore"), onClick: () => restoreFile(f) },
+        { label: t("menu.purge"), onClick: () => setPending({ kind: "purge-file", file: f }), danger: true },
       ];
     }
     return [
-      { label: "İndir", onClick: () => downloadFile(f) },
-      { label: "Paylaş", onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
+      { label: t("menu.download"), onClick: () => downloadFile(f) },
+      { label: t("menu.share"), onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
       ...officeMenuItem(f),
       ...convertMenuItem(f),
-      { label: "Kopyasını oluştur", onClick: () => copyFile(f) },
-      { label: "Versiyonlar", onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
+      { label: t("menu.copy"), onClick: () => copyFile(f) },
+      { label: t("menu.versions"), onClick: () => setVersionsTarget({ id: f.id, name: f.name }) },
       ...tagMenuItem("file", f),
       ...activityMenuItem("file", f),
       ...commentMenuItem(f),
       ...(view === "root"
         ? [
-            { label: "Taşı", onClick: () => setPending({ kind: "move-file" as const, file: f }) },
-            { label: "Yeniden adlandır", onClick: () => setPending({ kind: "rename-file" as const, file: f }) },
-            { label: "Sil", onClick: () => setPending({ kind: "delete-file" as const, file: f }), danger: true },
+            { label: t("menu.move"), onClick: () => setPending({ kind: "move-file" as const, file: f }) },
+            { label: t("menu.rename"), onClick: () => setPending({ kind: "rename-file" as const, file: f }) },
+            { label: t("menu.delete"), onClick: () => setPending({ kind: "delete-file" as const, file: f }), danger: true },
           ]
         : []),
     ];
@@ -692,10 +695,10 @@ function DriveInner() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Taşınamadı", "error");
+      toast(d.error ?? t("toast.moveFailed"), "error");
       return;
     }
-    toast("Taşındı", "success");
+    toast(t("toast.moved"), "success");
     load();
   }
 
@@ -708,10 +711,10 @@ function DriveInner() {
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Taşınamadı", "error");
+      toast(d.error ?? t("toast.moveFailed"), "error");
       return;
     }
-    toast("Taşındı", "success");
+    toast(t("toast.moved"), "success");
     load();
   }
 
@@ -789,10 +792,10 @@ function DriveInner() {
     if (!res.ok) {
       // Kota aşımı (413) dahil: kullanıcı neden geri gelmediğini görsün.
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Geri getirilemedi", "error");
+      toast(d.error ?? t("toast.restoreFailed"), "error");
       return;
     }
-    toast(`"${folder.name}" geri getirildi`, "success");
+    toast(t("toast.restoredNamed", { name: folder.name }), "success");
     load();
     refreshMe();
   }
@@ -802,10 +805,10 @@ function DriveInner() {
     if (!res.ok) {
       // Kota aşımı (413) dahil: kullanıcı neden geri gelmediğini görsün.
       const d = await res.json().catch(() => ({}));
-      toast(d.error ?? "Geri getirilemedi", "error");
+      toast(d.error ?? t("toast.restoreFailed"), "error");
       return;
     }
-    toast(`"${file.name}" geri getirildi`, "success");
+    toast(t("toast.restoredNamed", { name: file.name }), "success");
     load();
     refreshMe();
   }
@@ -813,14 +816,14 @@ function DriveInner() {
   async function purgeFolder(folder: FolderItem) {
     setPending(null);
     await fetch(withBasePath(`/api/trash/purge/folder/${folder.id}`), { method: "DELETE" });
-    toast("Kalıcı olarak silindi");
+    toast(t("toast.purged"));
     load();
   }
 
   async function purgeFile(file: FileItem) {
     setPending(null);
     await fetch(withBasePath(`/api/trash/purge/file/${file.id}`), { method: "DELETE" });
-    toast("Kalıcı olarak silindi");
+    toast(t("toast.purged"));
     load();
   }
 
@@ -847,7 +850,7 @@ function DriveInner() {
     const { selFolders, selFiles } = selectedItems();
     for (const f of selFolders) await fetch(withBasePath(`/api/folders/${f.id}`), { method: "DELETE" });
     for (const f of selFiles) await fetch(withBasePath(`/api/files/${f.id}`), { method: "DELETE" });
-    toast(`${selFolders.length + selFiles.length} öğe çöp kutusuna taşındı`);
+    toast(t("toast.itemsTrashed", { count: selFolders.length + selFiles.length }));
     setSelected(new Set());
     load();
     refreshMe();
@@ -870,7 +873,7 @@ function DriveInner() {
         body: JSON.stringify({ folderId: destFolderId }),
       });
     }
-    toast(`${selFolders.length + selFiles.length} öğe taşındı`, "success");
+    toast(t("toast.itemsMoved", { count: selFolders.length + selFiles.length }), "success");
     setSelected(new Set());
     load();
   }
@@ -893,12 +896,12 @@ function DriveInner() {
             bu sadece Sürücü içindeki (Sürücüm/Son kullanılanlar/Yıldızlılar/vb.) ikincil
             gezinme; OrdersScreen'deki yatay sekme deseniyle aynı dil kullanılıyor. */}
         <div className="mb-4 flex gap-1 overflow-x-auto border-b" style={{ borderColor: "var(--border)" }}>
-          <ViewTab active={view === "root"} onClick={() => goFolder(null)} label="Sürücüm" icon="🗂️" />
-          <ViewTab active={view === "recent"} onClick={() => goView("recent")} label="Son kullanılanlar" icon="🕒" />
-          <ViewTab active={view === "starred"} onClick={() => goView("starred")} label="Yıldızlılar" icon="⭐" />
-          <ViewTab active={view === "media"} onClick={() => goView("media")} label="Medya" icon="🎬" />
-          <ViewTab active={view === "shared"} onClick={() => goView("shared")} label="Benimle paylaşılanlar" icon="🤝" />
-          <ViewTab active={view === "trash"} onClick={() => goView("trash")} label="Çöp kutusu" icon="🗑️" />
+          <ViewTab active={view === "root"} onClick={() => goFolder(null)} label={t("nav.root")} icon="🗂️" />
+          <ViewTab active={view === "recent"} onClick={() => goView("recent")} label={t("nav.recent")} icon="🕒" />
+          <ViewTab active={view === "starred"} onClick={() => goView("starred")} label={t("nav.starred")} icon="⭐" />
+          <ViewTab active={view === "media"} onClick={() => goView("media")} label={t("nav.media")} icon="🎬" />
+          <ViewTab active={view === "shared"} onClick={() => goView("shared")} label={t("nav.shared")} icon="🤝" />
+          <ViewTab active={view === "trash"} onClick={() => goView("trash")} label={t("nav.trash")} icon="🗑️" />
         </div>
 
         <div
@@ -916,7 +919,7 @@ function DriveInner() {
               className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-2xl border-2 border-dashed text-sm font-medium"
               style={{ borderColor: "var(--accent)", background: "var(--accent-soft)", color: "var(--accent-soft-foreground)" }}
             >
-              📤 Bırakınca yüklenir
+              {t("dropOverlay")}
             </div>
           )}
 
@@ -942,7 +945,7 @@ function DriveInner() {
                 }}
                 onDrop={handleDropOn(null)}
               >
-                Sürücüm
+                {t("nav.root")}
               </button>
               {breadcrumb.map((c) => (
                 <span key={c.id} className="flex items-center gap-1">
@@ -976,32 +979,32 @@ function DriveInner() {
           {view === "search" && (
             <div className="mb-4">
               <h1 className="mb-3 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-                {q ? <>&quot;{q}&quot; için sonuçlar</> : "Filtrelenmiş sonuçlar"}
+                {q ? t("search.resultsFor", { q }) : t("search.filteredResults")}
               </h1>
               <div className="flex flex-wrap items-end gap-3 rounded-xl border p-3" style={{ borderColor: "var(--border)" }}>
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Tür
+                    {t("search.typeLabel")}
                   </span>
                   <select
                     className="input"
                     value={searchFilters.type}
                     onChange={(e) => setSearchFilters((s) => ({ ...s, type: e.target.value }))}
                   >
-                    <option value="">Hepsi</option>
-                    <option value="image">Resim</option>
-                    <option value="video">Video</option>
-                    <option value="audio">Ses</option>
-                    <option value="pdf">PDF</option>
-                    <option value="document">Word</option>
-                    <option value="spreadsheet">Excel</option>
-                    <option value="presentation">PowerPoint</option>
-                    <option value="archive">Arşiv (.zip)</option>
+                    <option value="">{t("search.typeAll")}</option>
+                    <option value="image">{t("search.typeImage")}</option>
+                    <option value="video">{t("search.typeVideo")}</option>
+                    <option value="audio">{t("search.typeAudio")}</option>
+                    <option value="pdf">{t("search.typePdf")}</option>
+                    <option value="document">{t("search.typeDocument")}</option>
+                    <option value="spreadsheet">{t("search.typeSpreadsheet")}</option>
+                    <option value="presentation">{t("search.typePresentation")}</option>
+                    <option value="archive">{t("search.typeArchive")}</option>
                   </select>
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Başlangıç tarihi
+                    {t("search.dateFrom")}
                   </span>
                   <input
                     type="date"
@@ -1012,7 +1015,7 @@ function DriveInner() {
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Bitiş tarihi
+                    {t("search.dateTo")}
                   </span>
                   <input
                     type="date"
@@ -1023,7 +1026,7 @@ function DriveInner() {
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Min. boyut (MB)
+                    {t("search.minSize")}
                   </span>
                   <input
                     type="number"
@@ -1035,7 +1038,7 @@ function DriveInner() {
                 </label>
                 <label className="block">
                   <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
-                    Maks. boyut (MB)
+                    {t("search.maxSize")}
                   </span>
                   <input
                     type="number"
@@ -1054,7 +1057,7 @@ function DriveInner() {
                     className="btn-ghost text-xs"
                     onClick={() => setSearchFilters({ type: "", dateFrom: "", dateTo: "", minSizeMb: "", maxSizeMb: "" })}
                   >
-                    Filtreleri temizle
+                    {t("search.clearFilters")}
                   </button>
                 )}
               </div>
@@ -1062,31 +1065,31 @@ function DriveInner() {
           )}
           {view === "shared" && (
             <h1 className="mb-4 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-              Benimle paylaşılanlar
+              {t("nav.shared")}
             </h1>
           )}
           {view === "recent" && (
             <h1 className="mb-4 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-              Son kullanılanlar
+              {t("nav.recent")}
             </h1>
           )}
           {view === "starred" && (
             <h1 className="mb-4 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-              Yıldızlılar
+              {t("nav.starred")}
             </h1>
           )}
           {view === "media" && (
             <h1 className="mb-4 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-              Medya
+              {t("nav.media")}
             </h1>
           )}
           {view === "trash" && (
             <div className="mb-4">
               <h1 className="text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-                Çöp kutusu
+                {t("trash.title")}
               </h1>
               <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-                Silinen öğeler burada durur; geri getirebilir veya kalıcı olarak silebilirsiniz.
+                {t("trash.hint")}
               </p>
             </div>
           )}
@@ -1096,7 +1099,7 @@ function DriveInner() {
               <div className="flex gap-2">
                 <div className="relative" ref={newMenuRef}>
                   <button className="btn-secondary" onClick={() => setNewMenuOpen((o) => !o)}>
-                    + Yeni
+                    {t("toolbar.new")}
                   </button>
                   {newMenuOpen && (
                     <div
@@ -1113,7 +1116,7 @@ function DriveInner() {
                           setPending({ kind: "new-folder" });
                         }}
                       >
-                        📁 Klasör
+                        {t("toolbar.newFolder")}
                       </button>
                       <button
                         className="block w-full px-3 py-2 text-left text-sm hover:opacity-80"
@@ -1122,7 +1125,7 @@ function DriveInner() {
                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                         onClick={() => createBlankDoc("docx")}
                       >
-                        📄 Word belgesi
+                        {t("toolbar.newWord")}
                       </button>
                       <button
                         className="block w-full px-3 py-2 text-left text-sm hover:opacity-80"
@@ -1131,7 +1134,7 @@ function DriveInner() {
                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                         onClick={() => createBlankDoc("xlsx")}
                       >
-                        📊 Excel tablosu
+                        {t("toolbar.newExcel")}
                       </button>
                       <button
                         className="block w-full px-3 py-2 text-left text-sm hover:opacity-80"
@@ -1140,7 +1143,7 @@ function DriveInner() {
                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                         onClick={() => createBlankDoc("pptx")}
                       >
-                        📽️ PowerPoint sunumu
+                        {t("toolbar.newPowerpoint")}
                       </button>
                       <button
                         className="block w-full px-3 py-2 text-left text-sm hover:opacity-80"
@@ -1149,13 +1152,13 @@ function DriveInner() {
                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                         onClick={() => createBlankDoc("txt")}
                       >
-                        📝 Metin dosyası
+                        {t("toolbar.newText")}
                       </button>
                     </div>
                   )}
                 </div>
                 <button className="btn-primary" onClick={() => fileInputRef.current?.click()}>
-                  ⬆ Dosya yükle
+                  {t("toolbar.upload")}
                 </button>
                 <input
                   ref={fileInputRef}
@@ -1168,9 +1171,9 @@ function DriveInner() {
                   className="btn-secondary"
                   disabled={zipUploading}
                   onClick={() => zipInputRef.current?.click()}
-                  title="Bir .zip dosyasını klasör yapısıyla birlikte çıkart"
+                  title={t("toolbar.zipUploadTitle")}
                 >
-                  {zipUploading ? "Çıkartılıyor…" : "📦 Zip olarak yükle"}
+                  {zipUploading ? t("toolbar.zipUploading") : t("toolbar.zipUpload")}
                 </button>
                 <input
                   ref={zipInputRef}
@@ -1192,23 +1195,23 @@ function DriveInner() {
               style={{ borderColor: "var(--accent)", background: "var(--accent-soft)" }}
             >
               <span className="text-sm font-medium" style={{ color: "var(--accent-soft-foreground)" }}>
-                {selectionCount} öğe seçildi
+                {t("selection.count", { count: selectionCount })}
               </span>
               <div className="ml-auto flex flex-wrap gap-2">
                 <button className="btn-secondary text-xs" onClick={bulkDownload}>
-                  İndir
+                  {t("selection.download")}
                 </button>
                 <button className="btn-secondary text-xs" onClick={() => setPending({ kind: "bulk-move" })}>
-                  Taşı
+                  {t("selection.move")}
                 </button>
                 <button
                   className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-400"
                   onClick={() => setPending({ kind: "bulk-delete" })}
                 >
-                  Sil
+                  {t("selection.delete")}
                 </button>
                 <button className="btn-ghost text-xs" onClick={() => setSelected(new Set())}>
-                  Vazgeç
+                  {t("selection.cancel")}
                 </button>
               </div>
             </div>
@@ -1359,22 +1362,22 @@ function DriveInner() {
                     {isTrash ? (
                       <>
                         <button className="btn-ghost" onClick={() => restoreFolder(f)}>
-                          Geri getir
+                          {t("row.restore")}
                         </button>
                         <button
                           className="btn-ghost text-red-600 dark:text-red-400"
                           onClick={() => setPending({ kind: "purge-folder", folder: f })}
                         >
-                          Kalıcı sil
+                          {t("row.purge")}
                         </button>
                       </>
                     ) : (
                       <>
                         <button className="btn-ghost" onClick={() => downloadFolderZip(f)}>
-                          İndir
+                          {t("row.download")}
                         </button>
                         <button className="btn-ghost" onClick={() => setShareTarget({ type: "folder", id: f.id, name: f.name })}>
-                          Paylaş
+                          {t("row.share")}
                         </button>
                       </>
                     )}
@@ -1432,22 +1435,22 @@ function DriveInner() {
                     {isTrash ? (
                       <>
                         <button className="btn-ghost" onClick={() => restoreFile(f)}>
-                          Geri getir
+                          {t("row.restore")}
                         </button>
                         <button
                           className="btn-ghost text-red-600 dark:text-red-400"
                           onClick={() => setPending({ kind: "purge-file", file: f })}
                         >
-                          Kalıcı sil
+                          {t("row.purge")}
                         </button>
                       </>
                     ) : (
                       <>
                         <button className="btn-ghost" onClick={() => downloadFile(f)}>
-                          İndir
+                          {t("row.download")}
                         </button>
                         <button className="btn-ghost" onClick={() => setShareTarget({ type: "file", id: f.id, name: f.name })}>
-                          Paylaş
+                          {t("row.share")}
                         </button>
                       </>
                     )}
@@ -1556,17 +1559,17 @@ function DriveInner() {
 
       {pending?.kind === "new-folder" && (
         <InputDialog
-          title="Yeni klasör"
-          label="Klasör adı"
-          confirmLabel="Oluştur"
+          title={t("dialog.newFolderTitle")}
+          label={t("dialog.folderNameLabel")}
+          confirmLabel={t("dialog.create")}
           onConfirm={createFolder}
           onCancel={() => setPending(null)}
         />
       )}
       {pending?.kind === "rename-folder" && (
         <InputDialog
-          title="Klasörü yeniden adlandır"
-          label="Yeni ad"
+          title={t("dialog.renameFolderTitle")}
+          label={t("dialog.newNameLabel")}
           initialValue={pending.folder.name}
           onConfirm={(name) => submitRenameFolder(pending.folder, name)}
           onCancel={() => setPending(null)}
@@ -1574,8 +1577,8 @@ function DriveInner() {
       )}
       {pending?.kind === "rename-file" && (
         <InputDialog
-          title="Dosyayı yeniden adlandır"
-          label="Yeni ad"
+          title={t("dialog.renameFileTitle")}
+          label={t("dialog.newNameLabel")}
           initialValue={pending.file.name}
           onConfirm={(name) => submitRenameFile(pending.file, name)}
           onCancel={() => setPending(null)}
@@ -1583,45 +1586,45 @@ function DriveInner() {
       )}
       {pending?.kind === "delete-folder" && (
         <ConfirmDialog
-          title="Klasörü sil"
-          description={`"${pending.folder.name}" çöp kutusuna taşınacak, oradan geri getirebilirsiniz.`}
-          confirmLabel="Çöp kutusuna taşı"
+          title={t("confirm.deleteFolderTitle")}
+          description={t("confirm.moveToTrashDesc", { name: pending.folder.name })}
+          confirmLabel={t("confirm.moveToTrash")}
           onConfirm={() => confirmDeleteFolder(pending.folder)}
           onCancel={() => setPending(null)}
         />
       )}
       {pending?.kind === "delete-file" && (
         <ConfirmDialog
-          title="Dosyayı sil"
-          description={`"${pending.file.name}" çöp kutusuna taşınacak, oradan geri getirebilirsiniz.`}
-          confirmLabel="Çöp kutusuna taşı"
+          title={t("confirm.deleteFileTitle")}
+          description={t("confirm.moveToTrashDesc", { name: pending.file.name })}
+          confirmLabel={t("confirm.moveToTrash")}
           onConfirm={() => confirmDeleteFile(pending.file)}
           onCancel={() => setPending(null)}
         />
       )}
       {pending?.kind === "purge-folder" && (
         <ConfirmDialog
-          title="Kalıcı olarak sil"
-          description={`"${pending.folder.name}" ve içeriği kalıcı olarak silinecek. Bu işlem GERİ ALINAMAZ.`}
-          confirmLabel="Kalıcı olarak sil"
+          title={t("confirm.purgeTitle")}
+          description={t("confirm.purgeFolderDesc", { name: pending.folder.name })}
+          confirmLabel={t("confirm.purgeTitle")}
           onConfirm={() => purgeFolder(pending.folder)}
           onCancel={() => setPending(null)}
         />
       )}
       {pending?.kind === "purge-file" && (
         <ConfirmDialog
-          title="Kalıcı olarak sil"
-          description={`"${pending.file.name}" kalıcı olarak silinecek. Bu işlem GERİ ALINAMAZ.`}
-          confirmLabel="Kalıcı olarak sil"
+          title={t("confirm.purgeTitle")}
+          description={t("confirm.purgeFileDesc", { name: pending.file.name })}
+          confirmLabel={t("confirm.purgeTitle")}
           onConfirm={() => purgeFile(pending.file)}
           onCancel={() => setPending(null)}
         />
       )}
       {pending?.kind === "bulk-delete" && (
         <ConfirmDialog
-          title="Seçilenleri sil"
-          description={`${selectionCount} öğe çöp kutusuna taşınacak.`}
-          confirmLabel="Çöp kutusuna taşı"
+          title={t("confirm.bulkDeleteTitle")}
+          description={t("confirm.bulkDeleteDesc", { count: selectionCount })}
+          confirmLabel={t("confirm.moveToTrash")}
           onConfirm={bulkDelete}
           onCancel={() => setPending(null)}
         />
@@ -1642,7 +1645,7 @@ function DriveInner() {
         />
       )}
       {pending?.kind === "bulk-move" && (
-        <MoveDialog itemName={`${selectionCount} öğe`} onSelect={bulkMove} onClose={() => setPending(null)} />
+        <MoveDialog itemName={t("selection.itemsLabel", { count: selectionCount })} onSelect={bulkMove} onClose={() => setPending(null)} />
       )}
     </AppShell>
   );
@@ -1705,6 +1708,7 @@ function RowActions({ children }: { children: React.ReactNode }) {
 }
 
 function StarButton({ starred, onClick }: { starred: boolean; onClick: () => void }) {
+  const t = useTranslations("drive");
   return (
     <button
       onClick={(e) => {
@@ -1712,8 +1716,8 @@ function StarButton({ starred, onClick }: { starred: boolean; onClick: () => voi
         onClick();
       }}
       className="btn-ghost shrink-0 px-1.5"
-      aria-label={starred ? "Yıldızı kaldır" : "Yıldızla"}
-      title={starred ? "Yıldızı kaldır" : "Yıldızla"}
+      aria-label={starred ? t("star.remove") : t("star.add")}
+      title={starred ? t("star.remove") : t("star.add")}
       style={starred ? { color: "#f59e0b" } : undefined}
     >
       {starred ? "★" : "☆"}
@@ -1722,13 +1726,14 @@ function StarButton({ starred, onClick }: { starred: boolean; onClick: () => voi
 }
 
 function ViewModeToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
+  const t = useTranslations("drive");
   return (
     <div className="flex shrink-0 rounded-lg border p-0.5" style={{ borderColor: "var(--border)" }}>
       {(["list", "grid"] as ViewMode[]).map((m) => (
         <button
           key={m}
           onClick={() => onChange(m)}
-          aria-label={m === "list" ? "Liste görünümü" : "Izgara görünümü"}
+          aria-label={m === "list" ? t("viewMode.list") : t("viewMode.grid")}
           className="rounded-md px-2.5 py-1.5 text-sm transition-colors"
           style={
             mode === m
@@ -1959,42 +1964,14 @@ export default function DrivePage() {
   );
 }
 
-const EMPTY_STATE: Record<View, { icon: string; title: string; hint: string }> = {
-  root: {
-    icon: "📂",
-    title: "Burası henüz boş",
-    hint: "Dosyaları bu alana sürükleyip bırakabilir ya da aşağıdan yükleyebilirsin.",
-  },
-  shared: {
-    icon: "🤝",
-    title: "Seninle paylaşılan bir şey yok",
-    hint: "Bir iş arkadaşın bir dosya ya da klasörü seninle paylaştığında burada görünür.",
-  },
-  search: {
-    icon: "🔍",
-    title: "Sonuç bulunamadı",
-    hint: "Farklı bir kelime dene ya da filtreleri gevşet. Arama, PDF ve metin dosyalarının içeriğinde de yapılır.",
-  },
-  recent: {
-    icon: "🕒",
-    title: "Henüz yakın zamanda açılan dosya yok",
-    hint: "Açtığın ve indirdiğin dosyalar hızlı erişim için burada listelenir.",
-  },
-  starred: {
-    icon: "⭐",
-    title: "Yıldızlı öğen yok",
-    hint: "Sık kullandığın dosya ve klasörlerin yanındaki ☆ işaretine basarak buraya ekleyebilirsin.",
-  },
-  trash: {
-    icon: "🗑️",
-    title: "Çöp kutusu boş",
-    hint: "Sildiğin öğeler kalıcı olarak silinene kadar burada bekler.",
-  },
-  media: {
-    icon: "🎬",
-    title: "Video ya da müzik dosyası yok",
-    hint: "Erişebildiğin video ve ses dosyaları tarayıcıda oynatmak için burada toplanır.",
-  },
+const EMPTY_STATE_ICON: Record<View, string> = {
+  root: "📂",
+  shared: "🤝",
+  search: "🔍",
+  recent: "🕒",
+  starred: "⭐",
+  trash: "🗑️",
+  media: "🎬",
 };
 
 /** Liste boşken ne olduğunu ve bir sonraki adımı anlatan durum kartı. */
@@ -2011,7 +1988,10 @@ function DriveEmptyState({
   onNewFolder: () => void;
   onGoRoot: () => void;
 }) {
-  const { icon, title, hint } = EMPTY_STATE[view];
+  const t = useTranslations("drive");
+  const icon = EMPTY_STATE_ICON[view];
+  const title = t(`emptyState.${view}.title`);
+  const hint = t(`emptyState.${view}.hint`);
   return (
     <div
       className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 py-14 text-center"
@@ -2026,7 +2006,7 @@ function DriveEmptyState({
       </span>
       <div className="max-w-sm space-y-1">
         <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-          {view === "root" && inSubfolder ? "Bu klasör boş" : title}
+          {view === "root" && inSubfolder ? t("emptyState.subfolderTitle") : title}
         </p>
         <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           {hint}
@@ -2035,16 +2015,16 @@ function DriveEmptyState({
       {view === "root" && (
         <div className="mt-1 flex flex-wrap justify-center gap-2">
           <button className="btn-primary" onClick={onUpload}>
-            ⬆ Dosya yükle
+            {t("emptyState.upload")}
           </button>
           <button className="btn-secondary" onClick={onNewFolder}>
-            📁 Yeni klasör
+            {t("emptyState.newFolder")}
           </button>
         </div>
       )}
       {(view === "shared" || view === "recent" || view === "starred") && (
         <button className="btn-secondary mt-1" onClick={onGoRoot}>
-          Sürücüme git
+          {t("emptyState.goRoot")}
         </button>
       )}
     </div>

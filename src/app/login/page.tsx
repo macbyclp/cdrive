@@ -2,10 +2,12 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { withBasePath } from "@/lib/basePath";
 import Footer from "@/components/Footer";
 
 function LoginForm() {
+  const t = useTranslations("auth.login");
   const router = useRouter();
   const params = useSearchParams();
   const [email, setEmail] = useState("");
@@ -28,7 +30,7 @@ function LoginForm() {
     const d = await res.json().catch(() => ({}));
     setLoading(false);
     if (!res.ok) {
-      setError(d.error ?? "Giriş başarısız");
+      setError(d.error ?? t("errorLogin"));
       return;
     }
     if (d.requiresTwoFactor) {
@@ -51,7 +53,7 @@ function LoginForm() {
     setLoading(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setError(d.error ?? "Doğrulama başarısız");
+      setError(d.error ?? t("errorVerify"));
       return;
     }
     router.push(params.get("next") ?? "/drive");
@@ -70,10 +72,10 @@ function LoginForm() {
             C
           </div>
           <h1 className="text-xl font-semibold" style={{ color: "var(--text-primary)" }}>
-            {needsTwoFactor ? "Doğrulama kodu" : "Cdrive'a giriş yap"}
+            {needsTwoFactor ? t("titleTwoFactor") : t("title")}
           </h1>
           <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
-            {needsTwoFactor ? "Kimlik doğrulama uygulamanızdaki 6 haneli kodu girin" : "Kurumsal dosya yönetim platformu"}
+            {needsTwoFactor ? t("subtitleTwoFactor") : t("subtitle")}
           </p>
         </div>
 
@@ -81,7 +83,7 @@ function LoginForm() {
           <form onSubmit={submit} className="space-y-4">
             <label className="block">
               <span className="mb-1 block text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                E-posta
+                {t("emailLabel")}
               </span>
               <input
                 required
@@ -89,16 +91,16 @@ function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="input"
-                placeholder="ad@sirket.com"
+                placeholder={t("emailPlaceholder")}
               />
             </label>
             <label className="block">
               <div className="mb-1 flex items-center justify-between">
                 <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                  Şifre
+                  {t("passwordLabel")}
                 </span>
                 <a href={withBasePath("/forgot-password")} className="text-xs" style={{ color: "var(--accent)" }}>
-                  Şifremi unuttum
+                  {t("forgotPassword")}
                 </a>
               </div>
               <input
@@ -117,24 +119,22 @@ function LoginForm() {
                 className="h-4 w-4 cursor-pointer accent-[var(--accent)]"
               />
               <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
-                Beni hatırla
+                {t("rememberMe")}
               </span>
             </label>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <button disabled={loading} className="btn-primary w-full">
-              {loading ? "Giriş yapılıyor…" : "Giriş yap"}
+              {loading ? t("submitting") : t("submit")}
             </button>
             <p className="text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
-              {remember
-                ? "Bu cihazda 30 gün açık kalırsın."
-                : "Bu cihazda 1 gün sonra tekrar giriş istenir."}
+              {remember ? t("rememberHintOn") : t("rememberHintOff")}
             </p>
           </form>
         ) : (
           <form onSubmit={submitCode} className="space-y-4">
             <label className="block">
               <span className="mb-1 block text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                Doğrulama kodu
+                {t("twoFactorLabel")}
               </span>
               <input
                 required
@@ -149,7 +149,7 @@ function LoginForm() {
             </label>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <button disabled={loading || code.length !== 6} className="btn-primary w-full">
-              {loading ? "Doğrulanıyor…" : "Doğrula"}
+              {loading ? t("twoFactorSubmitting") : t("twoFactorSubmit")}
             </button>
             <button
               type="button"
@@ -160,7 +160,7 @@ function LoginForm() {
                 setError(null);
               }}
             >
-              Geri dön
+              {t("back")}
             </button>
           </form>
         )}
