@@ -63,8 +63,7 @@ export default function FeatureTour({ user, onClose }: { user: MeUser; onClose: 
       >
         <div className="border-b p-5 pb-3" style={{ borderColor: "var(--border)" }}>
           <div
-            className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold text-white"
-            style={{ background: "linear-gradient(135deg, var(--accent), #a78bfa)" }}
+            className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold brand-mark"
           >
             C
           </div>

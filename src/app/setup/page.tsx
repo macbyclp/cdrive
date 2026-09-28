@@ -43,12 +43,11 @@ export default function SetupPage() {
   if (checking) return null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "var(--background)" }}>
-      <div className="w-full max-w-md rounded-2xl border p-8 shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-md rounded-[1.75rem] border p-8 shadow-sm" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
         <div className="mb-6 text-center">
           <div
-            className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold text-white"
-            style={{ background: "linear-gradient(135deg, #4f46e5, #a78bfa)", boxShadow: "var(--shadow-md)" }}
+            className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold brand-mark"
           >
             C
           </div>

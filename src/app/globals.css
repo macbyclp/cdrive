@@ -532,6 +532,13 @@ html[data-motion="on"] body::before {
   transform: scale(0.94);
 }
 
+/* Marka işareti ("C" rozeti) — giriş, kurulum ve karşılama ekranlarında. */
+.brand-mark {
+  background: linear-gradient(160deg, var(--accent-hover), var(--accent));
+  color: var(--accent-foreground);
+  box-shadow: var(--glass-edge), var(--shadow-md);
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
