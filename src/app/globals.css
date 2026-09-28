@@ -561,6 +561,39 @@ html[data-motion="on"] body::before {
    olduğu için (opacity:0 iken boyanmaz) maliyeti yok. Dokunmatikte hover yok:
    orada basma yayı (spring) ve dalga (ripple) kalır.
    ========================================================================== */
+/* Arka plan suyu — fareyi izleyen, zeminde dalgalanan ışık lekesi (bkz. LiquidEffects). */
+.lg-bg-water {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 480px;
+  height: 480px;
+  margin: -240px 0 0 -240px;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+  will-change: transform;
+  background:
+    radial-gradient(closest-side, var(--lg-spot), transparent 72%),
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 15px, var(--lg-ring) 18px, transparent 26px);
+  -webkit-mask-image: radial-gradient(closest-side, #000 28%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 28%, transparent 100%);
+  filter: url(#cd-water);
+}
+.lg-bg-water.is-on {
+  opacity: 1;
+}
+html[data-motion="off"] .lg-bg-water {
+  display: none;
+}
+@media (hover: none) {
+  .lg-bg-water {
+    display: none;
+  }
+}
+
 [data-liquid] {
   position: relative;
   isolation: isolate;

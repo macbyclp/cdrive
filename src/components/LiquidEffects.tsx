@@ -49,6 +49,15 @@ export default function LiquidEffects() {
       }
     }
 
+    // Su dalgasının "canlı" hissi: turbulence frekansı hover sürerken ~30fps salınır.
+    function wobble(t: number) {
+      if (!turb || t - lastWobble < 33) return;
+      lastWobble = t;
+      const fx = 0.011 + 0.004 * Math.sin(t / 1300);
+      const fy = 0.017 + 0.004 * Math.cos(t / 1700);
+      turb.setAttribute("baseFrequency", `${fx.toFixed(4)} ${fy.toFixed(4)}`);
+    }
+
     function startWobble() {
       if (wobbleRaf || !turb) return;
       const tick = (t: number) => {
@@ -56,19 +65,58 @@ export default function LiquidEffects() {
           wobbleRaf = 0;
           return;
         }
-        if (t - lastWobble > 33) {
-          lastWobble = t;
-          const fx = 0.011 + 0.004 * Math.sin(t / 1300);
-          const fy = 0.017 + 0.004 * Math.cos(t / 1700);
-          turb.setAttribute("baseFrequency", `${fx.toFixed(4)} ${fy.toFixed(4)}`);
-        }
+        wobble(t);
         wobbleRaf = requestAnimationFrame(tick);
       };
       wobbleRaf = requestAnimationFrame(tick);
     }
 
+    // Arka plan suyu: fareyi yumuşakça (lerp) izleyen, zeminde dalgalanan ışık lekesi. Küçük bir
+    // eleman olduğu için SVG filtresi ucuz; konum transform ile (compositor) güncellenir.
+    const bg = document.createElement("div");
+    bg.className = "lg-bg-water";
+    bg.setAttribute("aria-hidden", "true");
+    document.body.appendChild(bg);
+    let tx = 0;
+    let ty = 0;
+    let px = 0;
+    let py = 0;
+    let bgOn = false;
+    let bgRaf = 0;
+
+    function bgTick(t: number) {
+      px += (tx - px) * 0.16;
+      py += (ty - py) * 0.16;
+      bg.style.transform = `translate3d(${px.toFixed(1)}px, ${py.toFixed(1)}px, 0)`;
+      wobble(t);
+      if (bgOn || Math.abs(tx - px) > 0.5 || Math.abs(ty - py) > 0.5) bgRaf = requestAnimationFrame(bgTick);
+      else bgRaf = 0;
+    }
+
+    function bgMove(e: PointerEvent) {
+      if (!motionOn() || document.querySelector('[data-skin="modern"], [data-skin="archive"]')) {
+        bgHide();
+        return;
+      }
+      tx = e.clientX;
+      ty = e.clientY;
+      if (!bgOn) {
+        bgOn = true;
+        px = tx;
+        py = ty;
+        bg.classList.add("is-on");
+      }
+      if (!bgRaf) bgRaf = requestAnimationFrame(bgTick);
+    }
+
+    function bgHide() {
+      bgOn = false;
+      bg.classList.remove("is-on");
+    }
+
     function onMove(e: PointerEvent) {
       if (e.pointerType !== "mouse" && e.pointerType !== "pen") return;
+      bgMove(e);
       if (!motionOn()) {
         if (current) setCurrent(null);
         return;
@@ -93,6 +141,7 @@ export default function LiquidEffects() {
 
     function onLeaveDoc() {
       setCurrent(null);
+      bgHide();
     }
 
     function onDown(e: PointerEvent) {
@@ -132,6 +181,8 @@ export default function LiquidEffects() {
       window.removeEventListener("blur", onLeaveDoc);
       if (raf) cancelAnimationFrame(raf);
       if (wobbleRaf) cancelAnimationFrame(wobbleRaf);
+      if (bgRaf) cancelAnimationFrame(bgRaf);
+      bg.remove();
       setCurrent(null);
     };
   }, []);
