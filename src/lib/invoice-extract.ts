@@ -13,6 +13,8 @@
 // /api/orders/[id]) sadece o an BOŞ olan Customer alanlarını doldurur, var olan/elle
 // girilmiş veriyi asla otomatik ezmez.
 
+import os from "os";
+import path from "path";
 import { textFromPdf } from "@/lib/text-extract";
 
 const MIN_PDF_TEXT_LENGTH = 40; // Bunun altındaysa PDF'te gerçek metin katmanı yok say.
@@ -31,11 +33,14 @@ export function isExtractableMime(mimeType: string): boolean {
   return mimeType === "application/pdf" || IMAGE_MIME_TYPES.has(mimeType);
 }
 
-async function ocrImage(buffer: Buffer): Promise<string> {
+export async function ocrImage(buffer: Buffer): Promise<string> {
   // Yalnızca kullanıldığında yükleniyor — tesseract.js worker başlatma maliyeti
   // (dil verisi indirme dahil) diğer dosya türlerinde gereksiz.
   const { createWorker } = await import("tesseract.js");
-  const worker = await createWorker(["tur", "eng"]);
+  // Dil verisi varsayılan olarak çalışma dizinine (proje köküne) yazılıyor — geçici klasörde önbellekle.
+  const worker = await createWorker(["tur", "eng"], undefined, {
+    cachePath: path.join(os.tmpdir(), "cdrive-tessdata"),
+  });
   try {
     const {
       data: { text },

@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
   // çalışma zamanında dinamik olarak çözümlemeye çalışıyor — Next'in bundler'ı bu
   // yolu paketleyince "Setting up fake worker failed: Cannot find module ..." ile
   // patlıyor; dışlanınca Node'un normal node_modules çözümlemesine bırakılıyor.
-  serverExternalPackages: ["pdfkit", "pdfjs-dist"],
+  serverExternalPackages: ["pdfkit", "pdfjs-dist", "tesseract.js"],
   // src/lib/basePath.ts (istemci tarafı fetch/window.open/href sarmalayıcısı)
   // basePath'i process.env.NEXT_PUBLIC_BASE_PATH üzerinden okuyor — basePath
   // "NEXT_PUBLIC_" önekiyle başlamadığı için Next.js'in otomatik client-env
