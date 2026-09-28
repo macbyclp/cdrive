@@ -561,6 +561,11 @@ html[data-motion="on"] body::before {
    olduğu için (opacity:0 iken boyanmaz) maliyeti yok. Dokunmatikte hover yok:
    orada basma yayı (spring) ve dalga (ripple) kalır.
    ========================================================================== */
+[data-liquid] {
+  position: relative;
+  isolation: isolate;
+}
+
 .lg-live::after {
   content: "";
   position: absolute;

@@ -42,17 +42,17 @@ const options: { value: ThemePreference; label: string }[] = [
 ];
 
 const motionOptions: { value: MotionPreference; label: string }[] = [
-  { value: "system", label: "Sistem" },
   { value: "on", label: "Açık" },
+  { value: "system", label: "Sistem" },
   { value: "off", label: "Kapalı" },
 ];
 
 function readMotion(): MotionPreference {
   try {
     const v = localStorage.getItem(MOTION_STORAGE_KEY);
-    return v === "on" || v === "off" ? v : "system";
+    return v === "off" || v === "system" ? v : "on";
   } catch {
-    return "system";
+    return "on";
   }
 }
 
@@ -74,7 +74,7 @@ export default function ThemeToggle() {
   function setMotion(pref: MotionPreference) {
     setMotionState(pref);
     try {
-      if (pref === "system") localStorage.removeItem(MOTION_STORAGE_KEY);
+      if (pref === "on") localStorage.removeItem(MOTION_STORAGE_KEY);
       else localStorage.setItem(MOTION_STORAGE_KEY, pref);
     } catch {
       // Depolama kapalıysa tercih yalnızca bu oturumda geçerli olur.
@@ -91,7 +91,7 @@ export default function ThemeToggle() {
         className="btn-ghost flex items-center gap-1"
         aria-label="Görünüm ayarları"
         aria-expanded={open}
-        title="Tema ve hareket"
+        title="Tema ve hareket (Sistem: işletim sisteminin hareketi azalt ayarını izler)"
       >
         <ThemeIcon kind={current.value} />
       </button>

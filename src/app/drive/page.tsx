@@ -1314,6 +1314,7 @@ function DriveInner() {
               {folders.map((f) => (
                 <div
                   key={f.id}
+                  data-liquid
                   className="archive-tab group flex flex-wrap items-center gap-3 border-b px-4 py-3 transition-colors last:border-0"
                   style={{
                     borderColor: "var(--border)",
@@ -1408,6 +1409,7 @@ function DriveInner() {
               {files.map((f) => (
                 <div
                   key={f.id}
+                  data-liquid
                   className="flex flex-wrap items-center gap-3 border-b px-4 py-3 transition-colors last:border-0"
                   style={{ borderColor: "var(--border)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
