@@ -78,14 +78,13 @@ export default function SharePage({ params }: { params: Promise<{ token: string 
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "var(--background)" }}>
+    <div className="flex min-h-screen items-center justify-center px-4">
       <div
-        className="dialog-panel w-full max-w-sm rounded-2xl border p-8 text-center"
+        className="dialog-panel w-full max-w-sm rounded-[1.75rem] border p-8 text-center"
         style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
       >
         <div
-          className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold text-white"
-          style={{ background: "linear-gradient(135deg, #4f46e5, #a78bfa)" }}
+          className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl text-lg font-bold brand-mark"
         >
           C
         </div>

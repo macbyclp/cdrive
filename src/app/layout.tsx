@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ToastProvider } from "@/components/ToastProvider";
+import LiquidEffects from "@/components/LiquidEffects";
 import { themeInitScript } from "@/lib/theme";
 import { withBasePath } from "@/lib/basePath";
 
@@ -25,8 +26,8 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Cdrive",
-    // iOS'ta durum çubuğu içeriğin üstüne biner ve arka planı sayfadan alır.
-    statusBarStyle: "default",
+    // iOS'ta durum çubuğu şeffaf olur, içerik (aurora zemin) altından görünür — Liquid Glass için şart.
+    statusBarStyle: "black-translucent",
   },
   icons: {
     // Next.js metadata.manifest'e basePath ekliyor ama metadata.icons'a EKLEMİYOR
@@ -41,9 +42,16 @@ export const metadata: Metadata = {
  * verilirse koyu temada beyaz bir şerit kalıyor.
  */
 export const viewport: Viewport = {
+  // viewport-fit=cover: sayfa çentik/home bar arkasına da uzanır; boşluklar CSS'te
+  // env(safe-area-inset-*) ile (bkz. globals.css --safe-*) verilir.
+  viewportFit: "cover",
+  width: "device-width",
+  initialScale: 1,
+  // Girişlerde odaklanınca iOS'un zorla yakınlaştırmasını ayrıca 16px yazı boyu engelliyor;
+  // kullanıcının el ile yakınlaştırması (erişilebilirlik) serbest bırakıldı.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b0b0f" },
+    { media: "(prefers-color-scheme: light)", color: "#e8eaee" },
+    { media: "(prefers-color-scheme: dark)", color: "#08090c" },
   ],
 };
 
@@ -62,6 +70,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <NextIntlClientProvider>
           <ThemeProvider>
             <ToastProvider>{children}</ToastProvider>
+            <LiquidEffects />
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>

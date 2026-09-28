@@ -7,7 +7,7 @@ export type MeUser = {
   usedBytes: string;
   quotaBytes: string;
   twoFactorEnabled: boolean;
-  uiSkin: "modern" | "archive" | "panel";
+  uiSkin: "glass" | "modern" | "archive" | "panel";
   canCreateOrders: boolean;
   canManageOrders: boolean;
   canManageProduction: boolean;

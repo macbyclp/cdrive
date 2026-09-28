@@ -49,14 +49,13 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-8" style={{ background: "var(--background)" }}>
+    <div className="flex min-h-screen items-center justify-center px-4 py-8">
       <div
-        className="w-full max-w-lg rounded-2xl border p-8"
+        className="w-full max-w-lg rounded-[1.75rem] border p-8"
         style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
       >
         <div
-          className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold text-white"
-          style={{ background: "linear-gradient(135deg, var(--accent), #a78bfa)" }}
+          className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl text-lg font-bold brand-mark"
         >
           C
         </div>

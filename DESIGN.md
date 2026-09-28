@@ -153,3 +153,24 @@ otomatik olarak yeni palete geçer, ayrı bir archive-özel bileşen tanımına 
   yapıp gerçek tarayıcıda yakaladı — bkz. günlük).
 - **Don't** sarı/pirinç vurguyu %10'dan fazla bir yüzeyde düz dolgu olarak kullanma — vurgu rengi
   sekmeler, butonlar ve aktif durumlarla sınırlı kalmalı, zemin asla pirinç renginde olmamalı.
+
+---
+
+## Liquid Glass (varsayılan görünüm)
+
+> Bu dosya yukarıda "Kurumsal Arşiv" dünyasını belgeler. **Varsayılan** görünüm artık
+> **Liquid Glass**'tır (`uiSkin = "glass"`; `"panel"` da aynı görünümü kullanır). `"modern"`
+> ve `"archive"` eski görünümler olarak admin panelinden seçilebilir kalır.
+
+- **Palet:** nötr (gri-beyaz-siyah). Tek vurgu mürekkep siyahı (koyu temada beyaz). Renk, zeminde
+  yavaş süzülen "aurora" ışık lekelerinden ve içerikten gelir.
+- **Malzeme:** `--surface` yarı saydam camdır; inline `background: var(--surface)` kullanan tüm
+  yüzeyler `[style*="var(--surface)"]` kuralıyla otomatik buzlu cam olur. `.card`, `.glass`,
+  `.btn-*`, `.dialog-panel`, `.lg-shell-*` sınıfları `--glass-*` jetonlarını kullanır.
+- **Su efekti:** `LiquidEffects` fare üstünde ışık lekesi + halkaları SVG turbulence/displacement
+  ile dalgalandırır, tıklamada dalga (ripple) çıkarır. `<html data-motion>` ile yönetilir:
+  varsayılan sistemin "hareketi azalt" tercihini izler, Tema menüsündeki anahtarla zorlanabilir.
+- **iOS PWA:** `viewport-fit=cover` + `black-translucent` durum çubuğu, `env(safe-area-inset-*)`,
+  telefonda alt sekme çubuğu ve alttan açılan menü/diyalog sayfaları, 16px girdiler, 44px hedefler.
+- **Erişilebilirlik:** `prefers-reduced-transparency` camı daha opak yapar (bulanıklık korunur),
+  `prefers-reduced-motion` hareket efektlerini kapatır.

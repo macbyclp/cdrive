@@ -8,9 +8,9 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
     reportClientError(error);
   }, [error]);
   return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "var(--background)" }}>
+    <div className="flex min-h-screen items-center justify-center px-4">
       <div
-        className="w-full max-w-sm rounded-2xl border p-8 text-center"
+        className="w-full max-w-sm rounded-[1.75rem] border p-8 text-center"
         style={{ background: "var(--surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-lg)" }}
       >
         <p className="mb-2 text-4xl">⚠️</p>

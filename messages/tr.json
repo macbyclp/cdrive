@@ -371,9 +371,11 @@
       },
       "uiSkin": {
         "title": "Arayüz görünümü",
-        "description": "Sürücü sayfasının görsel dilini seç — tüm kullanıcılar için geçerli olur. İkisi de tam işlevsel, sadece görünüm değişir.",
+        "description": "Arayüzün görsel dilini seç — tüm kullanıcılar için geçerli olur. Hepsi tam işlevsel, sadece görünüm değişir.",
+        "glassTitle": "Liquid Glass",
+        "glassDesc": "Varsayılan — buzlu cam yüzeyler, nötr renkler, iOS uyumlu düzen ve dokunuşa tepki veren su efekti.",
         "modernTitle": "Modern",
-        "modernDesc": "Mevcut varsayılan görünüm — indigo/mor vurgu, düz kartlar.",
+        "modernDesc": "Eski görünüm — indigo/mor vurgu, düz kartlar.",
         "archiveTitle": "Kurumsal Arşiv Dosya Dolabı",
         "archiveDesc": "Kraft/pirinç tonlarında, klasörler asma dosya sekmesi gibi görünür.",
         "panelTitle": "Panel (Genel Bakış)",

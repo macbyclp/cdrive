@@ -10,6 +10,8 @@ import Avatar from "@/components/Avatar";
 import FeatureTourGate from "@/components/FeatureTourGate";
 import ImpersonationBanner from "@/components/ImpersonationBanner";
 import { withBasePath } from "@/lib/basePath";
+import { isGlassSkin } from "@/lib/skin";
+import NavIcon from "@/components/NavIcons";
 
 export default function TopBar({
   user,
@@ -26,6 +28,7 @@ export default function TopBar({
   hideQuickNav?: boolean;
 }) {
   const router = useRouter();
+  const glass = isGlassSkin(user.uiSkin);
   const [q, setQ] = useState("");
   const usedPct = Math.min(
     100,
@@ -43,10 +46,15 @@ export default function TopBar({
     <FeatureTourGate user={user} />
     <ImpersonationBanner user={user} />
     <header
-      className="sticky top-0 z-10 flex items-center gap-3 border-b px-4 py-3 sm:gap-4 sm:px-5"
-      style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+      className={
+        glass
+          ? "lg-shell-bar flex items-center gap-2.5 py-2.5 sm:gap-4"
+          : "sticky top-0 z-10 flex items-center gap-3 border-b px-4 py-3 sm:gap-4 sm:px-5"
+      }
+      style={glass ? undefined : { background: "var(--surface)", borderColor: "var(--border)" }}
     >
-      {onMenuClick && (
+      {/* Liquid Glass'ta mobil gezinme alt sekme çubuğunda ("Menü"); ☰ yalnız eski görünümlerde. */}
+      {onMenuClick && !glass && (
         <button onClick={onMenuClick} className="btn-ghost shrink-0 sm:hidden" aria-label="Menü">
           ☰
         </button>
@@ -54,8 +62,16 @@ export default function TopBar({
 
       <a href={withBasePath("/drive")} className="flex shrink-0 items-center gap-2">
         <div
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white"
-          style={{ background: "linear-gradient(135deg, var(--accent), #a78bfa)", boxShadow: "var(--shadow-sm)" }}
+          className="flex h-8 w-8 items-center justify-center rounded-[0.65rem] text-sm font-bold"
+          style={
+            glass
+              ? {
+                  background: "linear-gradient(160deg, var(--accent-hover), var(--accent))",
+                  color: "var(--accent-foreground)",
+                  boxShadow: "var(--glass-edge), var(--shadow-sm)",
+                }
+              : { background: "linear-gradient(135deg, var(--accent), #a78bfa)", color: "#fff", boxShadow: "var(--shadow-sm)" }
+          }
         >
           C
         </div>
@@ -74,7 +90,7 @@ export default function TopBar({
         >
           <input
             id="cdrive-search-input"
-            className="input"
+            className={glass ? "input !rounded-full !pl-4" : "input"}
             placeholder="Dosya ara… (/ )"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -128,8 +144,9 @@ export default function TopBar({
             </div>
           </div>
         </a>
-        <button onClick={logout} className="btn-ghost">
-          Çıkış
+        <button onClick={logout} className={glass ? "btn-ghost hidden sm:inline-flex" : "btn-ghost"} title="Çıkış">
+          {glass ? <NavIcon name="logout" size={18} /> : "Çıkış"}
+          {glass && <span className="sr-only">Çıkış</span>}
         </button>
       </div>
     </header>
