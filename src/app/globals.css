@@ -3,58 +3,171 @@
 /* data-theme="dark" sınıf tabanlı karanlık mod stratejisi (ThemeProvider tarafından <html>'e yazılır) */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* ==========================================================================
+   LIQUID GLASS — varsayılan görsel dil (uiSkin = "glass" | "panel")
+   --------------------------------------------------------------------------
+   Nötr (gri-beyaz-siyah) palet; renk, zeminde yavaş süzülen "aurora" ışık
+   lekelerinden ve içerikten gelir. Yüzeyler buzlu cam: yarı saydam dolgu +
+   backdrop-filter + üst kenarda ince "specular" parlama. Eski görünümler
+   (modern / archive) aşağıda [data-skin="…"] altında korunuyor.
+   ========================================================================== */
 :root {
+  color-scheme: light;
+
+  --background: #dadde4;
+  --foreground: #0b0c0f;
+
+  /* --surface artık yarı saydam cam dolgu: inline `background: var(--surface)` kullanan
+     TÜM yüzeyler (diyalog, menü, kart…) otomatik cama dönüşür — blur, aşağıdaki
+     [style*="var(--surface)"] kuralıyla eklenir. */
+  --surface: rgb(255 255 255 / 0.62);
+  --surface-solid: #ffffff;
+  --surface-muted: rgb(20 24 32 / 0.055);
+  --surface-hover: rgb(20 24 32 / 0.075);
+  --border: rgb(20 24 32 / 0.1);
+  --text-primary: #0b0c0f;
+  --text-secondary: #4a4f58;
+  --text-tertiary: #767b85;
+
+  /* Tek vurgu: mürekkep siyahı (koyu temada beyaz). */
+  --accent: #0d0e12;
+  --accent-foreground: #ffffff;
+  --accent-hover: #2b2e35;
+  --accent-soft: rgb(20 24 32 / 0.075);
+  --accent-soft-foreground: #0b0c0f;
+
+  --danger: #d92d20;
+  --danger-hover: #b42318;
+  --success: #15803d;
+  --ring: rgb(20 24 32 / 0.16);
+
+  /* Cam malzemesi */
+  --glass-blur: blur(24px) saturate(1.7);
+  --glass-blur-strong: blur(38px) saturate(1.9);
+  --glass-fill: rgb(255 255 255 / 0.58);
+  --glass-fill-strong: rgb(255 255 255 / 0.78);
+  --glass-edge:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    inset 0 0 0 1px rgb(255 255 255 / 0.4),
+    inset 0 -1px 0 rgb(20 24 32 / 0.05);
+  --glass-line: rgb(255 255 255 / 0.55);
+  --lg-spot: rgb(255 255 255 / 0.7);
+  --lg-ring: rgb(255 255 255 / 0.5);
+
+  --shadow-sm: 0 1px 2px rgb(20 24 32 / 0.06), 0 2px 8px -2px rgb(20 24 32 / 0.06);
+  --shadow-md: 0 10px 30px -8px rgb(20 24 32 / 0.18), 0 2px 8px -2px rgb(20 24 32 / 0.08);
+  --shadow-lg: 0 30px 70px -20px rgb(20 24 32 / 0.35), 0 10px 24px -10px rgb(20 24 32 / 0.16);
+
+  /* Aurora ışık lekeleri (zeminin arkasında süzülür) */
+  --blob-1: rgb(255 255 255 / 1);
+  --blob-2: rgb(150 158 176 / 0.7);
+  --blob-3: rgb(118 126 146 / 0.5);
+
+  /* iOS güvenli alanlar (çentik / home bar) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --tabbar-h: 3.75rem;
+
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #08090c;
+  --foreground: #eef0f3;
+
+  --surface: rgb(34 37 44 / 0.58);
+  --surface-solid: #1a1c22;
+  --surface-muted: rgb(255 255 255 / 0.06);
+  --surface-hover: rgb(255 255 255 / 0.09);
+  --border: rgb(255 255 255 / 0.11);
+  --text-primary: #f3f4f6;
+  --text-secondary: #a6abb5;
+  --text-tertiary: #7a808b;
+
+  --accent: #f3f4f6;
+  --accent-foreground: #0b0c0f;
+  --accent-hover: #ffffff;
+  --accent-soft: rgb(255 255 255 / 0.11);
+  --accent-soft-foreground: #f3f4f6;
+
+  --danger: #f87171;
+  --danger-hover: #fca5a5;
+  --success: #4ade80;
+  --ring: rgb(255 255 255 / 0.22);
+
+  --glass-fill: rgb(38 41 49 / 0.5);
+  --glass-fill-strong: rgb(30 32 38 / 0.78);
+  --glass-edge:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    inset 0 0 0 1px rgb(255 255 255 / 0.07),
+    inset 0 -1px 0 rgb(0 0 0 / 0.35);
+  --glass-line: rgb(255 255 255 / 0.12);
+  --lg-spot: rgb(255 255 255 / 0.2);
+  --lg-ring: rgb(255 255 255 / 0.16);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35), 0 2px 8px -2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 10px 30px -8px rgb(0 0 0 / 0.6), 0 2px 8px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 30px 70px -20px rgb(0 0 0 / 0.75), 0 10px 24px -10px rgb(0 0 0 / 0.5);
+
+  --blob-1: rgb(112 120 138 / 0.6);
+  --blob-2: rgb(60 66 82 / 0.85);
+  --blob-3: rgb(86 94 112 / 0.5);
+}
+
+/* ==========================================================================
+   ESKİ GÖRÜNÜMLER — "Modern" (indigo/mor, düz kartlar) ve "Kurumsal Arşiv".
+   Admin panelinden seçilirse AppShell sarmalayıcısına data-skin yazılır; bu bloklar
+   jetonları geri yükler, aşağıdaki "legacy" kuralları bileşenleri düzleştirir.
+   ========================================================================== */
+[data-skin="modern"] {
   --background: #f8fafc;
   --foreground: #0f172a;
-
   --surface: #ffffff;
+  --surface-solid: #ffffff;
   --surface-muted: #f1f5f9;
   --surface-hover: #f1f5f9;
   --border: #e2e8f0;
   --text-primary: #0f172a;
   --text-secondary: #64748b;
   --text-tertiary: #94a3b8;
-
-  /* Marka rengi — nötr griler arasında tek vurgulu renk */
   --accent: #4f46e5;
   --accent-foreground: #ffffff;
   --accent-hover: #4338ca;
   --accent-soft: #eef2ff;
   --accent-soft-foreground: #4338ca;
-
   --danger: #dc2626;
   --danger-hover: #b91c1c;
   --success: #16a34a;
   --ring: rgb(79 70 229 / 0.15);
-
   --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.04);
   --shadow-md: 0 8px 24px -4px rgb(15 23 42 / 0.12), 0 2px 6px -2px rgb(15 23 42 / 0.06);
   --shadow-lg: 0 24px 48px -12px rgb(15 23 42 / 0.25), 0 8px 16px -8px rgb(15 23 42 / 0.12);
 }
-
-[data-theme="dark"] {
+[data-theme="dark"] [data-skin="modern"] {
   --background: #0b0f19;
   --foreground: #e2e8f0;
-
   --surface: #131826;
+  --surface-solid: #131826;
   --surface-muted: #1b2233;
   --surface-hover: #1b2233;
   --border: #262f45;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
   --text-tertiary: #64748b;
-
   --accent: #818cf8;
   --accent-foreground: #0b0f19;
   --accent-hover: #a5b4fc;
   --accent-soft: rgb(129 140 248 / 0.14);
   --accent-soft-foreground: #c7d2fe;
-
   --danger: #f87171;
   --danger-hover: #fca5a5;
   --success: #4ade80;
   --ring: rgb(129 140 248 / 0.25);
-
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.2);
   --shadow-md: 0 8px 24px -4px rgb(0 0 0 / 0.45), 0 2px 6px -2px rgb(0 0 0 / 0.3);
   --shadow-lg: 0 24px 48px -12px rgb(0 0 0 / 0.6), 0 8px 16px -8px rgb(0 0 0 / 0.35);
@@ -63,8 +176,6 @@
 /*
  * "Kurumsal Arşiv Dosya Dolabı" — Impeccable /impeccable init + karar sayfası
  * sürecinde seçilen alternatif görsel dil (bkz. PRODUCT.md, DESIGN.md).
- * Admin panelinden (Sistem ayarları) açılıp kapatılır; mevcut "modern" tema
- * kaldırılmadı, ikisi de daima kullanılabilir durumda kalır.
  * Metal ofis dosya dolabı çekmeceleri, kraft kağıt asma dosyalar, renkli
  * sekme etiketleri — koyu zeytin yeşili + pirinç/bakır vurgu + kraft zemin.
  */
@@ -73,6 +184,7 @@
   --foreground: #2b2620;
 
   --surface: #f6f1e4;
+  --surface-solid: #f6f1e4;
   --surface-muted: #e6ddc7;
   --surface-hover: #ddd2b5;
   --border: #b7a983;
@@ -95,19 +207,16 @@
   --shadow-md: 0 8px 20px -6px rgb(43 38 32 / 0.28), 0 2px 6px -2px rgb(43 38 32 / 0.14);
   --shadow-lg: 0 20px 40px -12px rgb(43 38 32 / 0.4), 0 8px 16px -8px rgb(43 38 32 / 0.2);
 
-  /* Kraft kağıt lif dokusu — SVG feTurbulence ile üretilmiş, harici dosya/istek
-     yok. Sadece rengi değil, zeminin KENDİSİNİ (dokusuz düz renk değil, hafif
-     pürüzlü kağıt) değiştiriyor — "sadece renk değişti" izlenimini kırmak için. */
+  /* Kraft kağıt lif dokusu — SVG feTurbulence ile üretilmiş, harici dosya/istek yok. */
   --paper-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
 }
-/* data-theme="dark", <html>'de; data-skin="archive" ise ayrı bir alt elementte
-   (Sürücü sayfasının wrapper'ında) — bu yüzden aynı-eleman seçici değil, torun
-   seçici gerekiyor. */
+/* data-theme="dark", <html>'de; data-skin ise ayrı bir alt elementte — torun seçici. */
 [data-theme="dark"] [data-skin="archive"] {
   --background: #1c1a14;
   --foreground: #e6ddc7;
 
   --surface: #26221a;
+  --surface-solid: #26221a;
   --surface-muted: #302b20;
   --surface-hover: #3a3426;
   --border: #4a4230;
@@ -126,27 +235,16 @@
   --success: #8fae6f;
   --ring: rgb(201 169 97 / 0.3);
 }
-
-/* Zeminin kendisi kağıt gibi pürüzlü — düz renk değil, gerçek bir doku. */
 [data-skin="archive"] {
   background-image: var(--paper-texture);
   background-color: var(--background);
 }
-
-/* Kart/panel köşeleri: modern temanın yuvarlak (rounded-xl/0.875rem) diline
-   karşı, dosya kağıdının keskin/az yuvarlak köşesi — form dili de değişiyor,
-   sadece renk değil. */
 [data-skin="archive"] .card,
 [data-skin="archive"] .input,
 [data-skin="archive"] .btn-primary,
 [data-skin="archive"] .btn-secondary {
   border-radius: 0.25rem;
 }
-
-/* Klasörleri gerçek bir "asma dosya" sekmesi gibi göstermek — düz bir
-   dikdörtgen değil, üstü eğik kesilmiş bir trapezoid (gerçek manila klasör
-   sekmesinin siluetiyle aynı), kağıt dokusuyla aynı zeminden çıkıyormuş gibi
-   hafif gölgeli. Sadece arşiv temasında; modern temada hiçbir etkisi yok. */
 [data-skin="archive"] .archive-tab {
   position: relative;
   border-radius: 0.25rem !important;
@@ -165,6 +263,56 @@
   opacity: 0.92;
 }
 
+/* Eski görünümlerde bileşenleri düz (camsız) haline getir. */
+:is([data-skin="modern"], [data-skin="archive"]) {
+  --glass-blur: none;
+}
+:is([data-skin="modern"], [data-skin="archive"]) [style*="var(--surface)"] {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:is([data-skin="modern"], [data-skin="archive"]) .card {
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  border-radius: 0.875rem;
+}
+:is([data-skin="modern"], [data-skin="archive"]) .input {
+  background: var(--surface);
+  box-shadow: none;
+  border-radius: 0.625rem;
+}
+:is([data-skin="modern"], [data-skin="archive"]) .btn-primary {
+  background: var(--accent);
+  border-radius: 0.625rem;
+  box-shadow: var(--shadow-sm);
+}
+:is([data-skin="modern"], [data-skin="archive"]) .btn-primary:hover {
+  background: var(--accent-hover);
+}
+:is([data-skin="modern"], [data-skin="archive"]) .btn-secondary {
+  background: var(--surface);
+  border-radius: 0.625rem;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:is([data-skin="modern"], [data-skin="archive"]) .lg-shell-bar,
+:is([data-skin="modern"], [data-skin="archive"]) .lg-shell-side {
+  background: var(--surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  border-radius: 0;
+}
+:is([data-skin="modern"], [data-skin="archive"]) .lg-tabbar {
+  display: none;
+}
+
+/* ==========================================================================
+   ZEMİN — aurora ışık lekeleri
+   ========================================================================== */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -172,9 +320,53 @@
   --font-mono: var(--font-geist-mono);
 }
 
-body {
+html {
   background: var(--background);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background: transparent;
   color: var(--foreground);
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* iOS: dokunma vurgusu ve uzun-basış menüsü arayüzü bozmasın; çift-dokunma yakınlaştırması yok. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
+  /* Taşan bir öğe iOS'ta sayfayı yana kaydırıp alt sekme çubuğunu ekran dışına itmesin. */
+  overflow-x: clip;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 18% 22%, var(--blob-1), transparent 70%),
+    radial-gradient(34% 38% at 82% 18%, var(--blob-2), transparent 70%),
+    radial-gradient(44% 40% at 62% 86%, var(--blob-3), transparent 72%),
+    radial-gradient(30% 30% at 8% 88%, var(--blob-2), transparent 70%);
+  will-change: transform;
+}
+html[data-motion="on"] body::before {
+  animation: aurora-drift 48s ease-in-out infinite alternate;
+}
+@keyframes aurora-drift {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(3%, -2%, 0) rotate(4deg) scale(1.06); }
+  100% { transform: translate3d(-3%, 3%, 0) rotate(-3deg) scale(1.02); }
 }
 
 ::selection {
@@ -182,82 +374,162 @@ body {
   color: var(--accent-soft-foreground);
 }
 
+:focus-visible {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 2px;
+}
+
+/* İnce, yarı saydam kaydırma çubukları */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(128 133 145 / 0.45) transparent;
+}
+
+/* ==========================================================================
+   CAM YÜZEYLER
+   ========================================================================== */
+/* Inline `background: var(--surface)` kullanan her yüzey (diyalog, menü, çekmece…)
+   otomatik buzlu cam olur. */
+[style*="var(--surface)"] {
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+
+.glass {
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-edge), var(--shadow-md);
+}
+.glass-strong {
+  background: var(--glass-fill-strong);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  box-shadow: var(--glass-edge), var(--shadow-lg);
+}
+
+.card {
+  position: relative;
+  isolation: isolate;
+  border-radius: 1.5rem;
+  border: 1px solid var(--glass-line);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-edge), var(--shadow-sm);
+}
+
 .input {
   width: 100%;
-  border-radius: 0.625rem;
+  border-radius: 0.95rem;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: rgb(255 255 255 / 0.42);
   color: var(--text-primary);
-  padding: 0.5rem 0.75rem;
+  padding: 0.55rem 0.85rem;
   font-size: 0.875rem;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  box-shadow: inset 0 1px 2px rgb(20 24 32 / 0.08);
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+[data-theme="dark"] .input {
+  background: rgb(0 0 0 / 0.28);
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / 0.5);
 }
 .input::placeholder {
   color: var(--text-tertiary);
 }
 .input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--ring);
+  border-color: var(--text-secondary);
+  background: rgb(255 255 255 / 0.7);
+  box-shadow: inset 0 1px 2px rgb(20 24 32 / 0.06), 0 0 0 4px var(--ring);
+}
+[data-theme="dark"] .input:focus {
+  background: rgb(0 0 0 / 0.4);
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-ghost {
+  white-space: nowrap;
+  position: relative;
+  isolation: isolate;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    transform 0.4s var(--ease-spring),
+    background 0.2s,
+    box-shadow 0.25s,
+    border-color 0.2s;
 }
 
 .btn-primary {
-  border-radius: 0.625rem;
+  border-radius: 999px;
   background: var(--accent);
   color: var(--accent-foreground);
-  padding: 0.5rem 1rem;
+  padding: 0.55rem 1.15rem;
   font-size: 0.875rem;
-  font-weight: 500;
-  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
-  box-shadow: var(--shadow-sm);
+  font-weight: 550;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    inset 0 -1px 0 rgb(0 0 0 / 0.25),
+    0 6px 16px -6px rgb(20 24 32 / 0.5);
+}
+[data-theme="dark"] .btn-primary {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.9),
+    inset 0 -1px 0 rgb(0 0 0 / 0.12),
+    0 6px 20px -6px rgb(255 255 255 / 0.25);
 }
 .btn-primary:hover {
   background: var(--accent-hover);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 .btn-primary:active {
-  transform: scale(0.97);
+  transform: scale(0.955);
 }
 .btn-primary:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   transform: none;
   box-shadow: none;
 }
 
 .btn-secondary {
-  border-radius: 0.625rem;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border-radius: 999px;
+  border: 1px solid var(--glass-line);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
   color: var(--text-primary);
-  padding: 0.5rem 1rem;
+  padding: 0.55rem 1.1rem;
   font-size: 0.875rem;
-  font-weight: 500;
-  transition: background 0.15s, transform 0.1s;
+  font-weight: 550;
+  box-shadow: var(--glass-edge), var(--shadow-sm);
 }
 .btn-secondary:hover {
-  background: var(--surface-hover);
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: var(--glass-fill-strong);
+  transform: translateY(-1px);
 }
 .btn-secondary:active {
-  transform: scale(0.97);
+  transform: scale(0.955);
+}
+.btn-secondary:disabled {
+  opacity: 0.5;
+  transform: none;
 }
 
 .btn-ghost {
-  border-radius: 0.5rem;
+  border-radius: 999px;
   color: var(--text-secondary);
-  padding: 0.375rem 0.625rem;
+  padding: 0.4rem 0.75rem;
   font-size: 0.8125rem;
-  transition: background 0.15s, color 0.15s;
 }
 .btn-ghost:hover {
   background: var(--surface-hover);
   color: var(--text-primary);
 }
-
-.card {
-  border-radius: 0.875rem;
-  border: 1px solid var(--border);
-  background: var(--surface);
+.btn-ghost:active {
+  transform: scale(0.94);
 }
 
 .badge {
@@ -270,49 +542,323 @@ body {
   font-weight: 600;
   background: var(--accent-soft);
   color: var(--accent-soft-foreground);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
 }
 
-/* --- İskelet (skeleton) yükleme animasyonu --- */
+/* ==========================================================================
+   LIQUID — fare üstünde su hareketi, tıklamada dalga
+   --------------------------------------------------------------------------
+   src/components/LiquidEffects.tsx pointermove'ta hedefe --mx/--my yazar ve
+   data-lg-hover işaretler; ışık lekesi + halkalar ::after katmanında, SVG
+   turbulence/displacement filtresiyle dalgalanır. Filtre yalnız hover'da devrede
+   olduğu için (opacity:0 iken boyanmaz) maliyeti yok. Dokunmatikte hover yok:
+   orada basma yayı (spring) ve dalga (ripple) kalır.
+   ========================================================================== */
+.lg-live::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  background:
+    radial-gradient(150px circle at var(--mx, 50%) var(--my, 50%), var(--lg-spot), transparent 68%),
+    repeating-radial-gradient(
+      circle at var(--mx, 50%) var(--my, 50%),
+      transparent 0 9px,
+      var(--lg-ring) 11px,
+      transparent 15px
+    );
+  -webkit-mask-image: radial-gradient(190px circle at var(--mx, 50%) var(--my, 50%), #000 25%, transparent 100%);
+  mask-image: radial-gradient(190px circle at var(--mx, 50%) var(--my, 50%), #000 25%, transparent 100%);
+}
+@media (hover: hover) and (pointer: fine) {
+  html[data-motion="on"] .lg-live[data-lg-hover]::after {
+    opacity: 1;
+    filter: url(#cd-water);
+  }
+}
+
+/* Tıklama dalgası: hedefin üstünde, ona kırpılmış geçici katman (bkz. LiquidEffects). */
+.lg-ripple-layer {
+  position: fixed;
+  z-index: 2147483000;
+  pointer-events: none;
+  overflow: hidden;
+}
+.lg-ripple {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: radial-gradient(circle, var(--lg-spot) 0%, var(--lg-ring) 42%, transparent 70%);
+  animation: lg-ripple 0.75s var(--ease-ios) forwards;
+}
+@keyframes lg-ripple {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0.9; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+html[data-motion="off"] .lg-ripple-layer {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Saydamlık azaltılmışsa (iOS "Saydamlığı Azalt") cam daha opak olur ama bulanıklık ve
+   kenar parlaması korunur — Windows'ta "saydamlık efektleri" kapalı olan kullanıcılar da
+   Liquid Glass görünümünü tamamen kaybetmesin. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --surface: rgb(255 255 255 / 0.82);
+    --glass-fill: rgb(255 255 255 / 0.78);
+    --glass-fill-strong: rgb(255 255 255 / 0.9);
+  }
+  [data-theme="dark"] {
+    --surface: rgb(34 37 44 / 0.8);
+    --glass-fill: rgb(38 41 49 / 0.76);
+    --glass-fill-strong: rgb(30 32 38 / 0.9);
+  }
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  :root {
+    --surface: var(--surface-solid);
+    --glass-fill: var(--surface-solid);
+    --glass-fill-strong: var(--surface-solid);
+  }
+}
+
+/* ==========================================================================
+   KABUK — yüzen cam üst çubuk, yan çubuk ve iOS alt sekme çubuğu
+   ========================================================================== */
+.lg-shell-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin: calc(var(--safe-top) + 0.6rem) 0.75rem 0;
+  padding-left: 0.9rem;
+  padding-right: 0.9rem;
+  border-radius: 1.6rem;
+  border: 1px solid var(--glass-line);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  box-shadow: var(--glass-edge), var(--shadow-md);
+}
+@media (min-width: 640px) {
+  .lg-shell-bar {
+    margin: 0.75rem 0.75rem 0;
+  }
+}
+
+.lg-shell-side {
+  border-radius: 1.75rem;
+  border: 1px solid var(--glass-line);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-edge), var(--shadow-md);
+}
+
+.lg-nav-link {
+  position: relative;
+  isolation: isolate;
+  border-radius: 1rem;
+  transition: background 0.2s, transform 0.4s var(--ease-spring), color 0.2s;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.lg-nav-link:active {
+  transform: scale(0.96);
+}
+.lg-nav-link[aria-current="page"] {
+  background: var(--glass-fill-strong);
+  box-shadow: var(--glass-edge), var(--shadow-sm);
+  color: var(--text-primary);
+}
+
+/* Alt sekme çubuğu — yalnız telefonda; iOS 26 tarzı yüzen kapsül. */
+.lg-tabbar {
+  position: fixed;
+  z-index: 30;
+  left: max(0.75rem, var(--safe-left));
+  right: max(0.75rem, var(--safe-right));
+  bottom: calc(var(--safe-bottom) + 0.6rem);
+  display: flex;
+  align-items: stretch;
+  gap: 0.15rem;
+  padding: 0.35rem;
+  border-radius: 2rem;
+  border: 1px solid var(--glass-line);
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  box-shadow: var(--glass-edge), var(--shadow-lg);
+}
+@media (min-width: 640px) {
+  .lg-tabbar {
+    display: none;
+  }
+}
+.lg-tab {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  min-height: 2.9rem;
+  border-radius: 1.6rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: background 0.25s, color 0.25s, transform 0.4s var(--ease-spring);
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.lg-tab:active {
+  transform: scale(0.92);
+}
+.lg-tab[aria-current="page"] {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+  box-shadow: inset 0 0 0 1px var(--glass-line);
+}
+.lg-tab-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* Sayfa içeriği alt sekme çubuğunun altında kalmasın: telefonda alt bilgi çubuğuna pay eklenir. */
+.lg-main {
+  padding-bottom: 1rem;
+}
+@media (max-width: 639px) {
+  .lg-glass-root {
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+  }
+  .lg-glass-root footer {
+    padding-bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 1.4rem);
+  }
+}
+.lg-glass-root footer {
+  border-color: transparent !important;
+}
+
+/* ==========================================================================
+   İSKELET, TOAST, DİYALOG
+   ========================================================================== */
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  50% { opacity: 0.45; }
 }
 .skeleton {
   animation: skeleton-pulse 1.4s ease-in-out infinite;
   background: var(--surface-muted);
-  border-radius: 0.375rem;
+  border-radius: 0.75rem;
 }
 
-/* --- Toast bildirimleri --- */
+/* Toast: üstte, güvenli alanın altında yüzen cam hap (iOS bildirim şeridi gibi). */
 @keyframes toast-in {
-  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  from { opacity: 0; transform: translateY(-14px) scale(0.94); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .toast {
-  animation: toast-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: toast-in 0.45s var(--ease-spring);
+  border-radius: 1.4rem !important;
+  border: 1px solid var(--glass-line) !important;
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  box-shadow: var(--glass-edge), var(--shadow-lg) !important;
 }
 
-/* --- Modal/diyalog giriş animasyonu --- */
 @keyframes overlay-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 @keyframes dialog-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
 .dialog-overlay {
-  animation: overlay-in 0.15s ease-out;
+  animation: overlay-in 0.25s ease-out;
+  background: rgb(8 10 14 / 0.32) !important;
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  backdrop-filter: blur(10px) saturate(1.2);
 }
 .dialog-panel {
-  animation: dialog-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: dialog-in 0.5s var(--ease-spring);
+  border-radius: 1.9rem !important;
+  border: 1px solid var(--glass-line) !important;
+  background: var(--glass-fill-strong) !important;
+  -webkit-backdrop-filter: var(--glass-blur-strong) !important;
+  backdrop-filter: var(--glass-blur-strong) !important;
+  box-shadow: var(--glass-edge), var(--shadow-lg) !important;
+}
+
+/* iOS: dar ekranda diyaloglar alttan açılan sayfa (bottom sheet) olur. */
+@media (max-width: 639px) {
+  .dialog-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .dialog-panel {
+    max-width: none !important;
+    width: 100% !important;
+    max-height: 92vh;
+    max-height: 92dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 1.9rem 1.9rem 0 0 !important;
+    padding-bottom: calc(1.5rem + var(--safe-bottom)) !important;
+    animation: sheet-in 0.5s var(--ease-ios);
+  }
+  .dialog-panel::before {
+    content: "";
+    display: block;
+    width: 2.4rem;
+    height: 0.3rem;
+    margin: -0.4rem auto 0.9rem;
+    border-radius: 999px;
+    background: var(--text-tertiary);
+    opacity: 0.5;
+  }
+}
+
+/* iOS: odaklanınca sayfa yakınlaşmasın diye girişler 16px, dokunma hedefleri ≥44px. */
+@media (pointer: coarse) {
+  .input,
+  select.input,
+  textarea.input {
+    font-size: 16px;
+    min-height: 2.75rem;
+  }
+  .btn-primary,
+  .btn-secondary {
+    min-height: 2.75rem;
+  }
+  .btn-ghost {
+    min-height: 2.5rem;
+  }
 }
 
 /* --- Bağlantı/link oluşturma kartı için ince vurgu çerçevesi --- */
 @keyframes glow-in {
   from { box-shadow: 0 0 0 0 var(--ring); }
-  to { box-shadow: 0 0 0 6px transparent; }
+  to { box-shadow: 0 0 0 8px transparent; }
 }
 .link-card {
-  animation: glow-in 0.6s ease-out;
+  animation: glow-in 0.7s ease-out;
 }

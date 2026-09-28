@@ -231,7 +231,7 @@ model SystemSettings {
   versionRetentionDays Int? // null = eski dosya versiyonları otomatik silinmez
   maxFileSizeBytes     BigInt? // null = sınır yok
   blockedExtensions    String? @db.Text // virgülle ayrılmış, örn ".exe,.bat,.sh"
-  uiSkin               String   @default("modern") // "modern" | "archive" — Sürücü sayfasının görsel dili, admin panelinden seçilir
+  uiSkin               String   @default("glass") // "glass" | "modern" | "archive" | "panel" — arayüzün görsel dili, admin panelinden seçilir ("panel" = glass + Sürücü yerine Genel Bakış açılışı)
   require2faForAdmins  Boolean  @default(false) // true ise TÜM ADMIN hesapları 2FA kurana kadar /account dışında hiçbir yere giremez
   orgName              String   @default("MACBYMAC") // Footer'da ve e-posta şablonlarındaki telif/kurum adı — admin panelinden değiştirilebilir
 

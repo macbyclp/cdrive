@@ -39,7 +39,7 @@ const schema = z.object({
   versionRetentionDays: z.number().int().positive().nullable().optional(),
   maxFileSizeBytes: byteSize.nullable().optional(),
   blockedExtensions: z.string().nullable().optional(),
-  uiSkin: z.enum(["modern", "archive", "panel"]).optional(),
+  uiSkin: z.enum(["glass", "modern", "archive", "panel"]).optional(),
   require2faForAdmins: z.boolean().optional(),
   orgName: z.string().trim().min(1).max(100).optional(),
   smtpHost: z.string().trim().max(200).nullable().optional(),

@@ -1087,7 +1087,7 @@ type SystemSettingsData = {
   versionRetentionDays: number | null;
   maxFileSizeBytes: string | null;
   blockedExtensions: string | null;
-  uiSkin: "modern" | "archive" | "panel";
+  uiSkin: "glass" | "modern" | "archive" | "panel";
   require2faForAdmins: boolean;
   orgName: string;
   smtpHost: string | null;
@@ -1254,7 +1254,7 @@ function SettingsTab() {
   const [versionDays, setVersionDays] = useState("");
   const [maxSizeMb, setMaxSizeMb] = useState("");
   const [blockedExt, setBlockedExt] = useState("");
-  const [uiSkin, setUiSkin] = useState<"modern" | "archive" | "panel">("modern");
+  const [uiSkin, setUiSkin] = useState<"glass" | "modern" | "archive" | "panel">("glass");
   const [require2fa, setRequire2fa] = useState(false);
   const [orgName, setOrgName] = useState("");
   const [orgNameBusy, setOrgNameBusy] = useState(false);
@@ -1271,7 +1271,7 @@ function SettingsTab() {
         setVersionDays(d.versionRetentionDays?.toString() ?? "");
         setMaxSizeMb(d.maxFileSizeBytes ? (Number(d.maxFileSizeBytes) / 1024 ** 2).toString() : "");
         setBlockedExt(d.blockedExtensions ?? "");
-        setUiSkin(d.uiSkin ?? "modern");
+        setUiSkin(d.uiSkin ?? "glass");
         setRequire2fa(!!d.require2faForAdmins);
       });
   }
@@ -1311,7 +1311,7 @@ function SettingsTab() {
     toast(t("settings.orgName.savedToast"), "success");
   }
 
-  async function saveSkin(skin: "modern" | "archive" | "panel") {
+  async function saveSkin(skin: "glass" | "modern" | "archive" | "panel") {
     setUiSkin(skin);
     const res = await fetch(withBasePath("/api/admin/settings"), {
       method: "PATCH",
@@ -1328,7 +1328,9 @@ function SettingsTab() {
         ? t("settings.uiSkin.archiveTitle")
         : skin === "panel"
           ? t("settings.uiSkin.panelTitle")
-          : t("settings.uiSkin.modernTitle");
+          : skin === "glass"
+            ? t("settings.uiSkin.glassTitle")
+            : t("settings.uiSkin.modernTitle");
     toast(t("settings.uiSkin.savedToast", { label }), "success");
   }
 
@@ -1422,7 +1424,28 @@ function SettingsTab() {
             {t("settings.uiSkin.description")}
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <button
+            type="button"
+            onClick={() => saveSkin("glass")}
+            className="rounded-xl border p-4 text-left transition-colors"
+            style={
+              uiSkin === "glass"
+                ? { borderColor: "var(--accent)", background: "var(--accent-soft)" }
+                : { borderColor: "var(--border)" }
+            }
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🫧</span>
+              <span className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                {t("settings.uiSkin.glassTitle")}
+              </span>
+              {uiSkin === "glass" && <span className="badge">{t("settings.uiSkin.active")}</span>}
+            </div>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
+              {t("settings.uiSkin.glassDesc")}
+            </p>
+          </button>
           <button
             type="button"
             onClick={() => saveSkin("modern")}

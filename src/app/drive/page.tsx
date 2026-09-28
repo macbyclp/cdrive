@@ -14,6 +14,8 @@ import CommentsDialog from "@/components/CommentsDialog";
 import ApprovalDialog from "@/components/ApprovalDialog";
 import MoveDialog from "@/components/MoveDialog";
 import ScanDialog from "@/components/ScanDialog";
+import NavIcon, { type NavIconName } from "@/components/NavIcons";
+import { isGlassSkin } from "@/lib/skin";
 import RowMenu, { type RowMenuItem } from "@/components/RowMenu";
 import { InputDialog, ConfirmDialog, OfficeOpenModeDialog } from "@/components/Dialogs";
 import { useToast } from "@/components/ToastProvider";
@@ -897,13 +899,20 @@ function DriveInner() {
         {/* Sürücü'ye özel görünüm anahtarı — genel sol menü artık ortak AppSidebar'da,
             bu sadece Sürücü içindeki (Sürücüm/Son kullanılanlar/Yıldızlılar/vb.) ikincil
             gezinme; OrdersScreen'deki yatay sekme deseniyle aynı dil kullanılıyor. */}
-        <div className="mb-4 flex gap-1 overflow-x-auto border-b" style={{ borderColor: "var(--border)" }}>
-          <ViewTab active={view === "root"} onClick={() => goFolder(null)} label={t("nav.root")} icon="🗂️" />
-          <ViewTab active={view === "recent"} onClick={() => goView("recent")} label={t("nav.recent")} icon="🕒" />
-          <ViewTab active={view === "starred"} onClick={() => goView("starred")} label={t("nav.starred")} icon="⭐" />
-          <ViewTab active={view === "media"} onClick={() => goView("media")} label={t("nav.media")} icon="🎬" />
-          <ViewTab active={view === "shared"} onClick={() => goView("shared")} label={t("nav.shared")} icon="🤝" />
-          <ViewTab active={view === "trash"} onClick={() => goView("trash")} label={t("nav.trash")} icon="🗑️" />
+        <div
+          className={
+            isGlassSkin(user.uiSkin)
+              ? "glass no-scrollbar mb-4 flex max-w-full gap-1 self-start overflow-x-auto rounded-full p-1 sm:inline-flex"
+              : "mb-4 flex gap-1 overflow-x-auto border-b"
+          }
+          style={isGlassSkin(user.uiSkin) ? undefined : { borderColor: "var(--border)" }}
+        >
+          <ViewTab glass={isGlassSkin(user.uiSkin)} active={view === "root"} onClick={() => goFolder(null)} label={t("nav.root")} icon="🗂️" glyph="drive" />
+          <ViewTab glass={isGlassSkin(user.uiSkin)} active={view === "recent"} onClick={() => goView("recent")} label={t("nav.recent")} icon="🕒" glyph="clock" />
+          <ViewTab glass={isGlassSkin(user.uiSkin)} active={view === "starred"} onClick={() => goView("starred")} label={t("nav.starred")} icon="⭐" glyph="star" />
+          <ViewTab glass={isGlassSkin(user.uiSkin)} active={view === "media"} onClick={() => goView("media")} label={t("nav.media")} icon="🎬" glyph="film" />
+          <ViewTab glass={isGlassSkin(user.uiSkin)} active={view === "shared"} onClick={() => goView("shared")} label={t("nav.shared")} icon="🤝" glyph="share" />
+          <ViewTab glass={isGlassSkin(user.uiSkin)} active={view === "trash"} onClick={() => goView("trash")} label={t("nav.trash")} icon="🗑️" glyph="trash" />
         </div>
 
         <div
@@ -1096,9 +1105,9 @@ function DriveInner() {
             </div>
           )}
 
-          <div className="mb-5 flex items-center justify-between gap-2">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
             {view === "root" ? (
-              <div className="flex gap-2">
+              <div className="flex min-w-0 flex-wrap gap-2">
                 <div className="relative" ref={newMenuRef}>
                   <button className="btn-secondary" onClick={() => setNewMenuOpen((o) => !o)}>
                     {t("toolbar.new")}
@@ -1708,7 +1717,39 @@ function TagDots({ tags }: { tags?: Tag[] }) {
 /** Sürücü içi görünüm sekmesi — AppShell'in ortak yeni tasarımıyla tutarlı olsun diye
     (bkz. OrdersScreen'deki TABS) eski dikey off-canvas sidebar yerine yatay, alt-çizgili
     sekmeler kullanılıyor; mobilde de (overflow-x-auto ile) doğal olarak kaydırılabilir. */
-function ViewTab({ active, onClick, label, icon }: { active: boolean; onClick: () => void; label: string; icon: string }) {
+function ViewTab({
+  active,
+  onClick,
+  label,
+  icon,
+  glyph,
+  glass,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  icon: string;
+  glyph: NavIconName;
+  glass: boolean;
+}) {
+  if (glass) {
+    // Liquid Glass: cam hap içinde segmentli kontrol; seçili sekme daha parlak cam.
+    return (
+      <button
+        onClick={onClick}
+        aria-current={active ? "page" : undefined}
+        className="lg-nav-link flex shrink-0 items-center gap-2 px-3.5 py-2 text-sm font-medium !rounded-full"
+        style={{
+          color: active ? "var(--text-primary)" : "var(--text-secondary)",
+          background: active ? "var(--glass-fill-strong)" : "transparent",
+          boxShadow: active ? "var(--glass-edge), var(--shadow-sm)" : "none",
+        }}
+      >
+        <NavIcon name={glyph} size={17} />
+        {label}
+      </button>
+    );
+  }
   return (
     <button
       onClick={onClick}

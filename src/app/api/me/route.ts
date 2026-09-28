@@ -32,7 +32,7 @@ export async function GET() {
         usedBytes: user.usedBytes.toString(),
         quotaBytes: user.quotaBytes.toString(),
         twoFactorEnabled: user.twoFactorEnabled,
-        uiSkin: (settings?.uiSkin as "modern" | "archive" | "panel") ?? "modern",
+        uiSkin: (settings?.uiSkin as "glass" | "modern" | "archive" | "panel") ?? "glass",
         canCreateOrders: user.canCreateOrders,
         canManageOrders: user.canManageOrders,
         canManageProduction: user.canManageProduction,
