@@ -13,6 +13,7 @@ import ActivityDialog from "@/components/ActivityDialog";
 import CommentsDialog from "@/components/CommentsDialog";
 import ApprovalDialog from "@/components/ApprovalDialog";
 import MoveDialog from "@/components/MoveDialog";
+import ScanDialog from "@/components/ScanDialog";
 import RowMenu, { type RowMenuItem } from "@/components/RowMenu";
 import { InputDialog, ConfirmDialog, OfficeOpenModeDialog } from "@/components/Dialogs";
 import { useToast } from "@/components/ToastProvider";
@@ -120,6 +121,7 @@ function DriveInner() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [zipUploading, setZipUploading] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(VIEW_MODE_KEY) as ViewMode | null;
@@ -1182,6 +1184,9 @@ function DriveInner() {
                   className="hidden"
                   onChange={(e) => uploadZip(e.target.files)}
                 />
+                <button className="btn-secondary" onClick={() => setScanOpen(true)} title={t("toolbar.scanTitle")}>
+                  {t("toolbar.scan")}
+                </button>
               </div>
             ) : (
               <div />
@@ -1627,6 +1632,22 @@ function DriveInner() {
           confirmLabel={t("confirm.moveToTrash")}
           onConfirm={bulkDelete}
           onCancel={() => setPending(null)}
+        />
+      )}
+      {scanOpen && (
+        <ScanDialog
+          folderId={folderId}
+          onClose={() => setScanOpen(false)}
+          onError={(m) => toast(m, "error")}
+          onSaved={(name, ocr, docxName) => {
+            setScanOpen(false);
+            toast(
+              docxName ? t("toast.scanSavedDocx", { name, docx: docxName }) : t(ocr ? "toast.scanSavedOcr" : "toast.scanSaved", { name }),
+              "success"
+            );
+            load();
+            refreshMe();
+          }}
         />
       )}
       {pending?.kind === "move-folder" && (

@@ -65,7 +65,9 @@
       "upload": "⬆ Dosya yükle",
       "zipUpload": "📦 Zip olarak yükle",
       "zipUploading": "Çıkartılıyor…",
-      "zipUploadTitle": "Bir .zip dosyasını klasör yapısıyla birlikte çıkart"
+      "zipUploadTitle": "Bir .zip dosyasını klasör yapısıyla birlikte çıkart",
+      "scan": "📷 Belge tara",
+      "scanTitle": "Kamera veya fotoğraflardan PDF oluştur"
     },
     "selection": {
       "count": "{count} öğe seçildi",
@@ -147,7 +149,10 @@
       "restoredNamed": "\"{name}\" geri getirildi",
       "purged": "Kalıcı olarak silindi",
       "itemsTrashed": "{count} öğe çöp kutusuna taşındı",
-      "itemsMoved": "{count} öğe taşındı"
+      "itemsMoved": "{count} öğe taşındı",
+      "scanSaved": "\"{name}\" taranıp kaydedildi",
+      "scanSavedOcr": "\"{name}\" taranıp kaydedildi (metin aranabilir)",
+      "scanSavedDocx": "\"{name}\" taranıp kaydedildi; düzenlenebilir Word: \"{docx}\""
     },
     "emptyState": {
       "root": { "title": "Burası henüz boş", "hint": "Dosyaları bu alana sürükleyip bırakabilir ya da aşağıdan yükleyebilirsin." },
@@ -170,6 +175,32 @@
       "list": "Liste görünümü",
       "grid": "Izgara görünümü"
     }
+  },
+  "scan": {
+    "title": "Belge tara",
+    "close": "Kapat",
+    "openCamera": "📷 Kamerayı aç",
+    "stopCamera": "Kamerayı kapat",
+    "capture": "Sayfayı çek",
+    "pickImages": "🖼 Fotoğraf seç",
+    "newPageFilter": "Filtre",
+    "filter": { "original": "Orijinal", "document": "Belge (netleştir)", "bw": "Siyah-beyaz" },
+    "empty": "Henüz sayfa yok. Kamerayla çekin veya fotoğraf seçin; sayfalar tek bir PDF olur.",
+    "pageN": "Sayfa {n}",
+    "rotate": "Döndür",
+    "moveLeft": "Öne al",
+    "moveRight": "Arkaya al",
+    "remove": "Sayfayı sil",
+    "fileName": "Dosya adı",
+    "ocr": "Metni tanı (OCR)",
+    "docx": "Düzenlenebilir Word (.docx) da oluştur",
+    "docxHint": "Okunan metinden Word'de düzenleyebileceğiniz ayrı bir belge üretir. Düzen, tablo ve görseller aktarılmaz; okuma hataları olabilir, kontrol edin.",
+    "ocrHint": "Taranan yazıyı okuyup içerik aramasında bulunabilir yapar; büyük belgelerde kaydetme uzun sürebilir.",
+    "save": "PDF olarak kaydet ({count} sayfa)",
+    "saving": "Kaydediliyor…",
+    "saveFailed": "Tarama kaydedilemedi",
+    "cameraUnavailable": "Kamera açılamadı. İzin verdiğinizden emin olun veya \"Fotoğraf seç\"i kullanın.",
+    "unreadableImage": "Görsel okunamadı"
   },
   "admin": {
     "title": "Yönetim paneli",
