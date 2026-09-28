@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import UpdatePanel from "@/components/UpdatePanel";
 import AppShell from "@/components/AppShell";
 import Avatar from "@/components/Avatar";
 import { useToast } from "@/components/ToastProvider";
@@ -39,7 +40,7 @@ type AuditLog = {
   user: { name: string; email: string } | null;
 };
 
-type Tab = "users" | "departments" | "analytics" | "settings" | "audit" | "groups" | "templates";
+type Tab = "users" | "departments" | "analytics" | "settings" | "audit" | "groups" | "templates" | "update";
 
 type GroupUser = { id: string; name: string; email: string };
 type Group = { id: string; name: string; members: GroupUser[] };
@@ -100,7 +101,7 @@ export default function AdminPage() {
         </p>
 
         <div className="mb-6 flex flex-wrap gap-1 border-b" style={{ borderColor: "var(--border)" }}>
-          {(["users", "departments", "groups", "templates", "analytics", "settings", "audit"] as Tab[]).map((tabKey) => (
+          {(["users", "departments", "groups", "templates", "analytics", "settings", "update", "audit"] as Tab[]).map((tabKey) => (
             <button
               key={tabKey}
               onClick={() => setTab(tabKey)}
@@ -138,6 +139,7 @@ export default function AdminPage() {
         {!loading && !error && tab === "analytics" && <AnalyticsTab users={users} departments={departments} />}
         {!loading && !error && tab === "settings" && <SettingsTab />}
         {!loading && !error && tab === "audit" && <AuditTab logs={logs} />}
+        {!loading && !error && tab === "update" && <UpdatePanel />}
       </div>
     </AppShell>
   );

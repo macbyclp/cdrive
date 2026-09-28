@@ -202,6 +202,44 @@
     "cameraUnavailable": "Kamera açılamadı. İzin verdiğinizden emin olun veya \"Fotoğraf seç\"i kullanın.",
     "unreadableImage": "Görsel okunamadı"
   },
+  "update": {
+    "title": "Uzaktan güncelleme",
+    "subtitle": "GitHub'daki {repo} ({branch}) dalını izler. SSH gerekmez; sunucudaki updater servisi kodu çeker, derler ve yeniden başlatır.",
+    "check": "Yeniden denetle",
+    "checking": "Denetleniyor…",
+    "updateNow": "Şimdi güncelle",
+    "updating": "Güncelleniyor…",
+    "running": "Çalışan sürüm",
+    "latest": "Son sürüm",
+    "builtAt": "Derlenme: {date}",
+    "commitUnknown": "Commit bilgisi yok (elle derlenmiş)",
+    "upToDate": "Güncel",
+    "upToDateHint": "Zaten son sürümdesiniz",
+    "behind": "{count} yeni değişiklik var",
+    "updateAvailable": "Yeni sürüm var",
+    "aheadOfRemote": "Çalışan sürüm GitHub'dakinden ileride",
+    "diverged": "Çalışan sürüm dalla ayrışmış — güncelleme onu ezer",
+    "notConfigured": "Güncelleme servisi yapılandırılmamış",
+    "notConfiguredHelp": "Uzaktan güncelleme için UPDATER_URL ve UPDATER_TOKEN ayarlı olmalı ve updater servisi çalışmalı. Docker/VDS kurulumunda deploy/vds/docker-compose.yml bunları içerir; ayrıntı için deploy/vds/README.md.",
+    "changes": "Yeni değişiklikler",
+    "log": "Güncelleme günlüğü",
+    "waitingLog": "Updater'dan günlük bekleniyor…",
+    "reconnecting": "Uygulama yeniden başlatılıyor, bağlantı bekleniyor…",
+    "state": {
+      "running": "Sürüyor",
+      "success": "Tamamlandı",
+      "failed": "Başarısız",
+      "rolledBack": "Geri alındı"
+    },
+    "confirmTitle": "Uygulama güncellensin mi?",
+    "confirmDesc": "Önce veritabanı yedeği alınır, yeni sürüm derlenir ve uygulama yeniden başlatılır (birkaç dakika sürebilir, bu sırada bağlantı kısa süre kopar). Sürüm sağlıklı açılmazsa otomatik olarak eskisine dönülür.",
+    "confirmButton": "Güncelle",
+    "doneToast": "Güncelleme tamamlandı, sayfa yenileniyor",
+    "rolledBackToast": "Güncelleme başarısız oldu, önceki sürüme dönüldü",
+    "failedToast": "Güncelleme başarısız oldu",
+    "loadFailed": "Güncelleme bilgisi alınamadı",
+    "startFailed": "Güncelleme başlatılamadı"
+  },
   "admin": {
     "title": "Yönetim paneli",
     "subtitle": "Kullanıcılar, departmanlar ve etkinlik günlüğü",
@@ -213,6 +251,7 @@
       "templates": "İzin şablonları",
       "analytics": "Depolama analitiği",
       "settings": "Sistem ayarları",
+      "update": "Güncelleme",
       "audit": "Etkinlik günlüğü"
     },
     "users": {

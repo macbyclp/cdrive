@@ -31,6 +31,12 @@ WORKDIR /app
 # Prisma'nın query engine binary'si Alpine'da (musl) OpenSSL'e dinamik link olur.
 RUN apk add --no-cache openssl su-exec
 ENV NODE_ENV=production
+# Uzaktan güncelleme (bkz. deploy/vds/updater): çalışan sürümün hangi commit'ten derlendiğini
+# admin panelinde gösterebilmek için build sırasında gömülür (updater GIT_SHA/BUILD_TIME verir).
+ARG GIT_SHA="unknown"
+ARG BUILD_TIME=""
+ENV APP_COMMIT=$GIT_SHA
+ENV APP_BUILT_AT=$BUILD_TIME
 # Next standalone, Docker'un verdiği HOSTNAME (konteyner kimliği) adresine bağlanır; 127.0.0.1 healthcheck'i ve port yayınlama için tüm arayüzlerde dinle.
 ENV HOSTNAME=0.0.0.0
 # Sağlık kontrolü URL'si basePath'i bilmeli (builder'daki build-arg ile aynı değer verilmeli).
