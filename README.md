@@ -72,6 +72,9 @@ Klasör ve dosya bazında ayrıca **VIEW / EDIT** izinleri verilir.
 - Dosya adı ve metin/PDF içeriğinde arama, etiketler, yorumlar, onay akışları
 - İsteğe bağlı OnlyOffice ile tarayıcıda Word/Excel/PowerPoint düzenleme
 
+**Yönetim**
+- Yönetim panelinden **SSH'siz uzaktan güncelleme** (yedek + otomatik geri dönüş)
+
 **Paylaşım ve güvenlik**
 - Süreli, indirme limitli, parola korumalı genel bağlantılar
 - **Denetim kaydı:** kim ne zaman ne yaptı
@@ -112,6 +115,10 @@ npm run build && npm start
 ```
 
 Docker/VDS için [`Dockerfile`](Dockerfile) ve [`deploy/vds`](deploy/vds) altındaki `docker-compose.yml` kullanılır; cPanel/Passenger için kökteki `server.js` hazırdır.
+
+### SSH'siz uzaktan güncelleme
+
+VDS'e Docker ile kurduğunuzda, sonraki güncellemeler için sunucuya girmeniz gerekmez: **Yönetim → Güncelleme** sekmesi GitHub'daki yeni sürümü gösterir, **Şimdi güncelle** ise veritabanı yedeği alır, yeni sürümü derler, yeniden başlatır ve sağlıklı açılmazsa otomatik olarak eskisine döner. Kurulum ve güvenlik ayrıntıları: [`deploy/vds/README.md`](deploy/vds/README.md).
 
 > **iPhone'da PWA:** "Ana Ekrana Ekle" için HTTPS önerilir; kamera (Belge tara) yalnızca HTTPS veya `localhost` üzerinde açılır.
 

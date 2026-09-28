@@ -35,12 +35,19 @@ services:
       retries: 20
 
   cdrive:
+    # Sabit imaj adı: updater güncellemeden önce bunu "cdrive-app:rollback" olarak etiketler,
+    # yeni sürüm sağlıklı açılmazsa eskisine geri döner.
+    image: cdrive-app:local
     build:
       context: ./app
       # basePath derleme zamanında sabitlenir (subdomain kullanıyoruz, alt-yol
       # değil, bu yüzden boş) — sadece `environment:` altına yazmak yetmez.
       args:
         NEXT_BASE_PATH: ""
+        # Uzaktan güncelleme: updater bu ikisini ortam değişkeniyle verir (elle `up --build`
+        # yaparsanız "unknown" kalır; sürüm kartı commit'i göstermez, güncelleme yine çalışır).
+        GIT_SHA: ${GIT_SHA:-unknown}
+        BUILD_TIME: ${BUILD_TIME:-}
     container_name: cdrive-app
     restart: unless-stopped
     depends_on:
@@ -55,6 +62,11 @@ services:
       - ONLYOFFICE_JWT_SECRET=replace-with-the-same-value-as-onlyoffice-compose
       - STORAGE_ROOT=/app/storage
       - PORT=3000
+      # Uzaktan güncelleme (Yönetim → Güncelleme). UPDATER_TOKEN, aşağıdaki cdrive-updater ile AYNI olmalı.
+      - UPDATER_URL=http://cdrive-updater:9000
+      - UPDATER_TOKEN=replace-with-openssl-rand-hex-32
+      - UPDATE_REPO=macbyclp/cdrive
+      - UPDATE_BRANCH=main
     volumes:
       - cdrive_storage:/app/storage
     mem_limit: ${CDRIVE_MEM_LIMIT:-1g}
@@ -69,6 +81,33 @@ services:
       retries: 3
       start_period: 60s
 
+  # Uzaktan güncelleme sidecar'ı — admin panelindeki "Şimdi güncelle" düğmesi bunu tetikler.
+  # UYARI: docker soketi bağlı olduğu için bu servis sunucuda root eşdeğeri yetkiye sahiptir.
+  # Bu yüzden port YAYINLANMAZ (yalnız compose ağından erişilir) ve Bearer belirteci şarttır.
+  cdrive-updater:
+    build:
+      context: ./app/deploy/vds/updater
+    container_name: cdrive-updater
+    restart: unless-stopped
+    depends_on:
+      - cdrive
+    environment:
+      - UPDATER_TOKEN=replace-with-openssl-rand-hex-32
+      - UPDATE_BRANCH=main
+      - APP_SERVICE=cdrive
+      - APP_CONTAINER=cdrive-app
+      - DB_CONTAINER=cdrive-mysql
+      - DB_NAME=cdrive
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Compose klasörü (docker-compose.yml + app/ klonu) konteynerde /deploy olarak görünür.
+      - .:/deploy
+      - ./backups:/backups
+      - cdrive_updater_state:/state
+    mem_limit: 256m
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
 volumes:
   cdrive_db_data:
   cdrive_storage:
+  cdrive_updater_state:
