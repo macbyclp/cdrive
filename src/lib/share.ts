@@ -12,6 +12,48 @@
  * `requiresPassword` bayrağını döner), o yüzden çağıran tarafta kalıyor.
  */
 
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { resolveSecret } from "@/lib/session-secret";
+
+/**
+ * İndirme limiti dolduktan sonra yalnız GERÇEKTEN başlamış bir indirmenin devamı (Range) kabul
+ * edilir. Bunun kanıtı, ilk (sayılan) istekte verilen kısa ömürlü, imzalı çerezdir; başlığa
+ * bakarak "devam" saymak (ör. `bytes=00-`) limiti aşmaya izin veriyordu.
+ */
+export const SHARE_PROOF_TTL_S = 3600;
+
+function proofSig(linkId: string, exp: number): string {
+  return createHmac("sha256", resolveSecret()).update(`share-dl:${linkId}:${exp}`).digest("hex");
+}
+
+export function shareProofCookieName(linkId: string): string {
+  return `shdl_${linkId.slice(-12)}`;
+}
+
+export function makeShareProof(linkId: string, nowMs: number = Date.now()): string {
+  const exp = Math.floor(nowMs / 1000) + SHARE_PROOF_TTL_S;
+  return `${exp}.${proofSig(linkId, exp)}`;
+}
+
+export function verifyShareProof(linkId: string, value: string | null | undefined, nowMs: number = Date.now()): boolean {
+  if (!value) return false;
+  const [expRaw, sig] = value.split(".");
+  const exp = Number(expRaw);
+  if (!Number.isInteger(exp) || !sig || exp * 1000 < nowMs) return false;
+  const want = Buffer.from(proofSig(linkId, exp));
+  const got = Buffer.from(sig);
+  return want.length === got.length && timingSafeEqual(want, got);
+}
+
+export function readCookie(header: string | null, name: string): string | null {
+  if (!header) return null;
+  for (const part of header.split(";")) {
+    const [k, ...v] = part.trim().split("=");
+    if (k === name) return v.join("=");
+  }
+  return null;
+}
+
 export type ShareLinkGate = {
   revoked: boolean;
   expiresAt: Date | null;

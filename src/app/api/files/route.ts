@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { canAccessFolder, assertQuota } from "@/lib/access";
+import { canAccessFolder, canAccessFile, assertQuota } from "@/lib/access";
 import { extractSearchText } from "@/lib/text-extract";
 import { assertFilePolicy } from "@/lib/policy";
 import { saveNewFileVersion, createFileFromBuffer } from "@/lib/file-versions";
@@ -36,11 +36,16 @@ export async function POST(req: Request) {
 
     // Aynı klasörde aynı isimde dosya varsa -> yeni versiyon olarak ekle
     // (kota, dosyanın SAHİBİNE karşı ve kilit altında saveNewFileVersion içinde kontrol edilir).
+    // Kök dizin herkesin ortak alanı DEĞİL: kökte yalnızca kullanıcının KENDİ dosyası eşleşir
+    // (aksi halde başkasının aynı adlı kök dosyasının üzerine yazılırdı).
     const existing = await prisma.file.findFirst({
-      where: { folderId, name: file.name, deletedAt: null },
+      where: { folderId, name: file.name, deletedAt: null, ...(folderId === null ? { ownerId: user.id } : {}) },
     });
 
     if (existing) {
+      if (!(await canAccessFile(user, existing.id, "EDIT"))) {
+        return NextResponse.json({ error: "Aynı adlı dosyayı değiştirme izniniz yok" }, { status: 403 });
+      }
       const { file: updated } = await saveNewFileVersion(existing, buffer, user.id, {
         mimeType: file.type || existing.mimeType,
       });

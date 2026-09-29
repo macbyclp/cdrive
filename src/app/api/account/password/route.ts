@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser, hashPassword, verifyPassword } from "@/lib/auth";
+import { requireUser, hashPassword, verifyPassword, getSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 
@@ -21,6 +21,12 @@ export async function POST(req: Request) {
 
     const passwordHash = await hashPassword(newPassword);
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+    // Şifre değişince BU oturum dışındaki tüm oturumlar kapanır (ele geçirilmiş oturum sürmesin).
+    const current = await getSession();
+    await prisma.session.updateMany({
+      where: { userId: user.id, revokedAt: null, ...(current?.sessionId ? { id: { not: current.sessionId } } : {}) },
+      data: { revokedAt: new Date() },
+    });
     await logAudit({ userId: user.id, action: "PASSWORD_CHANGE" });
     return NextResponse.json({ ok: true });
   } catch (err) {

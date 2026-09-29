@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import mime from "mime-types";
 import { prisma } from "@/lib/prisma";
-import { assertQuota } from "@/lib/access";
+import { assertQuota, canAccessFile } from "@/lib/access";
 import { assertFilePolicy } from "@/lib/policy";
 import { saveNewFileVersion } from "@/lib/file-versions";
 import { verifyOfficeContentToken, verifyOnlyOfficeRequest } from "@/lib/onlyoffice";
+import { isTrustedOnlyOfficeUrl, readBodyLimited } from "@/lib/security";
+
+// Document Server'dan indirilecek kaydedilmiş belge için üst sınır (bellek tüketimini sınırlar).
+const MAX_SAVE_BYTES = Number(process.env.ONLYOFFICE_MAX_SAVE_BYTES || 512 * 1024 * 1024);
 
 /**
  * OnlyOffice Document Server'ın belge durumunu bildirmek için çağırdığı callback.
@@ -40,9 +44,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const file = await prisma.file.findUnique({ where: { id } });
     if (!file || file.deletedAt) return NextResponse.json({ error: 1, message: "Dosya bulunamadı" });
 
-    const downloaded = await fetch(body.url);
+    // Token, dosyayı yalnızca AÇMA (VIEW) yetkisiyle de alınabilir; kaydetme için token sahibinin
+    // dosya üzerinde HÂLÂ düzenleme yetkisi olmalı ve hesabı aktif olmalı.
+    const editor = await prisma.user.findUnique({ where: { id: payload.userId } });
+    if (!editor || !editor.active || !(await canAccessFile(editor, id, "EDIT"))) {
+      return NextResponse.json({ error: 1, message: "Kaydetme yetkisi yok" }, { status: 403 });
+    }
+
+    // SSRF: indirme adresi yalnızca güvenilen Document Server origin'inde olabilir ve yönlendirme izlenmez.
+    if (!isTrustedOnlyOfficeUrl(body.url)) {
+      return NextResponse.json({ error: 1, message: "Geçersiz indirme adresi" }, { status: 400 });
+    }
+    const downloaded = await fetch(body.url, { redirect: "manual", signal: AbortSignal.timeout(60_000) });
     if (!downloaded.ok) return NextResponse.json({ error: 1, message: "İçerik indirilemedi" });
-    const buffer = Buffer.from(await downloaded.arrayBuffer());
+    const buffer = await readBodyLimited(downloaded, MAX_SAVE_BYTES);
 
     try {
       await assertFilePolicy(file.name, BigInt(buffer.byteLength));

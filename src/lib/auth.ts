@@ -122,6 +122,16 @@ export async function destroySession() {
       data: { revokedAt: new Date() },
     });
   }
+  // Taklit sırasında çıkış: yöneticinin özgün oturumu da kapanır ve geri dönüş çerezi silinir;
+  // aksi halde aynı tarayıcıdaki biri "taklidi durdur" ile şifresiz admin oturumunu geri alabilirdi.
+  const imp = await getImpersonator();
+  if (imp) {
+    await prisma.session.updateMany({
+      where: { id: imp.adminSessionId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    await clearImpersonatorCookie();
+  }
   const store = await cookies();
   store.delete(SESSION_COOKIE);
 }
@@ -156,7 +166,10 @@ export async function requireSession() {
   const session = await getSession();
   if (!session?.sessionId) throw new AuthError("Oturum sona erdi, tekrar giriş yapın");
   const record = await prisma.session.findUnique({ where: { id: session.sessionId } });
-  if (!record || record.revokedAt) throw new AuthError("Oturum sona erdi, tekrar giriş yapın");
+  if (!record || record.revokedAt || record.userId !== session.userId) {
+    // userId eşleşmesi: imza anahtarı sızsa bile başka kullanıcı adına JWT üretilemesin.
+    throw new AuthError("Oturum sona erdi, tekrar giriş yapın");
+  }
   return session;
 }
 
@@ -348,7 +361,15 @@ export async function stopImpersonation(): Promise<{ adminId: string; targetId: 
     throw new AuthError("Yönetici hesabı bulunamadı");
   }
 
+  // Geri dönüş yalnızca hâlâ GEÇERLİ bir taklit oturumundayken yapılabilir (çıkış yapılmışsa değil).
   const currentSession = await getSession(); // şu an hedefin oturumu
+  const currentRecord = currentSession?.sessionId
+    ? await prisma.session.findUnique({ where: { id: currentSession.sessionId } })
+    : null;
+  if (!currentSession || !currentRecord || currentRecord.revokedAt || currentRecord.userId !== currentSession.userId) {
+    await clearImpersonatorCookie();
+    throw new AuthError("Taklit oturumu artık geçerli değil, tekrar giriş yapın");
+  }
   let targetId: string | null = null;
   if (currentSession?.sessionId) {
     targetId = currentSession.userId;

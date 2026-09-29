@@ -3,7 +3,7 @@ import AdmZip from "adm-zip";
 import mime from "mime-types";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { canAccessFolder, assertQuota } from "@/lib/access";
+import { canAccessFolder, canAccessFile, assertQuota } from "@/lib/access";
 import { extractSearchText } from "@/lib/text-extract";
 import { assertFilePolicy } from "@/lib/policy";
 import { saveNewFileVersion, createFileFromBuffer } from "@/lib/file-versions";
@@ -21,6 +21,12 @@ import { errorResponse, limitOr429 } from "@/lib/api-helpers";
 function isSafeSegment(s: string) {
   return s !== "" && s !== "." && s !== "..";
 }
+
+// ZIP bombası koruması: girdi sayısı, ilan edilen toplam açılmış boyut ve sıkıştırma oranı,
+// hiçbir şey belleğe açılmadan ÖNCE sınırlandırılır.
+const ZIP_MAX_ENTRIES = 5000;
+const ZIP_MAX_TOTAL_BYTES = Number(process.env.ZIP_MAX_TOTAL_BYTES || 2 * 1024 * 1024 * 1024);
+const ZIP_MAX_RATIO = 200;
 
 export async function POST(req: Request) {
   try {
@@ -53,6 +59,19 @@ export async function POST(req: Request) {
     }
 
     const entries = zip.getEntries();
+    if (entries.length > ZIP_MAX_ENTRIES) {
+      return NextResponse.json({ error: `Zip en fazla ${ZIP_MAX_ENTRIES} girdi içerebilir` }, { status: 400 });
+    }
+    let declaredTotal = 0;
+    for (const e of entries) {
+      if (e.isDirectory) continue;
+      const declared = e.header.size;
+      const packed = e.header.compressedSize;
+      declaredTotal += declared;
+      if (declaredTotal > ZIP_MAX_TOTAL_BYTES || (packed > 0 && declared / packed > ZIP_MAX_RATIO && declared > 1024 * 1024)) {
+        return NextResponse.json({ error: "Zip içeriği çok büyük veya şüpheli ölçüde sıkıştırılmış" }, { status: 400 });
+      }
+    }
     // Dizin yolu ("a/b") -> Folder id eşlemesi; kök = yüklemenin hedef klasörü.
     const folderCache = new Map<string, string | null>([["", rootFolderId]]);
 
@@ -67,10 +86,15 @@ export async function POST(req: Request) {
           currentParentId = folderCache.get(currentPath)!;
           continue;
         }
+        // Kökte yalnızca kullanıcının KENDİ klasörü eşleşir; başkasının aynı adlı kök klasörüne yazılamaz.
         const existing = await prisma.folder.findFirst({
-          where: { name: part, parentId: currentParentId, deletedAt: null },
+          where: { name: part, parentId: currentParentId, deletedAt: null, ...(currentParentId === null ? { ownerId: user.id } : {}) },
         });
         if (existing) {
+          // Alt klasörlerde de her eşleşen mevcut klasör için EDIT izni doğrulanır.
+          if (currentParentId !== null && !(await canAccessFolder(user, existing.id, "EDIT"))) {
+            throw new Error(`"${part}" klasörüne yazma izniniz yok`);
+          }
           currentParentId = existing.id;
         } else {
           const parent = currentParentId ? await prisma.folder.findUnique({ where: { id: currentParentId } }) : null;
@@ -113,6 +137,7 @@ export async function POST(req: Request) {
 
       try {
         const parentId = await ensureFolderPath(dirPath);
+        if (entry.header.size > ZIP_MAX_TOTAL_BYTES) throw new Error("Dosya çok büyük");
         const buffer = entry.getData();
         const size = BigInt(buffer.byteLength);
         const mimeType = mime.lookup(name) || "application/octet-stream";
@@ -120,8 +145,11 @@ export async function POST(req: Request) {
         await assertFilePolicy(name, size);
         await assertQuota(user, size);
 
-        const existing = await prisma.file.findFirst({ where: { folderId: parentId, name, deletedAt: null } });
+        const existing = await prisma.file.findFirst({
+          where: { folderId: parentId, name, deletedAt: null, ...(parentId === null ? { ownerId: user.id } : {}) },
+        });
         if (existing) {
+          if (!(await canAccessFile(user, existing.id, "EDIT"))) throw new Error("Aynı adlı dosyayı değiştirme izniniz yok");
           await saveNewFileVersion(existing, buffer, user.id, { mimeType });
         } else {
           const searchText = await extractSearchText(buffer, mimeType);

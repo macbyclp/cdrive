@@ -30,6 +30,7 @@ export async function GET(req: Request) {
       users.map((u) => ({
         ...u,
         passwordHash: undefined,
+        twoFactorSecret: undefined, // 2FA gizli anahtarı hiçbir liste yanıtında dönmez
         usedBytes: u.usedBytes.toString(),
         quotaBytes: u.quotaBytes.toString(),
         department: u.department ? { ...u.department, quotaBytes: u.department.quotaBytes.toString() } : null,
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
       },
     });
     await logAudit({ userId: admin.id, action: "USER_CREATE", targetType: "user", targetId: user.id, detail: user.email });
-    return NextResponse.json({ ...user, passwordHash: undefined, usedBytes: "0", quotaBytes: user.quotaBytes.toString() });
+    return NextResponse.json({ ...user, passwordHash: undefined, twoFactorSecret: undefined, usedBytes: "0", quotaBytes: user.quotaBytes.toString() });
   } catch (err) {
     return errorResponse(err);
   }

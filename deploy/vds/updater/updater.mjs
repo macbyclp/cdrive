@@ -39,8 +39,8 @@ const cfg = {
 const RUN_IMAGE = env.APP_IMAGE || "cdrive-app:local";
 const ROLLBACK_IMAGE = "cdrive-app:rollback";
 
-if (cfg.token.length < 24) {
-  console.error("UPDATER_TOKEN en az 24 karakter olmalı (ör. `openssl rand -hex 32`).");
+if (cfg.token.length < 24 || /replace-with|changeme|change-me|example/i.test(cfg.token)) {
+  console.error("UPDATER_TOKEN en az 24 karakter olmalı ve şablondaki örnek değer olmamalı (ör. `openssl rand -hex 32`).");
   process.exit(1);
 }
 
@@ -132,11 +132,16 @@ async function waitHealthy() {
 }
 
 async function backupDatabase(stamp) {
-  fs.mkdirSync(cfg.backupDir, { recursive: true });
+  fs.mkdirSync(cfg.backupDir, { recursive: true, mode: 0o700 });
+  try {
+    fs.chmodSync(cfg.backupDir, 0o700); // yedekler yalnız sahibi (root) tarafından okunabilsin
+  } catch {
+    /* bind mount izinleri değiştirilemiyorsa umask 077 yine de dosyaları korur */
+  }
   const file = path.join(cfg.backupDir, `cdrive-${stamp}.sql.gz`);
   // Şifre konteynerin kendi ortamındaki MYSQL_ROOT_PASSWORD'den okunur; updater'a verilmez.
   const script = `docker exec ${cfg.dbContainer} sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines ${cfg.dbName}' | gzip > ${JSON.stringify(file)}`;
-  await run("sh", ["-c", `set -o pipefail 2>/dev/null; ${script}`]);
+  await run("sh", ["-c", `umask 077; set -o pipefail 2>/dev/null; ${script}`]);
   if (!cfg.dry) {
     const size = fs.statSync(file).size;
     if (size < 200) throw new Error("Veritabanı yedeği boş görünüyor; güncelleme iptal edildi");

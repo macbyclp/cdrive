@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { errorResponse } from "@/lib/api-helpers";
+import { visibleFileIds } from "@/lib/access";
 
 // "Son kullanılanlar": kullanıcının kendi yükleme/indirme geçmişinden türetilir,
 // ayrı bir tablo tutmaya gerek kalmadan audit_logs üzerinden hesaplanır.
@@ -33,7 +34,11 @@ export async function GET() {
       where: { id: { in: orderedIds }, deletedAt: null },
     });
     const byId = new Map(files.map((f) => [f.id, f]));
-    const ordered = orderedIds.map((id) => byId.get(id)).filter((f): f is (typeof files)[number] => !!f);
+    // Erişimi sonradan kaldırılan dosyalar eski indirme/yükleme geçmişinden görünmeye devam etmesin.
+    const visible = await visibleFileIds(user, files);
+    const ordered = orderedIds
+      .map((id) => byId.get(id))
+      .filter((f): f is (typeof files)[number] => !!f && visible.has(f.id));
 
     return NextResponse.json({
       files: ordered.map((f) => ({ ...f, size: f.size.toString(), searchText: undefined })),

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
-import { canAccessFile, canAccessFolder } from "@/lib/access";
+import { canAccessFile, canAccessFolder, visibleFileIds } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
 
@@ -21,9 +21,15 @@ export async function GET() {
         orderBy: { createdAt: "desc" },
       }),
     ]);
+    // Yıldızladıktan sonra erişimi kaldırılan öğeler listede (ad/künye) görünmesin.
+    const visible = await visibleFileIds(user, fileStars.map((s) => s.file));
+    const visibleFolders: typeof folderStars = [];
+    for (const s of folderStars) {
+      if (await canAccessFolder(user, s.folder.id, "VIEW")) visibleFolders.push(s);
+    }
     return NextResponse.json({
-      files: fileStars.map((s) => ({ ...s.file, size: s.file.size.toString(), searchText: undefined })),
-      folders: folderStars.map((s) => s.folder),
+      files: fileStars.filter((s) => visible.has(s.file.id)).map((s) => ({ ...s.file, size: s.file.size.toString(), searchText: undefined })),
+      folders: visibleFolders.map((s) => s.folder),
     });
   } catch (err) {
     return errorResponse(err);
