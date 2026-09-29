@@ -8,6 +8,8 @@ import { logAudit } from "@/lib/audit";
 import { lockUser, adjustUsedBytes, versionBytesByOwner } from "@/lib/quota";
 import { errorResponse } from "@/lib/api-helpers";
 import { contentDisposition } from "@/lib/download-names";
+import { assertFilePolicy } from "@/lib/policy";
+import { isInlineSafeMime } from "@/lib/security";
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -67,7 +69,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       });
     }
 
-    const inline = new URL(req.url).searchParams.get("inline") === "1";
+    // Yalnız güvenli türler (görsel/PDF/medya/düz metin) sayfa içinde açılır; HTML/SVG gibi aktif
+    // içerik her zaman indirilir — aksi halde aynı origin'de çalışıp oturum çalabilirdi (stored XSS).
+    const inline = new URL(req.url).searchParams.get("inline") === "1" && isInlineSafeMime(file.mimeType);
     // Önizleme (inline) isteklerini denetim günlüğüne indirme olarak yazmıyoruz;
     // dosyayı gerçekten indirmek ayrı bir kayıt oluşturur.
     // Range devam istekleri (video ileri sarma) her seferinde indirme sayılmasın: yalnız başlangıç isteği loglanır.
@@ -106,6 +110,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (body.folderId !== undefined && body.folderId !== null) {
       const destOk = await canAccessFolder(user, body.folderId, "EDIT");
       if (!destOk) return NextResponse.json({ error: "Hedef klasörde yetkiniz yok" }, { status: 403 });
+    }
+
+    if (body.name !== undefined) {
+      // Yeniden adlandırma da yükleme politikasına (engelli uzantılar) tabidir.
+      const current = await prisma.file.findUnique({ where: { id }, select: { size: true, name: true } });
+      if (!current) return NextResponse.json({ error: "Dosya bulunamadı" }, { status: 404 });
+      if (body.name !== current.name) await assertFilePolicy(body.name, current.size);
     }
 
     const file = await prisma.file.update({ where: { id }, data: body });

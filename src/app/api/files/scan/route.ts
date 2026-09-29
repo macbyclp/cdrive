@@ -10,6 +10,12 @@ import { ocrImage } from "@/lib/invoice-extract";
 import { buildDocxFromPages, DOCX_MIME } from "@/lib/scan-docx";
 import { buildPdfFromImages, detectImageType, MAX_SCAN_PAGES, MAX_SCAN_PAGE_BYTES, ScanError } from "@/lib/scan-pdf";
 import { logAudit } from "@/lib/audit";
+import { imageDimensions } from "@/lib/security";
+
+// Piksel bombası koruması: PDFKit görüntüyü açarken bellek ayırır; sıkıştırılmış boyut küçük olsa da
+// bildirilen piksel sayısı büyük olabilir. İstemci sayfaları zaten ≤2200px küçültür.
+const MAX_PAGE_PIXELS = 40_000_000;
+const MAX_TOTAL_PIXELS = 160_000_000;
 import { errorResponse, limitOr429 } from "@/lib/api-helpers";
 
 export const maxDuration = 120;
@@ -54,10 +60,17 @@ export async function POST(req: Request) {
     }
 
     const images: Buffer[] = [];
+    let totalPixels = 0;
     for (const page of pages) {
       if (page.size > MAX_SCAN_PAGE_BYTES) throw new ScanError("Bir sayfa görüntüsü çok büyük (en fazla 15 MB)");
       const buf = Buffer.from(await page.arrayBuffer());
       if (!detectImageType(buf)) throw new ScanError("Yalnızca JPEG veya PNG sayfa görüntüleri kabul edilir");
+      const dims = imageDimensions(buf);
+      if (!dims || dims.width < 1 || dims.height < 1 || dims.width * dims.height > MAX_PAGE_PIXELS) {
+        throw new ScanError("Sayfa görüntüsünün piksel boyutu geçersiz veya çok büyük");
+      }
+      totalPixels += dims.width * dims.height;
+      if (totalPixels > MAX_TOTAL_PIXELS) throw new ScanError("Toplam görüntü boyutu çok büyük");
       images.push(buf);
     }
 

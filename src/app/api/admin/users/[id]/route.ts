@@ -38,6 +38,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (body.password) data.passwordHash = await hashPassword(body.password);
 
     const user = await prisma.user.update({ where: { id }, data });
+    // Admin şifre sıfırladıysa hedef kullanıcının tüm açık oturumları kapanır.
+    if (body.password) {
+      await prisma.session.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } });
+    }
     await logAudit({
       userId: admin.id,
       action: body.password ? "PASSWORD_CHANGE" : body.active === false ? "USER_DEACTIVATE" : "USER_UPDATE",
@@ -45,7 +49,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       targetId: id,
       detail: body.password ? `${user.email} için şifre admin tarafından sıfırlandı` : undefined,
     });
-    return NextResponse.json({ ...user, passwordHash: undefined, usedBytes: user.usedBytes.toString(), quotaBytes: user.quotaBytes.toString() });
+    return NextResponse.json({ ...user, passwordHash: undefined, twoFactorSecret: undefined, usedBytes: user.usedBytes.toString(), quotaBytes: user.quotaBytes.toString() });
   } catch (err) {
     return errorResponse(err);
   }

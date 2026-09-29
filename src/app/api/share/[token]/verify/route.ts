@@ -3,13 +3,21 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/auth";
 import { shareLinkStatus } from "@/lib/share";
-import { errorResponse } from "@/lib/api-helpers";
+import { errorResponse, clientIp } from "@/lib/api-helpers";
+import { rateLimit } from "@/lib/rate-limit";
 
 const schema = z.object({ password: z.string() });
 
 export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
   try {
     const { token } = await params;
+    // Parola tahminine karşı: bağlantı+IP başına dakikada 10, bağlantı başına 10 dakikada 40 deneme.
+    if (
+      !rateLimit(`sharepw:${token}:${clientIp(req) ?? "unknown"}`, 10, 60_000) ||
+      !rateLimit(`sharepw-t:${token}`, 40, 600_000)
+    ) {
+      return NextResponse.json({ error: "Çok fazla deneme. Lütfen biraz bekleyin." }, { status: 429 });
+    }
     const { password } = schema.parse(await req.json());
     const link = await prisma.shareLink.findUnique({ where: { token } });
     // Önceden burada SADECE `revoked` kontrol ediliyordu — süresi dolmuş ya da indirme

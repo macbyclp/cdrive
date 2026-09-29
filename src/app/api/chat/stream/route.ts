@@ -1,4 +1,5 @@
-import { requireUser } from "@/lib/auth";
+import { requireUser, getSession } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { errorResponse } from "@/lib/api-helpers";
 import { chatEmitter, isRelevantChatEvent, type ChatEventPayload } from "@/lib/chat-events";
 
@@ -15,6 +16,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
     const user = await requireUser();
+    const sessionId = (await getSession())?.sessionId ?? null;
 
     const stream = new ReadableStream({
       start(controller) {
@@ -27,20 +29,32 @@ export async function GET(req: Request) {
           }
         };
 
+        // Oturum iptal edilirse / hesap pasifleşirse akış kesilir (bağlantı açılırken bir kez
+        // doğrulamak yetmez: ele geçirilmiş oturum kapatılsa da mesaj almaya devam ederdi).
+        let valid = true;
         const onMessage = (event: ChatEventPayload) => {
-          if (isRelevantChatEvent(event, user.id)) send(event);
+          if (valid && isRelevantChatEvent(event, user.id)) send(event);
         };
         chatEmitter.on("message", onMessage);
 
         // Caddy/tarayıcı boşta kalan bağlantıyı zaman aşımına uğratmasın diye
         // periyodik yorum satırı (SSE'de veri sayılmaz, sadece bağlantıyı canlı tutar).
-        const heartbeat = setInterval(() => {
+        const heartbeat = setInterval(async () => {
           try {
+            const [record, current] = await Promise.all([
+              sessionId ? prisma.session.findUnique({ where: { id: sessionId }, select: { revokedAt: true } }) : null,
+              prisma.user.findUnique({ where: { id: user.id }, select: { active: true } }),
+            ]);
+            if (!record || record.revokedAt || !current?.active) {
+              valid = false;
+              cleanup();
+              return;
+            }
             controller.enqueue(encoder.encode(": ping\n\n"));
           } catch {
             clearInterval(heartbeat);
           }
-        }, 25_000);
+        }, 15_000);
 
         send({ type: "ready" });
 

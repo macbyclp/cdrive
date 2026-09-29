@@ -37,9 +37,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: "Üye ekleme yetkiniz yok" }, { status: 403 });
     }
     const { id } = await params;
-    const channel = await prisma.chatChannel.findUnique({ where: { id }, select: { isPrivate: true } });
+    const channel = await prisma.chatChannel.findUnique({ where: { id }, select: { isPrivate: true, createdById: true } });
     if (!channel) return NextResponse.json({ error: "Kanal bulunamadı" }, { status: 404 });
     if (!channel.isPrivate) return NextResponse.json({ error: "Herkese açık kanalda üyelik yönetilmez" }, { status: 400 });
+
+    // MANAGER rolü tek başına yeterli değil: gizli kanala yalnızca ADMIN, kanalın kurucusu ya da
+    // kanalın mevcut bir üyesi kişi ekleyebilir (aksi halde herhangi bir MANAGER kendini ekleyip okurdu).
+    if (user.role !== "ADMIN" && channel.createdById !== user.id) {
+      const membership = await prisma.chatChannelMember.findUnique({
+        where: { channelId_userId: { channelId: id, userId: user.id } },
+      });
+      if (!membership) return NextResponse.json({ error: "Bu kanala üye ekleme yetkiniz yok" }, { status: 403 });
+    }
 
     const body = addSchema.parse(await req.json());
     await prisma.chatChannelMember.createMany({

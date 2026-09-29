@@ -20,6 +20,27 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // API: zorunlu ilk şifre değişimi / zorunlu 2FA kurulumu sayfalarla birlikte API'de de uygulanır
+  // (aksi halde geçici şifreli hesap ya da 2FA'sız admin doğrudan API'yi kullanabilirdi).
+  if (pathname.startsWith("/api/")) {
+    if (payload && (payload.mustChangePassword || payload.twoFactorRequired)) {
+      const allowed =
+        pathname.startsWith("/api/account/") ||
+        pathname.startsWith("/api/auth/") ||
+        pathname.startsWith("/api/public/") ||
+        pathname === "/api/me" ||
+        pathname === "/api/health" ||
+        pathname === "/api/client-error";
+      if (!allowed) {
+        return NextResponse.json(
+          { error: payload.mustChangePassword ? "Önce şifrenizi belirleyin" : "Önce iki adımlı doğrulamayı kurun" },
+          { status: 403 }
+        );
+      }
+    }
+    return NextResponse.next();
+  }
+
   const isProtected =
     pathname.startsWith("/drive") ||
     pathname.startsWith("/admin") ||
@@ -86,6 +107,7 @@ export const config = {
     "/chat/:path*",
     "/production/:path*",
     "/onboarding/:path*",
+    "/api/:path*",
     "/login",
     "/setup",
   ],

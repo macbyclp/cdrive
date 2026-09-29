@@ -13,7 +13,9 @@ export function errorResponse(err: unknown) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
   const status = (err as { status?: number })?.status ?? 500;
-  const message = err instanceof Error ? err.message : "Beklenmeyen bir hata oluştu";
+  // Beklenmeyen (5xx) hatalarda iç ayrıntı (Prisma/SQL/yol) istemciye verilmez; yalnız sunucu günlüğüne yazılır.
+  const message =
+    status === 500 ? "Beklenmeyen bir hata oluştu" : err instanceof Error ? err.message : "Beklenmeyen bir hata oluştu";
   if (status === 500) console.error(err);
   return NextResponse.json({ error: message }, { status });
 }
