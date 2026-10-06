@@ -543,7 +543,11 @@ function DriveInner() {
   }
 
   function openFile(f: FileItem) {
-    if (officeDocType(f.name)) {
+    // CSV/TSV: .csv uzantısı Office tablo türünde de olduğu için önce tablo önizlemesi seçilir (hızlı, salt-okunur);
+    // düzenlemek için satır menüsündeki "Office ile aç" kullanılır.
+    if (previewKind(f.mimeType, f.name) === "csv") {
+      setPreviewTarget({ id: f.id, name: f.name, mimeType: f.mimeType });
+    } else if (officeDocType(f.name)) {
       setOfficeChoiceTarget(f);
     } else if (previewKind(f.mimeType, f.name) === "none") {
       downloadFile(f);

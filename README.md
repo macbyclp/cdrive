@@ -71,10 +71,12 @@ Klasör ve dosya bazında ayrıca **VIEW / EDIT** izinleri verilir.
 - **Belge tara:** kamera veya fotoğraflardan sayfa topla → filtre (Orijinal / Belge / Siyah-beyaz) → tek PDF. İsteğe bağlı OCR ile içerik araması ve **düzenlenebilir Word (.docx)** çıktısı ([#14](https://github.com/macbyclp/cdrive/pull/14))
 - **Dosya isteği:** klasör menüsünden süreli, dosya sayısı/boyutu sınırlı, isteğe bağlı şifreli bir bağlantı üretin; hesabı olmayan biri `/u/<token>` sayfasından yalnızca **yükleme** yapar (klasörü göremez, indiremez). Aynı ad çakışırsa üzerine yazılmaz (`rapor (2).pdf`)
 - Büyük dosyalar belleğe alınmadan doğrudan diske akıtılır (`UPLOAD_MAX_BYTES`, varsayılan 2 GiB)
+- CSV/TSV tablo önizlemesi, süresi dolmak üzere olan bağlantılar için uyarı bildirimi
 - Dosya adı ve metin/PDF içeriğinde arama, etiketler, yorumlar, onay akışları
 - İsteğe bağlı OnlyOffice ile tarayıcıda Word/Excel/PowerPoint düzenleme
 
 **Yönetim**
+- Kullanıcı listesinde son giriş ve 2FA durumu; telefonunu kaybeden kullanıcı için **yönetici 2FA sıfırlama** (parola onayı, oturumları kapatır, e-posta + denetim kaydı)
 - Yönetim panelinden **SSH'siz uzaktan güncelleme** (yedek + otomatik geri dönüş; panelde görülen commit kurulur, isteğe bağlı `UPDATE_REQUIRE_VERIFIED=1` ile yalnız GitHub'da imzalı commit'ler)
 
 **Paylaşım ve güvenlik**
