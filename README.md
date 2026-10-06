@@ -69,16 +69,20 @@ Klasör ve dosya bazında ayrıca **VIEW / EDIT** izinleri verilir.
 - Klasör ağacı, çoklu yükleme, ZIP yükleme, sürükle-bırak taşıma, kopyalama, çöp kutusu, yıldızlı ve son kullanılanlar
 - **Sürümleme:** aynı adla yüklenen dosya yeni sürüm olur; sürümleri karşılaştır, eskisine dön
 - **Belge tara:** kamera veya fotoğraflardan sayfa topla → filtre (Orijinal / Belge / Siyah-beyaz) → tek PDF. İsteğe bağlı OCR ile içerik araması ve **düzenlenebilir Word (.docx)** çıktısı ([#14](https://github.com/macbyclp/cdrive/pull/14))
+- **Dosya isteği:** klasör menüsünden süreli, dosya sayısı/boyutu sınırlı, isteğe bağlı şifreli bir bağlantı üretin; hesabı olmayan biri `/u/<token>` sayfasından yalnızca **yükleme** yapar (klasörü göremez, indiremez). Aynı ad çakışırsa üzerine yazılmaz (`rapor (2).pdf`)
+- Büyük dosyalar belleğe alınmadan doğrudan diske akıtılır (`UPLOAD_MAX_BYTES`, varsayılan 2 GiB)
 - Dosya adı ve metin/PDF içeriğinde arama, etiketler, yorumlar, onay akışları
 - İsteğe bağlı OnlyOffice ile tarayıcıda Word/Excel/PowerPoint düzenleme
 
 **Yönetim**
-- Yönetim panelinden **SSH'siz uzaktan güncelleme** (yedek + otomatik geri dönüş)
+- Yönetim panelinden **SSH'siz uzaktan güncelleme** (yedek + otomatik geri dönüş; panelde görülen commit kurulur, isteğe bağlı `UPDATE_REQUIRE_VERIFIED=1` ile yalnız GitHub'da imzalı commit'ler)
 
 **Paylaşım ve güvenlik**
 - Süreli, indirme limitli, parola korumalı genel bağlantılar
 - **Denetim kaydı:** kim ne zaman ne yaptı
-- TOTP ile iki aşamalı doğrulama, hesap kilitleme, sunucu tarafından iptal edilebilen oturumlar
+- TOTP ile iki aşamalı doğrulama (tek kullanımlık **kurtarma kodları**, kod tekrar kullanım koruması, kapatmak için ikinci faktör şartı), hesap kilitleme, sunucu tarafından iptal edilebilen oturumlar
+- Yeni cihazdan girişte e-posta uyarısı, parola politikası (yaygın parola listesi, bcrypt 12 + otomatik yeniden hash)
+- İsteğe bağlı durağan şifreleme: 2FA anahtarı ve SMTP parolası `DATA_ENCRYPTION_KEY` ile AES-256-GCM
 - Departman ve kullanıcı bazlı depolama kotaları, depolama analitiği
 
 **İşbirliği ve iş modülleri**
