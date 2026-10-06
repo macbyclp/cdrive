@@ -16,9 +16,11 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@types/busboy": "^1.5.4",
     "adm-zip": "^0.6.1",
     "archiver": "^8.0.0",
     "bcryptjs": "^3.0.3",
+    "busboy": "^1.6.0",
     "diff": "^9.0.0",
     "docx": "^9.7.1",
     "exceljs": "^4.4.0",

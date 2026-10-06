@@ -1,4 +1,5 @@
-import { promises as fs, constants as fsConstants, createReadStream } from "fs";
+import { promises as fs, constants as fsConstants, createReadStream, createWriteStream } from "fs";
+import { pipeline } from "stream/promises";
 import type { Readable } from "stream";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -16,6 +17,24 @@ export async function writeFile(buffer: Buffer): Promise<string> {
   const filePath = path.join(STORAGE_ROOT, key);
   await fs.writeFile(filePath, buffer);
   return key;
+}
+
+/**
+ * Akışı belleğe almadan diske yazar (büyük yüklemeler için). Yazma yarıda kesilirse/başarısız olursa
+ * kısmi dosya silinir. Dönen `size` diske gerçekten yazılan bayt sayısıdır.
+ */
+export async function writeStream(source: Readable): Promise<{ key: string; size: number }> {
+  await ensureRoot();
+  const key = randomUUID();
+  const filePath = path.join(STORAGE_ROOT, key);
+  try {
+    await pipeline(source, createWriteStream(filePath, { flags: "wx" }));
+    const { size } = await fs.stat(filePath);
+    return { key, size };
+  } catch (e) {
+    await fs.rm(filePath, { force: true });
+    throw e;
+  }
 }
 
 export async function readFile(storageKey: string): Promise<Buffer> {

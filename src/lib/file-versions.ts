@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { writeFile, deleteFile } from "@/lib/storage";
+import { writeFile, readFile, deleteFile } from "@/lib/storage";
 import { extractSearchText } from "@/lib/text-extract";
 import { logAudit } from "@/lib/audit";
 import { notifyIfQuotaWarning } from "@/lib/quota-notify";
@@ -28,8 +28,18 @@ export type NewFileInput = {
 
 /** Yeni dosya + v1 sürümü + kota güncellemesi; atomik. */
 export async function createFileFromBuffer(input: NewFileInput) {
-  const size = BigInt(input.buffer.byteLength);
   const storageKey = await writeFile(input.buffer);
+  const { buffer, ...rest } = input;
+  return createFileFromStored({ ...rest, storageKey, size: BigInt(buffer.byteLength) });
+}
+
+/**
+ * Zaten diske yazılmış (akışla yüklenmiş) içerik için `createFileFromBuffer`. `storageKey` ÇAĞIRAN
+ * tarafından yazılmıştır; bu fonksiyon çağrıldıktan sonra sahiplik burada: transaction başarısız olursa
+ * dosya silinir. (Çağrıdan ÖNCE hata olursa silmek çağıranın işidir.)
+ */
+export async function createFileFromStored(input: Omit<NewFileInput, "buffer"> & { storageKey: string; size: bigint }) {
+  const { storageKey, size } = input;
   try {
     return await prisma.$transaction(async (tx) => {
       await lockUser(tx, input.ownerId);
@@ -58,6 +68,16 @@ export async function createFileFromBuffer(input: NewFileInput) {
   }
 }
 
+// Arama metni için diskten belleğe okunacak en büyük dosya (daha büyükler yalnız ada göre aranır).
+const SEARCH_TEXT_MAX_BYTES = 25 * 1024 * 1024;
+
+/** Diskteki içerikten arama metni çıkarır; yalnız küçük metin/PDF dosyaları belleğe alınır. */
+export async function searchTextForStored(storageKey: string, mimeType: string, size: bigint): Promise<string | null> {
+  const searchable = mimeType.startsWith("text/") || mimeType === "application/json" || mimeType === "application/pdf";
+  if (!searchable || size > BigInt(SEARCH_TEXT_MAX_BYTES)) return null;
+  return extractSearchText(await readFile(storageKey), mimeType);
+}
+
 /**
  * Var olan bir dosyaya yeni bir versiyon ekler (diske yazar, FileVersion oluşturur,
  * currentVersionId + kota muhasebesini günceller). `POST /api/files` (yeniden
@@ -70,9 +90,19 @@ export async function saveNewFileVersion(
   uploaderId: string,
   opts?: { mimeType?: string; auditDetailPrefix?: string }
 ) {
-  const size = BigInt(buffer.byteLength);
   const searchText = await extractSearchText(buffer, opts?.mimeType || existing.mimeType);
   const storageKey = await writeFile(buffer);
+  return saveNewFileVersionFromStored(existing, { storageKey, size: BigInt(buffer.byteLength), searchText }, uploaderId, opts);
+}
+
+/** `saveNewFileVersion`'ın, içeriği zaten diske yazılmış (akışla yüklenmiş) hali; sahiplik/silme kuralı `createFileFromStored` ile aynı. */
+export async function saveNewFileVersionFromStored(
+  existing: PrismaFile,
+  stored: { storageKey: string; size: bigint; searchText: string | null },
+  uploaderId: string,
+  opts?: { mimeType?: string; auditDetailPrefix?: string }
+) {
+  const { storageKey, size, searchText } = stored;
 
   let result;
   try {

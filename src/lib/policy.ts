@@ -27,3 +27,15 @@ export async function assertFilePolicy(fileName: string, size: bigint) {
     }
   }
 }
+
+// Politika ayarlı olmasa bile tek bir yüklemenin diske yazabileceği en büyük boyut (disk/süre koruması).
+const DEFAULT_UPLOAD_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+
+/** Bir yüklemenin en çok kaç bayt olabileceği: yönetici politikası ile UPLOAD_MAX_BYTES'ın küçüğü. */
+export async function maxUploadBytes(): Promise<number> {
+  const env = Number(process.env.UPLOAD_MAX_BYTES);
+  const hard = Number.isFinite(env) && env > 0 ? env : DEFAULT_UPLOAD_MAX_BYTES;
+  const settings = await prisma.systemSettings.findUnique({ where: { id: 1 } });
+  const policy = settings?.maxFileSizeBytes ? Number(settings.maxFileSizeBytes) : null;
+  return policy && policy > 0 ? Math.min(policy, hard) : hard;
+}
