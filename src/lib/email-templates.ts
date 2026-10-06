@@ -98,3 +98,20 @@ export function genericNotificationEmail(opts: { heading: string; message: strin
   const html = renderEmail({ heading: opts.heading, bodyHtml: paragraph(opts.message), cta: opts.cta, orgName: opts.orgName });
   return { subject: `Cdrive — ${opts.heading}`, html, text: opts.message };
 }
+
+/** Tanımadığı bir cihazdan girişte hesap sahibine giden uyarı — "sen değilsen" yönlendirmesiyle. */
+export function newDeviceLoginEmail(opts: { name: string; device: string; ip: string | null; when: string; accountUrl: string; orgName: string }) {
+  const details = `Cihaz: ${opts.device}\nIP adresi: ${opts.ip ?? "bilinmiyor"}\nZaman: ${opts.when}`;
+  const html = renderEmail({
+    heading: "Hesabına yeni bir cihazdan giriş yapıldı",
+    bodyHtml:
+      paragraph(`Merhaba ${opts.name},`) +
+      paragraph("Cdrive hesabına daha önce kullanmadığın bir cihazdan giriş yapıldı.") +
+      `<p style="margin:0 0 12px 0;padding:12px 14px;background:${SURFACE_MUTED};border-radius:8px;color:${TEXT_PRIMARY};">${escapeHtml(details).replace(/\n/g, "<br>")}</p>` +
+      paragraph("Bu sendin, bir şey yapman gerekmiyor. Sen değilsen şifreni hemen değiştir ve Hesap sayfasından diğer oturumları kapat."),
+    cta: { label: "Hesap ayarlarını aç", url: opts.accountUrl },
+    orgName: opts.orgName,
+  });
+  const text = `Merhaba ${opts.name},\n\nCdrive hesabına daha önce kullanmadığın bir cihazdan giriş yapıldı.\n\n${details}\n\nBu sendin, bir şey yapman gerekmiyor. Sen değilsen şifreni hemen değiştir ve diğer oturumları kapat: ${opts.accountUrl}`;
+  return { subject: "Cdrive — Yeni cihazdan giriş", html, text };
+}

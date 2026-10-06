@@ -6,6 +6,7 @@ import { verifySecondFactor } from "@/lib/two-factor";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
+import { notifyNewDeviceLogin } from "@/lib/login-alert";
 
 // 6 haneli TOTP kodu ya da "xxxxx-xxxxx" kurtarma kodu.
 const schema = z.object({ code: z.string().min(6).max(16) });
@@ -39,10 +40,12 @@ export async function POST(req: Request) {
     await clearPending2FA();
     // Bu noktada user.twoFactorEnabled zaten true (yukarıda şart) — zorunluluk her zaman düşer.
     // remember: giriş ekranındaki seçim bekleyen-2FA çerezinde taşındı (bkz. createPending2FA).
-    await createSession(
+    const userAgent = req.headers.get("user-agent");
+    const sessionId = await createSession(
       { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword, twoFactorRequired: false, remember: pending.remember },
-      { ip, userAgent: req.headers.get("user-agent") }
+      { ip, userAgent }
     );
+    void notifyNewDeviceLogin(user, sessionId, { ip, userAgent });
     await logAudit({ userId: user.id, action: "LOGIN", ip, detail: result.method === "recovery" ? "2FA kurtarma koduyla" : "2FA ile" });
     return NextResponse.json({ id: user.id, email: user.email, name: user.name, role: user.role });
   } catch (err) {

@@ -5,6 +5,7 @@ import { createSession, verifyPassword, isLocked, registerFailedLogin, clearFail
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
+import { notifyNewDeviceLogin } from "@/lib/login-alert";
 
 const schema = z.object({
   email: z.string().email(),
@@ -58,11 +59,13 @@ export async function POST(req: Request) {
     }
 
     const twoFactorRequired = await computeTwoFactorRequired(user);
-    await createSession(
+    const userAgent = req.headers.get("user-agent");
+    const sessionId = await createSession(
       { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword, twoFactorRequired, remember },
-      { ip, userAgent: req.headers.get("user-agent") }
+      { ip, userAgent }
     );
     await logAudit({ userId: user.id, action: "LOGIN", ip });
+    void notifyNewDeviceLogin(user, sessionId, { ip, userAgent }); // yan etki; girişi geciktirmez/bozmaz
     return NextResponse.json({ id: user.id, email: user.email, name: user.name, role: user.role });
   } catch (err) {
     return errorResponse(err);
