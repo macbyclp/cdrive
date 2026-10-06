@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createSession, getPending2FA, clearPending2FA } from "@/lib/auth";
-import { verifyTotpToken } from "@/lib/totp";
+import { matchTotpStep } from "@/lib/totp";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
@@ -25,9 +25,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Geçersiz istek" }, { status: 401 });
     }
 
-    if (!verifyTotpToken(code, user.twoFactorSecret)) {
+    const step = matchTotpStep(code, user.twoFactorSecret);
+    if (step === null) {
       await logAudit({ userId: user.id, action: "LOGIN_FAILED", detail: "2FA kodu hatalı", ip });
       return NextResponse.json({ error: "Doğrulama kodu hatalı" }, { status: 401 });
+    }
+    // Tekrar kullanım koruması: bir kod (ve daha eski adımlar) yalnız BİR kez kabul edilir. Koşullu UPDATE
+    // atomiktir; aynı kodla eşzamanlı iki istekten yalnız biri geçer.
+    const claimed = await prisma.user.updateMany({
+      where: { id: user.id, OR: [{ twoFactorLastStep: null }, { twoFactorLastStep: { lt: step } }] },
+      data: { twoFactorLastStep: step },
+    });
+    if (claimed.count === 0) {
+      await logAudit({ userId: user.id, action: "LOGIN_FAILED", detail: "2FA kodu yeniden kullanıldı", ip });
+      return NextResponse.json({ error: "Bu kod zaten kullanıldı, yeni kodu bekleyin" }, { status: 401 });
     }
 
     await clearPending2FA();

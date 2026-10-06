@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser, createSession, currentRemember } from "@/lib/auth";
-import { verifyTotpToken } from "@/lib/totp";
+import { requireUser, reissueSession } from "@/lib/auth";
+import { matchTotpStep } from "@/lib/totp";
 import { logAudit } from "@/lib/audit";
-import { errorResponse, clientIp } from "@/lib/api-helpers";
+import { errorResponse } from "@/lib/api-helpers";
 
 const schema = z.object({ code: z.string().min(6).max(6) });
 
@@ -15,19 +15,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Önce /setup ile bir anahtar oluşturun" }, { status: 400 });
     }
     const { code } = schema.parse(await req.json());
-    if (!verifyTotpToken(code, user.twoFactorSecret)) {
+    const step = matchTotpStep(code, user.twoFactorSecret);
+    if (step === null) {
       return NextResponse.json({ error: "Doğrulama kodu hatalı" }, { status: 401 });
     }
-    await prisma.user.update({ where: { id: user.id }, data: { twoFactorEnabled: true } });
+    // Etkinleştirmede kullanılan kod, hemen ardından girişte yeniden kullanılamasın.
+    await prisma.user.update({ where: { id: user.id }, data: { twoFactorEnabled: true, twoFactorLastStep: step } });
     await logAudit({ userId: user.id, action: "TWO_FACTOR_ENABLE" });
 
     // JWT'deki eski twoFactorRequired=true bayrağı yeni oturum açılana kadar geçerli kalır —
     // middleware'in hemen tekrar /account'a kilitlememesi için oturumu burada yeniden imzalıyoruz
     // (mustChangePassword'daki "JWT re-mint" ile aynı desen).
-    await createSession(
-      { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword, twoFactorRequired: false, remember: await currentRemember() },
-      { ip: clientIp(req), userAgent: req.headers.get("user-agent") }
-    );
+    await reissueSession({ twoFactorRequired: false });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generateTotpSecret, verifyTotpToken } from "@/lib/totp";
+import { generateTotpSecret, verifyTotpToken, matchTotpStep } from "@/lib/totp";
 import { createHmac } from "crypto";
 
 // RFC 6238 algoritmasını testte bağımsız olarak yeniden uygular — src/lib/totp.ts
@@ -79,5 +79,18 @@ describe("TOTP", () => {
     const oneStepAgo = Date.now() / 1000 - 30;
     const code = computeCode(secret, oneStepAgo);
     expect(verifyTotpToken(code, secret)).toBe(true);
+  });
+
+  it("matchTotpStep eşleşen zaman adımını döner (tekrar kullanım koruması için)", () => {
+    const secret = generateTotpSecret();
+    const nowStep = Math.floor(Date.now() / 1000 / 30);
+    expect(matchTotpStep(computeCode(secret, Date.now() / 1000), secret)).toBe(nowStep);
+    expect(matchTotpStep(computeCode(secret, Date.now() / 1000 - 30), secret)).toBe(nowStep - 1);
+  });
+
+  it("matchTotpStep yanlış/bozuk kodda null döner", () => {
+    const secret = generateTotpSecret();
+    expect(matchTotpStep("12ab56", secret)).toBeNull();
+    expect(matchTotpStep("", secret)).toBeNull();
   });
 });

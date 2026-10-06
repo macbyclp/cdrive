@@ -81,16 +81,21 @@ export async function createSession(
     data: { userId: payload.userId, ip: meta?.ip ?? undefined, userAgent: meta?.userAgent ?? undefined },
   });
 
-  // JWT ömrü ile çerez ömrü AYNI olmalı: çerez daha uzun yaşarsa kullanıcı
-  // süresi dolmuş bir token'la gezinip anlamsız hatalar alır.
-  const maxAge = sessionMaxAgeSeconds(payload.remember);
+  await writeSessionCookie({ ...payload, sessionId: session.id });
+  return session.id;
+}
 
-  const token = await new SignJWT({ ...payload, sessionId: session.id })
+/**
+ * JWT'yi imzalayıp oturum çerezine yazar. JWT ömrü ile çerez ömrü AYNI olmalı: çerez daha
+ * uzun yaşarsa kullanıcı süresi dolmuş bir token'la gezinip anlamsız hatalar alır.
+ */
+async function writeSessionCookie(payload: SessionPayload) {
+  const maxAge = sessionMaxAgeSeconds(payload.remember);
+  const token = await new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(`${maxAge}s`)
     .sign(secret);
-
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -99,7 +104,19 @@ export async function createSession(
     path: "/",
     maxAge,
   });
-  return session.id;
+}
+
+/**
+ * MEVCUT oturumu (aynı Session satırı) güncel bayraklarla yeniden imzalar: onboarding bitince,
+ * 2FA açılınca/kapanınca JWT'deki mustChangePassword/twoFactorRequired değerleri tazelenir.
+ * Yeni Session satırı AÇMAZ (eskiden her seferinde açılıp eskisi açık kalıyordu) ve "Beni hatırla"
+ * seçimini korur.
+ */
+export async function reissueSession(
+  changes: Partial<Pick<SessionPayload, "mustChangePassword" | "twoFactorRequired" | "name" | "email" | "role">>
+) {
+  const current = await requireSession();
+  await writeSessionCookie({ ...current, ...changes });
 }
 
 /**
@@ -276,7 +293,7 @@ export async function clearFailedLogins(userId: string) {
 
 // --- Kullanıcı taklit etme (admin panelinden, şifre değiştirmeden "biri olarak" girmek) ---
 
-type ImpersonatorPayload = { adminUserId: string; adminSessionId: string; adminName: string };
+type ImpersonatorPayload = { adminUserId: string; adminSessionId: string; adminName: string; adminRemember?: boolean };
 
 /**
  * Admin başka bir kullanıcı olarak girer: hedefe ait TAMAMEN YENİ bir Session satırı
@@ -295,6 +312,7 @@ export async function startImpersonation(
     adminUserId: admin.id,
     adminSessionId: adminSession.sessionId,
     adminName: admin.name,
+    adminRemember: adminSession.remember ?? false,
   } satisfies ImpersonatorPayload)
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
@@ -380,7 +398,7 @@ export async function stopImpersonation(): Promise<{ adminId: string; targetId: 
   }
 
   const adminTwoFactorRequired = await computeTwoFactorRequired(admin);
-  const token = await new SignJWT({
+  await writeSessionCookie({
     userId: admin.id,
     email: admin.email,
     name: admin.name,
@@ -388,19 +406,7 @@ export async function stopImpersonation(): Promise<{ adminId: string; targetId: 
     sessionId: imp.adminSessionId,
     mustChangePassword: admin.mustChangePassword,
     twoFactorRequired: adminTwoFactorRequired,
-  } satisfies SessionPayload)
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(secret);
-
-  const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    remember: imp.adminRemember ?? false,
   });
   await clearImpersonatorCookie();
 

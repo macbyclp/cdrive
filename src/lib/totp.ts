@@ -60,19 +60,24 @@ export function generateTotpSecret(): string {
   return base32Encode(randomBytes(20));
 }
 
-function totpAt(secret: string, epochSeconds: number): string {
-  const counter = Math.floor(epochSeconds / PERIOD_SECONDS);
-  return hotp(base32Decode(secret), counter);
+/**
+ * ±1 zaman adımı (30sn) tolerans ile doğrular ve eşleşen ZAMAN ADIMINI döner (eşleşme yoksa null).
+ * Adım, aynı kodun yeniden kullanılmasını engellemek için çağıran tarafından saklanır
+ * (bkz. User.twoFactorLastStep) — RFC 6238 §5.2.
+ */
+export function matchTotpStep(token: string, secret: string): number | null {
+  if (!/^\d{6}$/.test(token)) return null;
+  const nowStep = Math.floor(Date.now() / 1000 / PERIOD_SECONDS);
+  for (const drift of [0, -1, 1]) {
+    const step = nowStep + drift;
+    if (hotp(base32Decode(secret), step) === token) return step;
+  }
+  return null;
 }
 
 /** ±1 zaman adımı (30sn) tolerans ile doğrular — küçük saat kaymalarını tolere eder. */
 export function verifyTotpToken(token: string, secret: string): boolean {
-  if (!/^\d{6}$/.test(token)) return false;
-  const now = Math.floor(Date.now() / 1000);
-  for (const drift of [0, -1, 1]) {
-    if (totpAt(secret, now + drift * PERIOD_SECONDS) === token) return true;
-  }
-  return false;
+  return matchTotpStep(token, secret) !== null;
 }
 
 export async function totpQrCodeDataUrl(email: string, secret: string) {

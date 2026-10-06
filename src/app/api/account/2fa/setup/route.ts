@@ -14,7 +14,7 @@ export async function POST() {
     }
 
     const secret = generateTotpSecret();
-    await prisma.user.update({ where: { id: user.id }, data: { twoFactorSecret: secret, twoFactorEnabled: false } });
+    await prisma.user.update({ where: { id: user.id }, data: { twoFactorSecret: secret, twoFactorEnabled: false, twoFactorLastStep: null } });
     const qrCode = await totpQrCodeDataUrl(user.email, secret);
 
     return NextResponse.json({ secret, qrCode });

@@ -154,6 +154,8 @@ model User {
   // Güvenlik: 2FA (TOTP) ve başarısız giriş kilitleme
   twoFactorSecret      String?
   twoFactorEnabled     Boolean   @default(false)
+  // Son kabul edilen TOTP zaman adımı — aynı kodun (±1 adım penceresinde) yeniden kullanılmasını engeller.
+  twoFactorLastStep    Int?
   failedLoginAttempts  Int       @default(0)
   lockedUntil          DateTime?
 
