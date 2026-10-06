@@ -206,7 +206,7 @@ describe("POST /api/files (route entegrasyonu)", () => {
   it("yükler, aynı ada tekrar yüklemeyi sürüm yapar, kota aşımında 413 döner", async () => {
     const u = await user(300n);
     vi.resetModules();
-    vi.doMock("@/lib/auth", () => ({ requireUser: async () => u, AuthError: class extends Error {} }));
+    vi.doMock("@/lib/auth", () => ({ requireUser: async () => u, requireUnrestrictedUser: async () => u, AuthError: class extends Error {} }));
     const { POST } = await import("@/app/api/files/route");
     const send = (name: string, size: number) => {
       const form = new FormData();

@@ -23,11 +23,16 @@ describe("storageKey doğrulaması (kök dışına çıkış yok)", () => {
 
   it.each(["../etc/passwd", "a/b", "a\\b", "..", "", "/mutlak", "x\0y"])("geçersiz anahtar %j reddedilir", async (bad) => {
     await expect(storage.readFile(bad)).rejects.toThrow(/Geçersiz depolama anahtarı/);
-    expect(() => storage.storagePathFor(bad)).toThrow(/Geçersiz/);
     expect(() => storage.openReadStream(bad)).toThrow(/Geçersiz/);
+    // "" yalnız storagePathFor için "kök dizin" anlamına gelir; diğer geçersiz anahtarlar orada da reddedilir.
+    if (bad !== "") expect(() => storage.storagePathFor(bad)).toThrow(/Geçersiz/);
   });
 
   it("randomUUID biçimli anahtarlar geçerlidir", () => {
     expect(() => storage.storagePathFor(randomUUID())).not.toThrow();
+  });
+
+  it("storagePathFor('') depolama kökünü döner", () => {
+    expect(storage.storagePathFor("")).toBe(dir);
   });
 });

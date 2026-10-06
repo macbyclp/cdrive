@@ -54,3 +54,4 @@ next-env.d.ts
 # (başka bir makinede/kullanıcıda anlamsız, kullanıcı adını sızdırır)
 .claude/settings.local.json
 .codex/hooks.json
+.test-storage/

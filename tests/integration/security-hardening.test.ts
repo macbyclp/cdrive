@@ -44,6 +44,7 @@ function asUser(u: { id: string }) {
   vi.resetModules();
   vi.doMock("@/lib/auth", () => ({
     requireUser: async () => prisma.user.findUniqueOrThrow({ where: { id: u.id } }),
+    requireUnrestrictedUser: async () => prisma.user.findUniqueOrThrow({ where: { id: u.id } }),
     AuthError: class extends Error {},
   }));
 }

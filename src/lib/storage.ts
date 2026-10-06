@@ -59,7 +59,8 @@ export async function deleteFile(storageKey: string): Promise<void> {
 }
 
 export function storagePathFor(storageKey: string) {
-  return keyPath(storageKey);
+  // "" = depolama kökünün kendisi (testler/araçlar dizini listelemek için kullanır).
+  return storageKey === "" ? STORAGE_ROOT : keyPath(storageKey);
 }
 
 /** Diskteki dosyanın boyutu (bayt). Dosya yoksa ENOENT fırlatır. */
