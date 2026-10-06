@@ -17,6 +17,8 @@
       "twoFactorLabel": "Doğrulama kodu",
       "twoFactorSubmit": "Doğrula",
       "twoFactorSubmitting": "Doğrulanıyor…",
+      "useRecoveryCode": "Kurtarma kodu kullan",
+      "useAuthenticator": "Authenticator kodu kullan",
       "back": "Geri dön",
       "errorLogin": "Giriş başarısız",
       "errorVerify": "Doğrulama başarısız"

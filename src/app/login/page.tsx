@@ -14,6 +14,7 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [needsTwoFactor, setNeedsTwoFactor] = useState(false);
+  const [useRecovery, setUseRecovery] = useState(false);
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -138,16 +139,29 @@ function LoginForm() {
               <input
                 required
                 autoFocus
-                inputMode="numeric"
-                maxLength={6}
+                inputMode={useRecovery ? "text" : "numeric"}
+                autoComplete="one-time-code"
+                maxLength={useRecovery ? 16 : 6}
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                className="input text-center text-lg tracking-[0.5em]"
-                placeholder="000000"
+                onChange={(e) => setCode(useRecovery ? e.target.value : e.target.value.replace(/\D/g, ""))}
+                className="input text-center text-lg tracking-[0.3em]"
+                placeholder={useRecovery ? "xxxxx-xxxxx" : "000000"}
               />
             </label>
+            <button
+              type="button"
+              className="block w-full text-center text-xs"
+              style={{ color: "var(--accent)" }}
+              onClick={() => {
+                setUseRecovery((v) => !v);
+                setCode("");
+                setError(null);
+              }}
+            >
+              {useRecovery ? t("useAuthenticator") : t("useRecoveryCode")}
+            </button>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-            <button disabled={loading || code.length !== 6} className="btn-primary w-full">
+            <button disabled={loading || code.length < (useRecovery ? 10 : 6)} className="btn-primary w-full">
               {loading ? t("twoFactorSubmitting") : t("twoFactorSubmit")}
             </button>
             <button
@@ -155,6 +169,7 @@ function LoginForm() {
               className="btn-ghost w-full"
               onClick={() => {
                 setNeedsTwoFactor(false);
+                setUseRecovery(false);
                 setCode("");
                 setError(null);
               }}

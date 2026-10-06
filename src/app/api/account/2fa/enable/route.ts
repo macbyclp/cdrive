@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, reissueSession } from "@/lib/auth";
 import { matchTotpStep } from "@/lib/totp";
 import { logAudit } from "@/lib/audit";
+import { replaceRecoveryCodes } from "@/lib/recovery-codes";
 import { errorResponse } from "@/lib/api-helpers";
 
 const schema = z.object({ code: z.string().min(6).max(6) });
@@ -28,7 +29,9 @@ export async function POST(req: Request) {
     // (mustChangePassword'daki "JWT re-mint" ile aynı desen).
     await reissueSession({ twoFactorRequired: false });
 
-    return NextResponse.json({ ok: true });
+    // Kurtarma kodları yalnız burada, bir kez gösterilir (DB'de hash'i durur).
+    const recoveryCodes = await replaceRecoveryCodes(user.id);
+    return NextResponse.json({ ok: true, recoveryCodes });
   } catch (err) {
     return errorResponse(err);
   }

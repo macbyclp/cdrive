@@ -186,9 +186,22 @@ function TwoFactorCard({ user, onChange }: { user: MeUser; onChange: () => void 
   const [setupData, setSetupData] = useState<{ secret: string; qrCode: string } | null>(null);
   const [code, setCode] = useState("");
   const [disablePassword, setDisablePassword] = useState("");
+  const [disableCode, setDisableCode] = useState("");
   const [showDisable, setShowDisable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Kurtarma kodları yalnız üretildiği anda gösterilir (DB'de hash'i durur).
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [showRegen, setShowRegen] = useState(false);
+
+  useEffect(() => {
+    if (!user.twoFactorEnabled) return;
+    fetch(withBasePath("/api/account/2fa/recovery-codes"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setRemaining(d.remaining))
+      .catch(() => {});
+  }, [user.twoFactorEnabled, recoveryCodes]);
 
   async function startSetup() {
     setError(null);
@@ -218,8 +231,10 @@ function TwoFactorCard({ user, onChange }: { user: MeUser; onChange: () => void 
       setError(d.error ?? "Doğrulanamadı");
       return;
     }
+    const d = await res.json().catch(() => ({}));
     setSetupData(null);
     setCode("");
+    if (Array.isArray(d.recoveryCodes)) setRecoveryCodes(d.recoveryCodes);
     toast("İki adımlı doğrulama açıldı", "success");
     onChange();
   }
@@ -231,7 +246,7 @@ function TwoFactorCard({ user, onChange }: { user: MeUser; onChange: () => void 
     const res = await fetch(withBasePath("/api/account/2fa/disable"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: disablePassword }),
+      body: JSON.stringify({ password: disablePassword, code: disableCode }),
     });
     setBusy(false);
     if (!res.ok) {
@@ -241,8 +256,31 @@ function TwoFactorCard({ user, onChange }: { user: MeUser; onChange: () => void 
     }
     setShowDisable(false);
     setDisablePassword("");
+    setDisableCode("");
+    setRemaining(null);
     toast("İki adımlı doğrulama kapatıldı");
     onChange();
+  }
+
+  async function regenerate(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    const res = await fetch(withBasePath("/api/account/2fa/recovery-codes"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: disablePassword, code: disableCode }),
+    });
+    setBusy(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(d.error ?? "Yenilenemedi");
+      return;
+    }
+    setRecoveryCodes(d.recoveryCodes);
+    setShowRegen(false);
+    setDisablePassword("");
+    setDisableCode("");
   }
 
   return (
@@ -298,6 +336,74 @@ function TwoFactorCard({ user, onChange }: { user: MeUser; onChange: () => void 
         </form>
       )}
 
+      {recoveryCodes && (
+        <div className="mb-4 space-y-3 rounded-xl border p-4" style={{ borderColor: "var(--border)" }}>
+          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+            Kurtarma kodların
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-secondary)" }}>
+            Telefonunu kaybedersen bu kodlardan biriyle girebilirsin. Her kod yalnız bir kez çalışır ve
+            <strong> bir daha gösterilmez</strong> — güvenli bir yere kaydet.
+          </p>
+          <div className="grid grid-cols-2 gap-1 font-mono text-sm" style={{ color: "var(--text-primary)" }}>
+            {recoveryCodes.map((c) => (
+              <code key={c}>{c}</code>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => navigator.clipboard?.writeText(recoveryCodes.join("\n")).then(() => toast("Kodlar kopyalandı", "success"))}
+            >
+              Kopyala
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                const url = URL.createObjectURL(new Blob([recoveryCodes.join("\n") + "\n"], { type: "text/plain" }));
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "cdrive-kurtarma-kodlari.txt";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              İndir
+            </button>
+            <button type="button" className="btn-primary" onClick={() => setRecoveryCodes(null)}>
+              Kaydettim
+            </button>
+          </div>
+        </div>
+      )}
+
+      {user.twoFactorEnabled && !recoveryCodes && !showDisable && (
+        <p className="mb-3 text-xs" style={{ color: remaining === 0 ? "#dc2626" : "var(--text-secondary)" }}>
+          {remaining === null
+            ? ""
+            : remaining === 0
+              ? "Kullanılabilir kurtarma kodun kalmadı — yenile."
+              : `${remaining} kullanılabilir kurtarma kodun var.`}{" "}
+          {!showRegen && (
+            <button type="button" className="underline" onClick={() => { setShowRegen(true); setError(null); }}>
+              Kodları yenile
+            </button>
+          )}
+        </p>
+      )}
+      {showRegen && (
+        <form onSubmit={regenerate} className="mb-4 space-y-3">
+          <input required type="password" placeholder="Şifreni doğrula" className="input" value={disablePassword} onChange={(e) => setDisablePassword(e.target.value)} />
+          <input required placeholder="Doğrulama veya kurtarma kodu" className="input" value={disableCode} onChange={(e) => setDisableCode(e.target.value)} />
+          <div className="flex gap-2">
+            <button type="button" className="btn-ghost" onClick={() => setShowRegen(false)}>Vazgeç</button>
+            <button disabled={busy} className="btn-primary">Yeni kodlar üret</button>
+          </div>
+        </form>
+      )}
+
       {user.twoFactorEnabled && !showDisable && (
         <button className="btn-secondary text-red-600 dark:text-red-400" onClick={() => setShowDisable(true)}>
           2FA&apos;yı kapat
@@ -312,6 +418,13 @@ function TwoFactorCard({ user, onChange }: { user: MeUser; onChange: () => void 
             className="input"
             value={disablePassword}
             onChange={(e) => setDisablePassword(e.target.value)}
+          />
+          <input
+            required
+            placeholder="Doğrulama veya kurtarma kodu"
+            className="input"
+            value={disableCode}
+            onChange={(e) => setDisableCode(e.target.value)}
           />
           <div className="flex gap-2">
             <button type="button" className="btn-ghost" onClick={() => setShowDisable(false)}>

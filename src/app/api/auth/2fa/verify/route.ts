@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createSession, getPending2FA, clearPending2FA } from "@/lib/auth";
-import { matchTotpStep } from "@/lib/totp";
+import { verifySecondFactor } from "@/lib/two-factor";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
 
-const schema = z.object({ code: z.string().min(6).max(6) });
+// 6 haneli TOTP kodu ya da "xxxxx-xxxxx" kurtarma kodu.
+const schema = z.object({ code: z.string().min(6).max(16) });
 
 export async function POST(req: Request) {
   try {
@@ -25,20 +26,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Geçersiz istek" }, { status: 401 });
     }
 
-    const step = matchTotpStep(code, user.twoFactorSecret);
-    if (step === null) {
-      await logAudit({ userId: user.id, action: "LOGIN_FAILED", detail: "2FA kodu hatalı", ip });
-      return NextResponse.json({ error: "Doğrulama kodu hatalı" }, { status: 401 });
-    }
-    // Tekrar kullanım koruması: bir kod (ve daha eski adımlar) yalnız BİR kez kabul edilir. Koşullu UPDATE
-    // atomiktir; aynı kodla eşzamanlı iki istekten yalnız biri geçer.
-    const claimed = await prisma.user.updateMany({
-      where: { id: user.id, OR: [{ twoFactorLastStep: null }, { twoFactorLastStep: { lt: step } }] },
-      data: { twoFactorLastStep: step },
-    });
-    if (claimed.count === 0) {
-      await logAudit({ userId: user.id, action: "LOGIN_FAILED", detail: "2FA kodu yeniden kullanıldı", ip });
-      return NextResponse.json({ error: "Bu kod zaten kullanıldı, yeni kodu bekleyin" }, { status: 401 });
+    const result = await verifySecondFactor(user, code);
+    if (!result.ok) {
+      const replay = result.reason === "replay";
+      await logAudit({ userId: user.id, action: "LOGIN_FAILED", detail: replay ? "2FA kodu yeniden kullanıldı" : "2FA kodu hatalı", ip });
+      return NextResponse.json(
+        { error: replay ? "Bu kod zaten kullanıldı, yeni kodu bekleyin" : "Doğrulama kodu hatalı" },
+        { status: 401 }
+      );
     }
 
     await clearPending2FA();
@@ -48,7 +43,7 @@ export async function POST(req: Request) {
       { userId: user.id, email: user.email, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword, twoFactorRequired: false, remember: pending.remember },
       { ip, userAgent: req.headers.get("user-agent") }
     );
-    await logAudit({ userId: user.id, action: "LOGIN", ip, detail: "2FA ile" });
+    await logAudit({ userId: user.id, action: "LOGIN", ip, detail: result.method === "recovery" ? "2FA kurtarma koduyla" : "2FA ile" });
     return NextResponse.json({ id: user.id, email: user.email, name: user.name, role: user.role });
   } catch (err) {
     return errorResponse(err);

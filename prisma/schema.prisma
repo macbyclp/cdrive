@@ -174,6 +174,7 @@ model User {
   notifications Notification[]
   sessions     Session[]
   passwordResetTokens PasswordResetToken[]
+  twoFactorRecoveryCodes TwoFactorRecoveryCode[]
   fileComments FileComment[]
   groupMemberships GroupMember[]
   templateMemberships PermissionTemplateMember[]
@@ -224,6 +225,20 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+/// 2FA kurtarma kodları — authenticator kaybolursa girişi/2FA'yı kapatmayı sağlar. Kod HAM olarak
+/// yalnız üretildiği anda kullanıcıya gösterilir; DB'de sha256 hash'i tutulur. Tek kullanımlık (usedAt).
+model TwoFactorRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, codeHash])
+  @@map("two_factor_recovery_codes")
 }
 
 /// Tek satırlık genel sistem ayarları — id her zaman 1.
