@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { createSession, verifyPassword, isLocked, registerFailedLogin, clearFailedLogins, createPending2FA, computeTwoFactorRequired } from "@/lib/auth";
+import { createSession, verifyPassword, hashPassword, passwordNeedsRehash, burnPasswordCheck, isLocked, registerFailedLogin, clearFailedLogins, createPending2FA, computeTwoFactorRequired } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!user) await burnPasswordCheck(password); // süre farkı hesap varlığını sızdırmasın
     if (!user || !user.active || !(await verifyPassword(password, user.passwordHash))) {
       if (user) {
         const justLocked = await registerFailedLogin(user.id, user.failedLoginAttempts);
@@ -51,6 +52,10 @@ export async function POST(req: Request) {
     }
 
     await clearFailedLogins(user.id);
+    // Eski (daha düşük maliyetli) hash'i, parolayı bildiğimiz bu an güncel maliyetle yeniden hash'le.
+    if (passwordNeedsRehash(user.passwordHash)) {
+      await prisma.user.update({ where: { id: user.id }, data: { passwordHash: await hashPassword(password) } }).catch(() => {});
+    }
 
     if (user.twoFactorEnabled) {
       // Oturum 2FA doğrulamasından SONRA açılıyor; seçim o adıma taşınıyor.

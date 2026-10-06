@@ -32,7 +32,7 @@ export async function POST(req: Request) {
           ? new Date(Date.now() + body.expiresInHours * 3600_000)
           : null,
         maxDownloads: body.maxDownloads ?? null,
-        passwordHash: body.password ? await hashPassword(body.password) : null,
+        passwordHash: body.password ? await hashPassword(body.password, 10) : null,
       },
     });
     await logAudit({ userId: user.id, action: "SHARE_CREATE", targetType: "file", targetId: body.fileId, detail: maskToken(token) });

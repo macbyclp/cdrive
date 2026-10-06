@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, hashPassword, verifyPassword, getSession } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
+import { assertPasswordPolicy } from "@/lib/password-policy";
 
 const schema = z.object({
   currentPassword: z.string().min(1),
@@ -19,6 +20,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Mevcut şifre hatalı" }, { status: 401 });
     }
 
+    assertPasswordPolicy(newPassword, { email: user.email, name: user.name });
     const passwordHash = await hashPassword(newPassword);
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
     // Şifre değişince BU oturum dışındaki tüm oturumlar kapanır (ele geçirilmiş oturum sürmesin).

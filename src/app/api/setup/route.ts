@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { createSession, hashPassword } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp, limitOr429 } from "@/lib/api-helpers";
+import { assertPasswordPolicy } from "@/lib/password-policy";
 
 const schema = z.object({
   name: z.string().min(2),
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Kurulum zaten tamamlanmış. Lütfen giriş yapın." }, { status: 409 });
     }
     const body = schema.parse(await req.json());
+    assertPasswordPolicy(body.password, { email: body.email, name: body.name });
     const passwordHash = await hashPassword(body.password);
 
     // "Hiç kullanıcı yok" kontrolü ile oluşturma ARASINDA eşzamanlı ikinci bir istek de geçebilirdi

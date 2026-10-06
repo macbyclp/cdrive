@@ -59,12 +59,40 @@ export async function computeTwoFactorRequired(user: { role: Role; twoFactorEnab
   return !!settings?.require2faForAdmins;
 }
 
-export async function hashPassword(password: string) {
-  return bcrypt.hash(password, 10);
+const DEFAULT_BCRYPT_ROUNDS = 12;
+
+/** bcrypt maliyeti: BCRYPT_ROUNDS (10–14), varsayılan 12 (~350 ms; 10 ≈ 100 ms). */
+export function bcryptRounds(env: NodeJS.ProcessEnv = process.env): number {
+  const n = Number(env.BCRYPT_ROUNDS);
+  return Number.isInteger(n) && n >= 10 && n <= 14 ? n : DEFAULT_BCRYPT_ROUNDS;
+}
+
+export async function hashPassword(password: string, rounds: number = bcryptRounds()) {
+  return bcrypt.hash(password, rounds);
 }
 
 export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
+}
+
+/** Hash, güncel maliyetten düşük bir turla üretilmişse true — başarılı girişte yeniden hash'lenir. */
+export function passwordNeedsRehash(hash: string, rounds: number = bcryptRounds()): boolean {
+  try {
+    return bcrypt.getRounds(hash) < rounds;
+  } catch {
+    return false;
+  }
+}
+
+let dummyHash: Promise<string> | null = null;
+
+/**
+ * Hesap bulunamadığında da bir bcrypt karşılaştırması yapar: aksi halde "e-posta kayıtlı değil" yanıtı
+ * (hızlı) ile "parola yanlış" yanıtı (yavaş) arasındaki süre farkı hesap varlığını sızdırır.
+ */
+export async function burnPasswordCheck(password: string) {
+  dummyHash ??= bcrypt.hash("cdrive-timing-equalizer", bcryptRounds());
+  await bcrypt.compare(password, await dummyHash);
 }
 
 /**

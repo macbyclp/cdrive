@@ -5,6 +5,7 @@ import { requireUser, hashPassword, reissueSession, computeTwoFactorRequired } f
 import { serializeAvatarConfig } from "@/lib/avatar-parts";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
+import { assertPasswordPolicy } from "@/lib/password-policy";
 
 const schema = z.object({
   password: z.string().min(8),
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
   try {
     const user = await requireUser();
     const body = schema.parse(await req.json());
+    assertPasswordPolicy(body.password, { email: user.email, name: user.name });
 
     const passwordHash = await hashPassword(body.password);
     await prisma.user.update({

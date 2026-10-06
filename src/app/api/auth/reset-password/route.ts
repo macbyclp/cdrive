@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
+import { assertPasswordPolicy } from "@/lib/password-policy";
 
 const schema = z.object({ token: z.string().min(10), password: z.string().min(8) });
 
@@ -30,6 +31,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Hesap bulunamadı" }, { status: 404 });
     }
 
+    assertPasswordPolicy(password, { email: user.email, name: user.name });
     const passwordHash = await hashPassword(password);
     await prisma.$transaction([
       prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
