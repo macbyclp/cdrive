@@ -200,7 +200,7 @@ export async function requireUser() {
 /**
  * `requireUser` + middleware'in API'de uyguladığı "zorunlu şifre değişimi / zorunlu 2FA kurulumu" kapısı.
  * Büyük dosya yükleyen rotalar middleware matcher'ından ÇIKARILDI (aksi halde Next gövdeyi kopyalamak
- * için 10 MB'ta keser — bkz. src/middleware.ts config), bu yüzden aynı kural burada rotada uygulanır.
+ * için 10 MB'ta keser — bkz. src/proxy.ts config), bu yüzden aynı kural burada rotada uygulanır.
  */
 export async function requireUnrestrictedUser() {
   const user = await requireUser();

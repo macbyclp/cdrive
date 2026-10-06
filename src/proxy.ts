@@ -1,3 +1,4 @@
+// Next 16: "middleware" dosya kuralı "proxy" olarak yeniden adlandırıldı (işlev aynı).
 import { NextResponse, type NextRequest } from "next/server";
 import { resolveSecret } from "@/lib/session-secret";
 import { jwtVerify } from "jose";
@@ -6,7 +7,7 @@ const secret = new TextEncoder().encode(
   resolveSecret()
 );
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get("cdrive_session")?.value;
 
@@ -107,7 +108,7 @@ export const config = {
     "/chat/:path*",
     "/production/:path*",
     "/onboarding/:path*",
-    // Büyük dosya yükleyen üç rota (files, files/zip-upload, files/scan) BİLEREK dışarıda: middleware
+    // Büyük dosya yükleyen üç rota (files, files/zip-upload, files/scan) BİLEREK dışarıda: proxy (eski adıyla middleware)
     // çalışan her istekte Next gövdeyi bellekte kopyalar ve 10 MB'ta KESER (10 MB üstü yüklemeler
     // sessizce bozulur/başarısız olur). Bu rotalar zorunlu şifre/2FA kapısını requireUnrestrictedUser
     // ile kendileri uygular. Yeni bir yükleme rotası eklenirse buraya ve o fonksiyona ekleyin.

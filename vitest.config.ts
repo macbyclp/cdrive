@@ -19,7 +19,7 @@ export default defineConfig({
     exclude: ["**/node_modules/**", "**/dist/**", "**/.next/**"],
     coverage: {
       provider: "v8",
-      include: ["src/lib/**", "src/middleware.ts", "src/app/api/**"],
+      include: ["src/lib/**", "src/proxy.ts", "src/app/api/**"],
       reporter: ["text-summary", "lcov"],
       reportsDirectory: "coverage",
       // Gerileme tabanı (mevcut ölçüm ~%19): eşik altına düşen değişiklik CI'da fail eder; test eklendikçe yükseltin.
