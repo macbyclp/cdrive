@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireUnrestrictedUser } from "@/lib/auth";
 import { canAccessFolder, assertQuota } from "@/lib/access";
 import { assertFilePolicy } from "@/lib/policy";
 import { createFileFromBuffer } from "@/lib/file-versions";
@@ -39,7 +39,7 @@ async function uniqueName(folderId: string | null, stem: string, ext: string): P
 /** Taranan sayfa görüntülerinden (sayfa sırasıyla) tek bir PDF üretip klasöre kaydeder. */
 export async function POST(req: Request) {
   try {
-    const user = await requireUser();
+    const user = await requireUnrestrictedUser();
     const limited = limitOr429("scan", user.id, 20, 60000);
     if (limited) return limited;
 

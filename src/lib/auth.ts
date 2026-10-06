@@ -197,6 +197,19 @@ export async function requireUser() {
   return user;
 }
 
+/**
+ * `requireUser` + middleware'in API'de uyguladığı "zorunlu şifre değişimi / zorunlu 2FA kurulumu" kapısı.
+ * Büyük dosya yükleyen rotalar middleware matcher'ından ÇIKARILDI (aksi halde Next gövdeyi kopyalamak
+ * için 10 MB'ta keser — bkz. src/middleware.ts config), bu yüzden aynı kural burada rotada uygulanır.
+ */
+export async function requireUnrestrictedUser() {
+  const user = await requireUser();
+  const session = await getSession();
+  if (session?.mustChangePassword) throw new AuthError("Önce şifrenizi belirleyin", 403);
+  if (session?.twoFactorRequired) throw new AuthError("Önce iki adımlı doğrulamayı kurun", 403);
+  return user;
+}
+
 export async function requireRole(...roles: Role[]) {
   const user = await requireUser();
   if (!roles.includes(user.role)) throw new AuthError("Yetkisiz erişim", 403);

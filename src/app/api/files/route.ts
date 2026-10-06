@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireUnrestrictedUser } from "@/lib/auth";
 import { canAccessFolder, canAccessFile, assertQuota } from "@/lib/access";
 import { extractSearchText } from "@/lib/text-extract";
 import { assertFilePolicy } from "@/lib/policy";
@@ -11,7 +11,7 @@ import { errorResponse, limitOr429 } from "@/lib/api-helpers";
 
 export async function POST(req: Request) {
   try {
-    const user = await requireUser();
+    const user = await requireUnrestrictedUser();
     const limited = limitOr429("upload", user.id, 300, 60000);
     if (limited) return limited;
     const form = await req.formData();

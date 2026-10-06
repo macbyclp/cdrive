@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import AdmZip from "adm-zip";
 import mime from "mime-types";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireUnrestrictedUser } from "@/lib/auth";
 import { canAccessFolder, canAccessFile, assertQuota } from "@/lib/access";
 import { extractSearchText } from "@/lib/text-extract";
 import { assertFilePolicy } from "@/lib/policy";
@@ -30,7 +30,7 @@ const ZIP_MAX_RATIO = 200;
 
 export async function POST(req: Request) {
   try {
-    const user = await requireUser();
+    const user = await requireUnrestrictedUser();
     const limited = limitOr429("zipupload", user.id, 10, 60000);
     if (limited) return limited;
     const form = await req.formData();
