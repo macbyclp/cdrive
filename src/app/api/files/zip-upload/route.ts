@@ -10,23 +10,14 @@ import { saveNewFileVersion, createFileFromBuffer } from "@/lib/file-versions";
 import { notifyIfQuotaWarning } from "@/lib/quota-notify";
 import { logAudit } from "@/lib/audit";
 import { errorResponse, limitOr429 } from "@/lib/api-helpers";
+import { inspectZipEntries, isSafeZipSegment as isSafeSegment, safeZipPath, zipMaxTotalBytes } from "@/lib/zip-guard";
 
 /**
  * Bir .zip dosyasını hedef klasöre çıkarır: içindeki klasör yapısını gerçek
  * Folder kayıtlarıyla yeniden kurar, dosyaları normal yükleme akışıyla
  * (versiyon/quota/politika/arama metni dahil) tek tek işler.
  */
-// "." / ".." parçaları klasör adı olarak oluşturulmaz (ör. "a/../b" → "a/b"); bu tür
-// adlar sonradan ZIP indirmesinde yol geçişine yol açabiliyordu.
-function isSafeSegment(s: string) {
-  return s !== "" && s !== "." && s !== "..";
-}
-
-// ZIP bombası koruması: girdi sayısı, ilan edilen toplam açılmış boyut ve sıkıştırma oranı,
-// hiçbir şey belleğe açılmadan ÖNCE sınırlandırılır.
-const ZIP_MAX_ENTRIES = 5000;
-const ZIP_MAX_TOTAL_BYTES = Number(process.env.ZIP_MAX_TOTAL_BYTES || 2 * 1024 * 1024 * 1024);
-const ZIP_MAX_RATIO = 200;
+const ZIP_MAX_TOTAL_BYTES = zipMaxTotalBytes();
 
 export async function POST(req: Request) {
   try {
@@ -59,19 +50,11 @@ export async function POST(req: Request) {
     }
 
     const entries = zip.getEntries();
-    if (entries.length > ZIP_MAX_ENTRIES) {
-      return NextResponse.json({ error: `Zip en fazla ${ZIP_MAX_ENTRIES} girdi içerebilir` }, { status: 400 });
-    }
-    let declaredTotal = 0;
-    for (const e of entries) {
-      if (e.isDirectory) continue;
-      const declared = e.header.size;
-      const packed = e.header.compressedSize;
-      declaredTotal += declared;
-      if (declaredTotal > ZIP_MAX_TOTAL_BYTES || (packed > 0 && declared / packed > ZIP_MAX_RATIO && declared > 1024 * 1024)) {
-        return NextResponse.json({ error: "Zip içeriği çok büyük veya şüpheli ölçüde sıkıştırılmış" }, { status: 400 });
-      }
-    }
+    const problem = inspectZipEntries(
+      entries.map((e) => ({ isDirectory: e.isDirectory, size: e.header.size, compressedSize: e.header.compressedSize })),
+      ZIP_MAX_TOTAL_BYTES
+    );
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
     // Dizin yolu ("a/b") -> Folder id eşlemesi; kök = yüklemenin hedef klasörü.
     const folderCache = new Map<string, string | null>([["", rootFolderId]]);
 
@@ -113,6 +96,7 @@ export async function POST(req: Request) {
       return currentParentId;
     }
 
+    let extractedTotal = 0;
     let filesCreated = 0;
     let foldersCreated = 0;
     let skipped = 0;
@@ -127,7 +111,7 @@ export async function POST(req: Request) {
       }
 
       const fullPath = entry.entryName.replace(/\\/g, "/");
-      const segments = fullPath.split("/").filter(isSafeSegment);
+      const segments = safeZipPath(entry.entryName);
       const name = segments.pop();
       if (!name || name.startsWith(".")) {
         skipped++;
@@ -139,6 +123,9 @@ export async function POST(req: Request) {
         const parentId = await ensureFolderPath(dirPath);
         if (entry.header.size > ZIP_MAX_TOTAL_BYTES) throw new Error("Dosya çok büyük");
         const buffer = entry.getData();
+        // İlan edilen boyut sahte olabilir: GERÇEKTEN açılan toplam da sınırlanır.
+        extractedTotal += buffer.byteLength;
+        if (extractedTotal > ZIP_MAX_TOTAL_BYTES) throw new Error("Zip içeriği izin verilen toplam boyutu aştı");
         const size = BigInt(buffer.byteLength);
         const mimeType = mime.lookup(name) || "application/octet-stream";
 
