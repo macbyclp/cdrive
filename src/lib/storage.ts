@@ -4,7 +4,18 @@ import type { Readable } from "stream";
 import path from "path";
 import { randomUUID } from "crypto";
 
-const STORAGE_ROOT = path.resolve(process.cwd(), process.env.STORAGE_ROOT ?? "./storage");
+// turbopackIgnore: yolun çalışma zamanında belirlendiğini Turbopack'e bildirir; aksi halde derleyici
+// "dinamik dosya sistemi erişimi" görüp TÜM proje ağacını standalone çıktıya izler (derleme uyarısı + şişen imaj).
+const STORAGE_ROOT = path.resolve(/* turbopackIgnore: true */ process.cwd(), process.env.STORAGE_ROOT ?? "./storage");
+
+/**
+ * storageKey'i depolama kökü altındaki dosya yoluna çevirir. Anahtarlar sunucunun ürettiği UUID'lerdir;
+ * yine de (derinlemesine savunma) yol ayırıcı/".." içeren bir değer asla kök dışına çıkamasın.
+ */
+function keyPath(storageKey: string): string {
+  if (!/^[A-Za-z0-9_-]+$/.test(storageKey)) throw new Error("Geçersiz depolama anahtarı");
+  return path.join(/* turbopackIgnore: true */ STORAGE_ROOT, storageKey);
+}
 
 async function ensureRoot() {
   await fs.mkdir(STORAGE_ROOT, { recursive: true });
@@ -14,7 +25,7 @@ async function ensureRoot() {
 export async function writeFile(buffer: Buffer): Promise<string> {
   await ensureRoot();
   const key = randomUUID();
-  const filePath = path.join(STORAGE_ROOT, key);
+  const filePath = keyPath(key);
   await fs.writeFile(filePath, buffer);
   return key;
 }
@@ -26,7 +37,7 @@ export async function writeFile(buffer: Buffer): Promise<string> {
 export async function writeStream(source: Readable): Promise<{ key: string; size: number }> {
   await ensureRoot();
   const key = randomUUID();
-  const filePath = path.join(STORAGE_ROOT, key);
+  const filePath = keyPath(key);
   try {
     await pipeline(source, createWriteStream(filePath, { flags: "wx" }));
     const { size } = await fs.stat(filePath);
@@ -38,22 +49,22 @@ export async function writeStream(source: Readable): Promise<{ key: string; size
 }
 
 export async function readFile(storageKey: string): Promise<Buffer> {
-  const filePath = path.join(STORAGE_ROOT, storageKey);
+  const filePath = keyPath(storageKey);
   return fs.readFile(filePath);
 }
 
 export async function deleteFile(storageKey: string): Promise<void> {
-  const filePath = path.join(STORAGE_ROOT, storageKey);
+  const filePath = keyPath(storageKey);
   await fs.rm(filePath, { force: true });
 }
 
 export function storagePathFor(storageKey: string) {
-  return path.join(STORAGE_ROOT, storageKey);
+  return keyPath(storageKey);
 }
 
 /** Diskteki dosyanın boyutu (bayt). Dosya yoksa ENOENT fırlatır. */
 export async function statFile(storageKey: string): Promise<{ size: number }> {
-  const st = await fs.stat(path.join(STORAGE_ROOT, storageKey));
+  const st = await fs.stat(keyPath(storageKey));
   return { size: st.size };
 }
 
@@ -62,7 +73,7 @@ export async function statFile(storageKey: string): Promise<{ size: number }> {
  * HTTP Range (206) yanıtları için. Büyük dosyalarda sabit bellek kullanımı sağlar.
  */
 export function openReadStream(storageKey: string, range?: { start: number; end: number }): Readable {
-  return createReadStream(path.join(STORAGE_ROOT, storageKey), range ? { start: range.start, end: range.end } : undefined);
+  return createReadStream(keyPath(storageKey), range ? { start: range.start, end: range.end } : undefined);
 }
 
 /** Depolama kökü var ve bu süreç tarafından yazılabilir mi (sağlık kontrolü için; dosya yazmaz). */

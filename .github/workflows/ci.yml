@@ -2,6 +2,9 @@ name: CI
 on:
   push:
   pull_request:
+# En az yetki: CI yalnızca kodu okur.
+permissions:
+  contents: read
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -26,6 +29,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
+      # Yalnız KRİTİK üretim bağımlılığı açıkları derlemeyi durdurur (geçişli, düzeltmesi olmayan düşük/orta uyarılar değil).
+      - run: npm audit --omit=dev --audit-level=critical
       - run: npm run lint
       - run: npm run typecheck
       - name: Test veritabanı şemasını kur

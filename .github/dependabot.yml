@@ -1,0 +1,30 @@
+# Bağımlılık güvenlik/sürüm güncellemeleri için otomatik PR'lar. Güvenlik yamaları (ör. Next.js) ayrıca
+# GitHub Security Advisories üzerinden açılır; bu dosya olağan güncellemelerin birikmesini önler.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Aynı sürüm çizgisinde birlikte gitmesi gereken paketler tek PR'da.
+      next:
+        patterns: ["next", "eslint-config-next"]
+      prisma:
+        patterns: ["prisma", "@prisma/client"]
+      dev-dependencies:
+        dependency-type: development
+        update-types: [minor, patch]
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /deploy/vds/updater
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
