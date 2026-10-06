@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import AppShell from "@/components/AppShell";
 import ShareDialog from "@/components/ShareDialog";
+import UploadRequestDialog from "@/components/UploadRequestDialog";
 import VersionsDialog from "@/components/VersionsDialog";
 import PreviewDialog from "@/components/PreviewDialog";
 import OfficeEditorDialog from "@/components/OfficeEditorDialog";
@@ -91,6 +92,7 @@ function DriveInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shareTarget, setShareTarget] = useState<{ type: "file" | "folder"; id: string; name: string } | null>(null);
+  const [uploadRequestTarget, setUploadRequestTarget] = useState<{ id: string; name: string } | null>(null);
   const [versionsTarget, setVersionsTarget] = useState<{ id: string; name: string } | null>(null);
   const [previewTarget, setPreviewTarget] = useState<{ id: string; name: string; mimeType: string } | null>(null);
   const [officeTarget, setOfficeTarget] = useState<{ id: string; name: string } | null>(null);
@@ -651,6 +653,7 @@ function DriveInner() {
     return [
       { label: t("menu.downloadZip"), onClick: () => downloadFolderZip(f) },
       { label: t("menu.share"), onClick: () => setShareTarget({ type: "folder", id: f.id, name: f.name }) },
+      { label: t("menu.uploadRequest"), onClick: () => setUploadRequestTarget({ id: f.id, name: f.name }) },
       ...tagMenuItem("folder", f),
       ...activityMenuItem("folder", f),
       ...(view === "root"
@@ -1490,6 +1493,13 @@ function DriveInner() {
           targetId={shareTarget.id}
           targetName={shareTarget.name}
           onClose={() => setShareTarget(null)}
+        />
+      )}
+      {uploadRequestTarget && (
+        <UploadRequestDialog
+          folderId={uploadRequestTarget.id}
+          folderName={uploadRequestTarget.name}
+          onClose={() => setUploadRequestTarget(null)}
         />
       )}
       {versionsTarget && (

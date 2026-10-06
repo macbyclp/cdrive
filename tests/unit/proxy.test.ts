@@ -64,11 +64,11 @@ describe("proxy matcher — büyük yükleme rotaları", () => {
   const matches = (path: string) => config.matcher.some((m: string) => pathToRegexp(m).test(path));
 
   it("yükleme rotaları middleware'den muaf (gövde kesilmez)", () => {
-    for (const p of ["/api/files", "/api/files/zip-upload", "/api/files/scan"]) expect(matches(p)).toBe(false);
+    for (const p of ["/api/files", "/api/files/zip-upload", "/api/files/scan", "/api/upload-request/abc123"]) expect(matches(p)).toBe(false);
   });
 
   it("diğer API rotaları ve sayfalar hâlâ korunur", () => {
-    for (const p of ["/api/files/abc", "/api/files/abc/comments", "/api/folders", "/api/me", "/drive", "/login"]) {
+    for (const p of ["/api/files/abc", "/api/files/abc/comments", "/api/folders", "/api/me", "/api/upload-request/abc123/info", "/api/upload-requests", "/drive", "/login"]) {
       expect(matches(p)).toBe(true);
     }
   });

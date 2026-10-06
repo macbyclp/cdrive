@@ -88,6 +88,7 @@
     "menu": {
       "downloadZip": "İndir (.zip)",
       "share": "Paylaş",
+      "uploadRequest": "Dosya isteği oluştur",
       "move": "Taşı",
       "rename": "Yeniden adlandır",
       "delete": "Sil",

@@ -108,11 +108,11 @@ export const config = {
     "/chat/:path*",
     "/production/:path*",
     "/onboarding/:path*",
-    // Büyük dosya yükleyen üç rota (files, files/zip-upload, files/scan) BİLEREK dışarıda: proxy (eski adıyla middleware)
+    // Büyük dosya yükleyen rotalar (files, files/zip-upload, files/scan, upload-request/[token]) BİLEREK dışarıda: proxy (eski adıyla middleware)
     // çalışan her istekte Next gövdeyi bellekte kopyalar ve 10 MB'ta KESER (10 MB üstü yüklemeler
     // sessizce bozulur/başarısız olur). Bu rotalar zorunlu şifre/2FA kapısını requireUnrestrictedUser
     // ile kendileri uygular. Yeni bir yükleme rotası eklenirse buraya ve o fonksiyona ekleyin.
-    "/api/((?!files$|files/zip-upload$|files/scan$).*)",
+    "/api/((?!files$|files/zip-upload$|files/scan$|upload-request/[^/]+$).*)",
     "/login",
     "/setup",
   ],

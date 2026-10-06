@@ -80,6 +80,7 @@ enum NotificationType {
   CHAT_MENTION
   APPROVAL_REQUESTED
   APPROVAL_DECIDED
+  UPLOAD_RECEIVED
 }
 
 enum ApprovalStatus {
@@ -168,6 +169,7 @@ model User {
   filePermissions FilePermission[] @relation("FilePermissionUser")
   folderPermissions FolderPermission[] @relation("FolderPermissionUser")
   shareLinks   ShareLink[]
+  uploadRequests UploadRequest[]
   auditLogs    AuditLog[]
   fileStars    FileStar[]
   folderStars  FolderStar[]
@@ -288,6 +290,7 @@ model Folder {
   permissions FolderPermission[]
   stars       FolderStar[]
   tags        FolderTag[]
+  uploadRequests UploadRequest[]
 
   @@index([parentId])
   @@index([ownerId])
@@ -492,6 +495,31 @@ model ShareLink {
   createdAt DateTime @default(now())
 
   @@map("share_links")
+}
+
+/// "Dosya isteği": hesabı olmayan birinin, link üzerinden BİR klasöre dosya yükleyebilmesi (yalnız yazma —
+/// klasörü göremez, indiremez). Süre zorunlu; dosya sayısı ve dosya başı boyut sınırlıdır. Yüklenen dosyalar
+/// isteği oluşturanın kotasına yazılır ve oluşturan kullanıcıya aittir.
+model UploadRequest {
+  id           String   @id @default(cuid())
+  token        String   @unique
+  folderId     String
+  folder       Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  createdById  String
+  createdBy    User     @relation(fields: [createdById], references: [id])
+  title        String
+  message      String?  @db.Text
+  passwordHash String?
+  expiresAt    DateTime
+  maxFiles     Int      @default(20)
+  maxFileBytes BigInt   @default(52428800)
+  uploadCount  Int      @default(0)
+  revoked      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([folderId])
+  @@index([createdById])
+  @@map("upload_requests")
 }
 
 model AuditLog {
