@@ -8,7 +8,8 @@
 //     dışarıdan dal/komut/yol kabul etmez,
 //   - güncelleme öncesi veritabanı yedeği alır, yeni sürüm sağlıklı açılmazsa eskisine döner.
 //
-// Uç noktalar: GET /health (yetkisiz), GET /status, POST /update (Bearer gerekli).
+// Uç noktalar: GET /health (yetkisiz), GET /status, POST /update[?sha=<40 hex>] (Bearer gerekli).
+// sha verilirse YALNIZ o commit (dalın geçmişinde olmak şartıyla) kurulur; verilmezse dalın ucu.
 // Sıfır bağımlılık: yalnız Node yerleşikleri. UPDATER_DRY_RUN=1 ile komutlar çalıştırılmadan
 // yalnızca günlüğe yazılır (yerelde akışı denemek için).
 
@@ -152,7 +153,7 @@ async function backupDatabase(stamp) {
 }
 
 // ---- Güncelleme akışı --------------------------------------------------------------------------
-async function update() {
+async function update(targetSha) {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   status = { ...blank(), state: "running", startedAt: new Date().toISOString() };
   save();
@@ -163,7 +164,20 @@ async function update() {
     oldSha = (await capture("git", ["-C", cfg.appDir, "rev-parse", "HEAD"], { dryOut: "0000000" })) || null;
     status.from = oldSha;
     await run("git", ["-C", cfg.appDir, "fetch", "--prune", "origin", cfg.branch]);
-    const newSha = (await capture("git", ["-C", cfg.appDir, "rev-parse", `origin/${cfg.branch}`], { dryOut: "1111111" })) || null;
+    let newSha = (await capture("git", ["-C", cfg.appDir, "rev-parse", `origin/${cfg.branch}`], { dryOut: "1111111" })) || null;
+    if (targetSha) {
+      // Yönetici panelde GÖRDÜĞÜ commit'i onayladı: yalnız yapılandırılmış dalın geçmişindeki bir commit'e
+      // izin verilir (rastgele bir commit/dal kurulamaz) ve dalın ucu arada ilerlemiş olsa bile tam o commit kurulur.
+      // capture() stdout+stderr'i birleştirir; başarısız rev-parse hata metnini "sha" sanmamak için çıkış kodu kontrol edilir.
+      const rp = await run("git", ["-C", cfg.appDir, "rev-parse", "--verify", `${targetSha}^{commit}`], { allowFail: true, quiet: true, dryOut: targetSha });
+      const resolved = rp.code === 0 ? rp.out : "";
+      const onBranch = resolved
+        ? (await run("git", ["-C", cfg.appDir, "merge-base", "--is-ancestor", resolved, `origin/${cfg.branch}`], { allowFail: true, quiet: true })).code === 0
+        : false;
+      if (!resolved || !onBranch) throw new Error(`İstenen commit (${targetSha.slice(0, 7)}) ${cfg.branch} dalında bulunamadı`);
+      newSha = resolved;
+      log(`Panelde onaylanan commit kurulacak: ${resolved.slice(0, 7)}`);
+    }
     status.to = newSha;
     if (oldSha && oldSha === newSha) {
       log("Zaten güncel — yapılacak bir şey yok.");
@@ -182,7 +196,7 @@ async function update() {
 
     log("3/5 Yeni kod çekiliyor ve derleniyor");
     switched = true;
-    await run("git", ["-C", cfg.appDir, "reset", "--hard", `origin/${cfg.branch}`]);
+    await run("git", ["-C", cfg.appDir, "reset", "--hard", newSha || `origin/${cfg.branch}`]);
     await compose(["build", cfg.service], { env: { GIT_SHA: newSha || "unknown", BUILD_TIME: new Date().toISOString() } });
 
     log("4/5 Uygulama yeniden başlatılıyor (migration'lar açılışta uygulanır)");
@@ -238,7 +252,9 @@ const server = http.createServer((req, res) => {
   if (req.method === "GET" && url.pathname === "/status") return send(res, 200, status);
   if (req.method === "POST" && url.pathname === "/update") {
     if (status.state === "running") return send(res, 409, { error: "Bir güncelleme zaten sürüyor" });
-    void update();
+    const sha = url.searchParams.get("sha");
+    if (sha !== null && !/^[0-9a-f]{40}$/.test(sha)) return send(res, 400, { error: "Geçersiz commit" });
+    void update(sha || null);
     return send(res, 202, status);
   }
   return send(res, 404, { error: "Bulunamadı" });

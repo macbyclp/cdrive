@@ -7,7 +7,10 @@ import {
   UPDATE_REPO,
   UpdaterError,
   currentVersion,
+  fetchCommitVerified,
   fetchLatest,
+  isFullSha,
+  requireVerifiedCommits,
   shortSha,
   updaterConfig,
   updaterFetch,
@@ -72,12 +75,32 @@ export async function POST(req: Request) {
     if (!updaterConfig()) {
       throw new UpdaterError("Güncelleme servisi yapılandırılmamış (UPDATER_URL / UPDATER_TOKEN)");
     }
-    const started = await updaterFetch<UpdaterStatus>("/update", { method: "POST", timeoutMs: 15_000 });
+
+    // Yönetici panelde GÖRDÜĞÜ commit'i onaylar: updater "o an dalın ucunda ne varsa" değil, bu sha'yı kurar
+    // (arada dala itilen bir commit sessizce kurulmaz). sha verilmezse (eski istemci) güncel uç kullanılır.
+    const body = (await req.json().catch(() => ({}))) as { sha?: unknown };
+    let sha: string;
+    if (body.sha === undefined) {
+      sha = (await fetchLatest(currentVersion().commit, true)).sha;
+    } else if (isFullSha(body.sha)) {
+      sha = body.sha;
+    } else {
+      return NextResponse.json({ error: "Geçersiz commit" }, { status: 400 });
+    }
+
+    if (requireVerifiedCommits() && !(await fetchCommitVerified(sha))) {
+      return NextResponse.json(
+        { error: "Bu commit GitHub'da imzalı (Verified) değil; UPDATE_REQUIRE_VERIFIED açıkken kurulamaz" },
+        { status: 403 }
+      );
+    }
+
+    const started = await updaterFetch<UpdaterStatus>(`/update?sha=${sha}`, { method: "POST", timeoutMs: 15_000 });
     await logAudit({
       userId: admin.id,
       action: "SETTINGS_UPDATE",
       targetType: "system",
-      detail: `Uzaktan güncelleme başlatıldı (${shortSha(currentVersion().commit)} → ${UPDATE_REPO}@${UPDATE_BRANCH})`,
+      detail: `Uzaktan güncelleme başlatıldı (${shortSha(currentVersion().commit)} → ${shortSha(sha)}, ${UPDATE_REPO}@${UPDATE_BRANCH})`,
       ip: clientIp(req),
     });
     return NextResponse.json(started, { status: 202 });

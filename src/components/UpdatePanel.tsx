@@ -15,7 +15,7 @@ type Status = {
   error: string | null;
   log: string[];
 };
-type Commit = { sha: string; message: string; author: string | null; date: string | null };
+type Commit = { sha: string; message: string; author: string | null; date: string | null; verified: boolean | null };
 type Info = {
   current: { version: string; commit: string | null; builtAt: string | null };
   repo: string;
@@ -23,7 +23,7 @@ type Info = {
   configured: boolean;
   status: Status | null;
   updaterError: string | null;
-  latest: { sha: string; message: string; date: string | null; ahead: number | null; relation: string; commits: Commit[] } | null;
+  latest: { sha: string; message: string; date: string | null; verified: boolean | null; ahead: number | null; relation: string; commits: Commit[] } | null;
   latestError: string | null;
 };
 
@@ -145,7 +145,12 @@ export default function UpdatePanel() {
   async function start() {
     setConfirm(false);
     try {
-      const res = await fetch(withBasePath("/api/admin/update"), { method: "POST" });
+      // Panelde görülen son commit onaylanır; updater arada dala itilen başka bir commit'i değil bunu kurar.
+      const res = await fetch(withBasePath("/api/admin/update"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sha: info?.latest?.sha }),
+      });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.error ?? t("startFailed"));
       startedAt.current = d.startedAt ?? new Date().toISOString();
@@ -222,6 +227,11 @@ export default function UpdatePanel() {
                   <code>{short(latest.sha)}</code> · {latest.message}
                   <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
                     {when(latest.date)}
+                    {latest.verified !== null && (
+                      <span className="badge ml-2" title={latest.verified ? t("verifiedHint") : t("unverifiedHint")}>
+                        {latest.verified ? t("verified") : t("unverified")}
+                      </span>
+                    )}
                   </div>
                 </>
               ) : (
@@ -267,6 +277,11 @@ export default function UpdatePanel() {
                 </code>
                 <span className="min-w-0 flex-1" style={{ color: "var(--text-primary)" }}>
                   {c.message}
+                  {c.verified === false && (
+                    <span className="badge ml-2" title={t("unverifiedHint")}>
+                      {t("unverified")}
+                    </span>
+                  )}
                 </span>
                 <span className="hidden shrink-0 text-xs sm:inline" style={{ color: "var(--text-tertiary)" }}>
                   {c.author}

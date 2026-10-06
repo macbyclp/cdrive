@@ -65,12 +65,14 @@ export async function updaterFetch<T>(path: string, init?: { method?: string; ti
   return body;
 }
 
-export type CommitSummary = { sha: string; message: string; author: string | null; date: string | null };
+export type CommitSummary = { sha: string; message: string; author: string | null; date: string | null; verified: boolean | null };
 
 export type LatestInfo = {
   sha: string;
   message: string;
   date: string | null;
+  /** Son commit GitHub tarafından "Verified" (imzalı) doğrulandı mı; bilinmiyorsa null. */
+  verified: boolean | null;
   /** current → latest arasındaki yeni commit sayısı; mevcut commit bilinmiyorsa null. */
   ahead: number | null;
   /** "identical" güncel, "ahead" güncelleme var, "behind"/"diverged" beklenmedik durum. */
@@ -78,7 +80,7 @@ export type LatestInfo = {
   commits: CommitSummary[];
 };
 
-type GhCommit = { sha: string; commit: { message: string; author?: { name?: string; date?: string } } };
+type GhCommit = { sha: string; commit: { message: string; author?: { name?: string; date?: string }; verification?: { verified?: boolean } } };
 
 export function summarizeCompare(json: {
   status?: string;
@@ -92,6 +94,7 @@ export function summarizeCompare(json: {
       message: c.commit.message.split("\n")[0].slice(0, 200),
       author: c.commit.author?.name ?? null,
       date: c.commit.author?.date ?? null,
+      verified: c.commit.verification?.verified ?? null,
     }))
     .reverse() // en yeni üstte
     .slice(0, 30);
@@ -121,6 +124,7 @@ export async function fetchLatest(currentCommit: string | null, force = false): 
     sha: head.sha,
     message: head.commit.message.split("\n")[0].slice(0, 200),
     date: head.commit.author?.date ?? null,
+    verified: head.commit.verification?.verified ?? null,
     ahead: null,
     relation: "unknown",
     commits: [],
@@ -141,4 +145,20 @@ export async function fetchLatest(currentCommit: string | null, force = false): 
   }
   cache = { key, at: Date.now(), value };
   return value;
+}
+
+/** Tam (40 hex) commit sha'sı mı — updater'a yalnız bu biçim iletilir (komut/yol enjeksiyonu yok). */
+export function isFullSha(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{40}$/.test(value);
+}
+
+/** UPDATE_REQUIRE_VERIFIED=1 ise yalnız GitHub'da "Verified" (imzalı) commit'ler kurulabilir. */
+export function requireVerifiedCommits(): boolean {
+  return process.env.UPDATE_REQUIRE_VERIFIED === "1";
+}
+
+/** Belirli bir commit'in GitHub imza doğrulaması: true/false, bilinmiyorsa (GitHub'a ulaşılamadı) hata fırlatır. */
+export async function fetchCommitVerified(sha: string): Promise<boolean> {
+  const c = await gh<GhCommit>(`/repos/${UPDATE_REPO}/commits/${sha}`);
+  return c.commit.verification?.verified === true;
 }

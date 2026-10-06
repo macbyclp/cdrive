@@ -56,6 +56,7 @@ Yönetim → **Güncelleme** sekmesi çalışan sürümü (commit) ve GitHub'dak
 | `UPDATE_REPO` | cdrive | İzlenen GitHub deposu (varsayılan `macbyclp/cdrive`) |
 | `UPDATE_BRANCH` | cdrive + cdrive-updater | İzlenen dal (varsayılan `main`) |
 | `GITHUB_TOKEN` | cdrive (opsiyonel) | Özel depo veya API hız sınırı için |
+| `UPDATE_REQUIRE_VERIFIED` | cdrive (opsiyonel) | `1` ise yalnız GitHub'da **imzalı (Verified)** commit'ler kurulabilir; imzasız commit 403 ile reddedilir |
 | `KEEP_BACKUPS`, `HEALTH_TIMEOUT_S` | cdrive-updater (opsiyonel) | Yedek sayısı / sağlık bekleme süresi |
 
 ## Güvenlik notları
@@ -63,6 +64,8 @@ Yönetim → **Güncelleme** sekmesi çalışan sürümü (commit) ve GitHub'dak
 - Updater'a bağlanan **docker soketi sunucuda root eşdeğeri yetkidir.** Bu yüzden updater ayrı, küçük bir servistir, portu yayınlanmaz ve token'sız hiçbir şey yapmaz.
 - Güncelleme yalnızca **ADMIN** rolüyle başlatılabilir ve denetim kaydına yazılır (`SETTINGS_UPDATE`).
 - `main` dalına gelen her şey bir sonraki güncellemede canlıya gider. Dalı korumalı tutun (PR + CI). İsterseniz `UPDATE_BRANCH` ile ayrı bir `production` dalını izleyin.
+- **Onayladığınız commit kurulur.** Panelde gördüğünüz commit'in sha'sı updater'a iletilir; updater yalnızca yapılandırılmış dalın geçmişindeki o commit'i kurar. Siz "Güncelle"ye basana kadar dala itilen başka bir commit sessizce kurulmaz. (Bunun için updater imajını yeniden derleyin: `docker compose up -d --build cdrive-updater`; eski updater sha'yı yok sayıp dalın ucunu kurar.)
+- Panelde imzasız commit'ler **İmzasız** rozetiyle işaretlenir. `UPDATE_REQUIRE_VERIFIED=1` ile imzasız commit'in kurulumunu tamamen engelleyebilirsiniz (GitHub'da commit imzalama / vigilant mode açık olmalı; web arayüzünden yapılan merge'ler GitHub tarafından imzalanır).
 - Sürümü sabitlemek/geri almak istiyorsanız `UPDATE_BRANCH`'i bir dala, o dalı da istediğiniz commit'e taşıyın.
 
 ## Sorun giderme

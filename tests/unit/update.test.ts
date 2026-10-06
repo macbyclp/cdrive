@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { currentVersion, shortSha, summarizeCompare, updaterConfig, updaterFetch, UpdaterError } from "@/lib/update";
+import { currentVersion, shortSha, summarizeCompare, updaterConfig, updaterFetch, UpdaterError, isFullSha, requireVerifiedCommits } from "@/lib/update";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -69,5 +69,36 @@ describe("updaterConfig / updaterFetch", () => {
     vi.stubEnv("UPDATER_TOKEN", "t".repeat(30));
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
     await expect(updaterFetch("/status")).rejects.toBeInstanceOf(UpdaterError);
+  });
+});
+
+describe("isFullSha / requireVerifiedCommits", () => {
+  it("yalnız 40 haneli küçük harf hex sha kabul edilir (komut enjeksiyonu yok)", () => {
+    expect(isFullSha("0123456789abcdef0123456789abcdef01234567")).toBe(true);
+    for (const bad of ["main", "0123456", "0123456789ABCDEF0123456789ABCDEF01234567", "x".repeat(40), "a".repeat(39) + ";", "", undefined, 5]) {
+      expect(isFullSha(bad)).toBe(false);
+    }
+  });
+
+  it("UPDATE_REQUIRE_VERIFIED yalnız '1' iken açıktır", () => {
+    vi.stubEnv("UPDATE_REQUIRE_VERIFIED", "");
+    expect(requireVerifiedCommits()).toBe(false);
+    vi.stubEnv("UPDATE_REQUIRE_VERIFIED", "1");
+    expect(requireVerifiedCommits()).toBe(true);
+  });
+});
+
+describe("summarizeCompare — imza bilgisi", () => {
+  it("GitHub verification.verified değerini taşır; yoksa null", () => {
+    const r = summarizeCompare({
+      status: "ahead",
+      ahead_by: 2,
+      commits: [
+        { sha: "a1", commit: { message: "m", verification: { verified: true } } },
+        { sha: "b2", commit: { message: "m" } },
+      ],
+    });
+    expect(r.commits.find((c) => c.sha === "a1")!.verified).toBe(true);
+    expect(r.commits.find((c) => c.sha === "b2")!.verified).toBeNull();
   });
 });
