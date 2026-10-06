@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sealSecret } from "@/lib/secret-box";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
@@ -62,6 +63,7 @@ export async function PATCH(req: Request) {
     }
     if (body.mailFrom === "") data.mailFrom = null;
     if (body.smtpPass === "") data.smtpPass = null;
+    else if (typeof body.smtpPass === "string") data.smtpPass = sealSecret(body.smtpPass);
 
     await getOrCreateSettings();
     const settings = await prisma.systemSettings.update({ where: { id: 1 }, data });

@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { generateTotpSecret, totpQrCodeDataUrl } from "@/lib/totp";
 import { errorResponse } from "@/lib/api-helpers";
 import { deleteRecoveryCodes } from "@/lib/recovery-codes";
+import { sealSecret } from "@/lib/secret-box";
 
 // Yeni bir gizli anahtar üretir ve kullanıcıya (henüz devre dışı olarak) kaydeder;
 // /api/account/2fa/enable ile bir kod doğrulanana kadar etkin olmaz.
@@ -15,7 +16,7 @@ export async function POST() {
     }
 
     const secret = generateTotpSecret();
-    await prisma.user.update({ where: { id: user.id }, data: { twoFactorSecret: secret, twoFactorEnabled: false, twoFactorLastStep: null } });
+    await prisma.user.update({ where: { id: user.id }, data: { twoFactorSecret: sealSecret(secret), twoFactorEnabled: false, twoFactorLastStep: null } });
     await deleteRecoveryCodes(user.id);
     const qrCode = await totpQrCodeDataUrl(user.email, secret);
 

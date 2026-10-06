@@ -5,6 +5,7 @@ import { requireUser, reissueSession } from "@/lib/auth";
 import { matchTotpStep } from "@/lib/totp";
 import { logAudit } from "@/lib/audit";
 import { replaceRecoveryCodes } from "@/lib/recovery-codes";
+import { openSecret } from "@/lib/secret-box";
 import { errorResponse } from "@/lib/api-helpers";
 
 const schema = z.object({ code: z.string().min(6).max(6) });
@@ -16,7 +17,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Önce /setup ile bir anahtar oluşturun" }, { status: 400 });
     }
     const { code } = schema.parse(await req.json());
-    const step = matchTotpStep(code, user.twoFactorSecret);
+    const step = matchTotpStep(code, openSecret(user.twoFactorSecret));
     if (step === null) {
       return NextResponse.json({ error: "Doğrulama kodu hatalı" }, { status: 401 });
     }

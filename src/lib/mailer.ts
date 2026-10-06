@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { prisma } from "@/lib/prisma";
+import { openSecret } from "@/lib/secret-box";
 
 /**
  * E-posta gönderimi — SMTP ayarları artık admin panelinden (SystemSettings) giriliyor,
@@ -23,7 +24,7 @@ export async function getSmtpConfig(): Promise<SmtpConfig | null> {
   if (!host) return null;
   const port = settings?.smtpPort || Number(process.env.SMTP_PORT ?? 465);
   const user = settings?.smtpUser || process.env.SMTP_USER || null;
-  const pass = settings?.smtpPass || process.env.SMTP_PASS || null;
+  const pass = settings?.smtpPass ? openSecret(settings.smtpPass) : process.env.SMTP_PASS || null;
   const from = settings?.mailFrom || process.env.MAIL_FROM || user;
   return { host, port, user, pass, from };
 }
