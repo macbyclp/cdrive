@@ -81,6 +81,7 @@ enum NotificationType {
   APPROVAL_REQUESTED
   APPROVAL_DECIDED
   UPLOAD_RECEIVED
+  LINK_EXPIRING
 }
 
 enum ApprovalStatus {
@@ -492,6 +493,8 @@ model ShareLink {
   downloadCount Int @default(0)
   revoked   Boolean  @default(false)
   passwordHash String?
+  // Süresi dolmadan önceki uyarının gönderildiği an (tekrar bildirmemek için).
+  expiryNotifiedAt DateTime?
   createdAt DateTime @default(now())
 
   @@map("share_links")
@@ -515,6 +518,7 @@ model UploadRequest {
   maxFileBytes BigInt   @default(52428800)
   uploadCount  Int      @default(0)
   revoked      Boolean  @default(false)
+  expiryNotifiedAt DateTime?
   createdAt    DateTime @default(now())
 
   @@index([folderId])

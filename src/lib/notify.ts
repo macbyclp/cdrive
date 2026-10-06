@@ -9,7 +9,7 @@ import type { NotificationType } from "@prisma/client";
 // Onay istekleri de e-posta listesinde: birisi senin kararını BEKLİYOR, uygulamayı
 // açmadığın sürece süreç tıkanıyor — tam olarak "zaman-kritik/eyleme geçirilebilir"
 // tanımına giriyor. Kararın sonucu da isteyene e-postayla dönüyor.
-const EMAIL_TYPES: readonly NotificationType[] = ["ORDER_CREATED", "ORDER_STATUS_CHANGED", "PAYMENT_RECORDED", "ORDER_OVERDUE", "CHAT_DM", "APPROVAL_REQUESTED", "APPROVAL_DECIDED"];
+const EMAIL_TYPES: readonly NotificationType[] = ["ORDER_CREATED", "ORDER_STATUS_CHANGED", "PAYMENT_RECORDED", "ORDER_OVERDUE", "CHAT_DM", "APPROVAL_REQUESTED", "APPROVAL_DECIDED", "LINK_EXPIRING"];
 
 const HEADING: Partial<Record<NotificationType, string>> = {
   ORDER_CREATED: "Yeni sipariş",
@@ -19,6 +19,7 @@ const HEADING: Partial<Record<NotificationType, string>> = {
   CHAT_DM: "Yeni mesaj",
   APPROVAL_REQUESTED: "Onayınız bekleniyor",
   APPROVAL_DECIDED: "Onay isteğiniz sonuçlandı",
+  LINK_EXPIRING: "Bağlantınızın süresi dolmak üzere",
 };
 
 /** DM'de targetId gönderenin id'si (bkz. ChatScreen deep-link) — diğer türlerde tek, genel bir "Cdrive'ı aç" butonu yeterli. */

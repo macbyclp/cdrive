@@ -57,9 +57,16 @@ export function officeDocType(fileName: string): OfficeDocType | null {
   return OFFICE_EXT_TYPE[extOf(fileName)] ?? null;
 }
 
-export type PreviewKind = "image" | "pdf" | "text" | "video" | "audio" | "none";
+export type PreviewKind = "image" | "pdf" | "text" | "csv" | "video" | "audio" | "none";
 
-export function previewKind(mime: string): PreviewKind {
+/**
+ * `fileName` verilirse uzantı da dikkate alınır: Windows'ta tarayıcılar .csv için sık sık
+ * "application/vnd.ms-excel" gönderir ve yalnızca MIME'a bakınca tablo önizlemesi kaçardı.
+ */
+export function previewKind(mime: string, fileName?: string): PreviewKind {
+  const ext = fileName ? extOf(fileName) : "";
+  if (mime === "text/csv" || mime === "text/tab-separated-values" || mime === "application/csv") return "csv";
+  if ((ext === "csv" || ext === "tsv") && (mime === "application/vnd.ms-excel" || mime === "application/octet-stream" || mime.startsWith("text/"))) return "csv";
   if (mime.startsWith("image/")) return "image";
   if (mime === "application/pdf") return "pdf";
   if (mime.startsWith("video/")) return "video";

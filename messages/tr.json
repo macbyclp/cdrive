@@ -305,6 +305,16 @@
       "quotaLabel": "Depolama kotası",
       "gbSuffix": "GB",
       "save": "Kaydet",
+      "twoFactorOn": "2FA açık",
+      "twoFactorOff": "2FA kapalı",
+      "lastLogin": "Son giriş: {date}",
+      "neverLoggedIn": "Henüz giriş yapmadı",
+      "reset2faLabel": "İki adımlı doğrulamayı sıfırla",
+      "reset2faHint": "Kullanıcı telefonunu ve kurtarma kodlarını kaybettiyse kullanın. Tüm oturumları kapanır, kendisine e-posta gider ve denetim kaydına yazılır. Onay için kendi şifrenizi girin.",
+      "reset2faPasswordPlaceholder": "Şifreniz",
+      "reset2faButton": "2FA'yı sıfırla",
+      "reset2faToast": "2FA sıfırlandı; kullanıcının oturumları kapatıldı",
+      "reset2faFailed": "2FA sıfırlanamadı",
       "resetPasswordLabel": "Şifreyi sıfırla",
       "resetPasswordHint": "Kullanıcı şifresini unuttuysa buradan geçici bir şifre belirle — bir sonraki girişte kendi yeni şifresini kendisi belirlemeye zorlanır.",
       "newPasswordPlaceholder": "Yeni geçici şifre (en az 8 karakter)",
@@ -461,7 +471,7 @@
         "run": "Şimdi çalıştır",
         "runFailed": "Çalıştırılamadı",
         "completedToast": "Temizlik tamamlandı",
-        "resultText": "{folders} klasör, {files} dosya, {versions} versiyon kalıcı silindi; {orders} vadesi geçmiş sipariş hatırlatması gönderildi."
+        "resultText": "{folders} klasör, {files} dosya, {versions} versiyon kalıcı silindi; {orders} vadesi geçmiş sipariş hatırlatması, {links} süresi dolmak üzere olan bağlantı uyarısı gönderildi."
       }
     },
     "audit": {

@@ -545,7 +545,7 @@ function DriveInner() {
   function openFile(f: FileItem) {
     if (officeDocType(f.name)) {
       setOfficeChoiceTarget(f);
-    } else if (previewKind(f.mimeType) === "none") {
+    } else if (previewKind(f.mimeType, f.name) === "none") {
       downloadFile(f);
     } else {
       setPreviewTarget({ id: f.id, name: f.name, mimeType: f.mimeType });

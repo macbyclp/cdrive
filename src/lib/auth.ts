@@ -206,6 +206,13 @@ export async function getSession(): Promise<SessionPayload | null> {
   }
 }
 
+// "Son görülme" her istekte değil, bu aralıkta en çok bir kez yazılır (her API çağrısında UPDATE olmasın).
+const SEEN_TOUCH_INTERVAL_MS = 5 * 60_000;
+
+export function shouldTouchSession(lastSeenAt: Date | null | undefined, now: number = Date.now()): boolean {
+  return lastSeenAt instanceof Date && now - lastSeenAt.getTime() >= SEEN_TOUCH_INTERVAL_MS;
+}
+
 /** JWT geçerli olsa bile, DB'deki oturum kaydı "revoke" edilmişse reddeder. */
 export async function requireSession() {
   const session = await getSession();
@@ -214,6 +221,10 @@ export async function requireSession() {
   if (!record || record.revokedAt || record.userId !== session.userId) {
     // userId eşleşmesi: imza anahtarı sızsa bile başka kullanıcı adına JWT üretilemesin.
     throw new AuthError("Oturum sona erdi, tekrar giriş yapın");
+  }
+  // Hesap sayfasındaki "son görülme" gerçekten güncellensin; yazma isteği yanıtı geciktirmez/bozmaz.
+  if (shouldTouchSession(record.lastSeenAt)) {
+    void prisma.session.updateMany({ where: { id: record.id }, data: { lastSeenAt: new Date() } }).catch(() => {});
   }
   return session;
 }

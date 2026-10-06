@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { previewKind } from "@/lib/format";
+import { parseCsv, type ParsedCsv } from "@/lib/csv-parse";
 import { withBasePath } from "@/lib/basePath";
 
 export default function PreviewDialog({
@@ -15,19 +16,24 @@ export default function PreviewDialog({
   mimeType: string;
   onClose: () => void;
 }) {
-  const kind = previewKind(mimeType);
+  const kind = previewKind(mimeType, fileName);
   const src = withBasePath(`/api/files/${fileId}?inline=1`);
   const [text, setText] = useState<string | null>(null);
+  const [table, setTable] = useState<ParsedCsv | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (kind !== "text") return;
+    if (kind !== "text" && kind !== "csv") return;
     fetch(src)
       .then((r) => {
         if (!r.ok) throw new Error("Dosya okunamadı");
         return r.text();
       })
-      .then((t) => setText(t.slice(0, 200_000)))
+      .then((t) => {
+        // Tablo: yalnız ilk ~2 MB ayrıştırılır (önizleme; büyük dosyada tarayıcı donmasın).
+        if (kind === "csv") setTable(parseCsv(t.slice(0, 2_000_000)));
+        else setText(t.slice(0, 200_000));
+      })
       .catch((e) => setError(e instanceof Error ? e.message : "Dosya okunamadı"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fileId]);
@@ -82,6 +88,48 @@ export default function PreviewDialog({
                 >
                   {text}
                 </pre>
+              )}
+            </div>
+          )}
+          {kind === "csv" && (
+            <div className="p-4">
+              {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+              {!error && table === null && <div className="skeleton h-40 w-full" />}
+              {table && (
+                <>
+                  <div className="overflow-auto rounded-lg shadow-sm" style={{ background: "var(--surface)" }}>
+                    <table className="min-w-full border-collapse text-xs" style={{ color: "var(--text-primary)" }}>
+                      <thead>
+                        <tr>
+                          {(table.rows[0] ?? []).map((c, i) => (
+                            <th
+                              key={i}
+                              className="sticky top-0 whitespace-nowrap border-b px-3 py-2 text-left font-semibold"
+                              style={{ background: "var(--surface-muted)", borderColor: "var(--border)" }}
+                            >
+                              {c}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {table.rows.slice(1).map((r, ri) => (
+                          <tr key={ri}>
+                            {r.map((c, ci) => (
+                              <td key={ci} className="max-w-[24rem] truncate border-b px-3 py-1.5" style={{ borderColor: "var(--border)" }} title={c}>
+                                {c}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="mt-2 text-xs" style={{ color: "var(--text-tertiary)" }}>
+                    {table.rows.length - 1} satır gösteriliyor
+                    {table.truncatedRows || table.truncatedCols ? " — dosyanın tamamı değil (önizleme sınırı); tamamı için indirin" : ""}
+                  </p>
+                </>
               )}
             </div>
           )}

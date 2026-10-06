@@ -26,6 +26,9 @@ type AdminUser = {
   avatarKey: string | null;
   avatarParts: string | null;
   mustChangePassword: boolean;
+  twoFactorEnabled: boolean;
+  lastLoginAt: string | null;
+  lastSeenAt: string | null;
 };
 
 type Department = { id: string; name: string; quotaBytes: string; _count: { users: number } };
@@ -167,6 +170,7 @@ function UsersTab({
   const [busy, setBusy] = useState(false);
   const [quotaDrafts, setQuotaDrafts] = useState<Record<string, string>>({});
   const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
+  const [reset2faDrafts, setReset2faDrafts] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   function toggleExpanded(id: string) {
@@ -237,6 +241,27 @@ function UsersTab({
       delete next[userId];
       return next;
     });
+  }
+
+  /** Kullanıcının 2FA'sını sıfırlar (telefon/kurtarma kodları kayıp). Yöneticinin kendi parolası istenir. */
+  async function reset2fa(userId: string) {
+    const res = await fetch(withBasePath(`/api/admin/users/${userId}/reset-2fa`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: reset2faDrafts[userId] ?? "" }),
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error ?? t("users.reset2faFailed"), "error");
+      return;
+    }
+    setReset2faDrafts((d) => {
+      const next = { ...d };
+      delete next[userId];
+      return next;
+    });
+    toast(t("users.reset2faToast"), "success");
+    reload();
   }
 
   /** Şifreye hiç dokunmadan hedef kullanıcı olarak girer — bkz. src/lib/auth.ts startImpersonation. Tam sayfa yenileme şart: yeni oturum çerezi yazılıyor, client-side router yeterli olmaz. */
@@ -331,6 +356,12 @@ function UsersTab({
                   <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
                     {u.email}
                   </div>
+                </div>
+                <div className="hidden shrink-0 flex-col items-end gap-0.5 text-[11px] sm:flex" style={{ color: "var(--text-tertiary)" }}>
+                  <span style={u.role === "ADMIN" && !u.twoFactorEnabled ? { color: "var(--warning, #b45309)", fontWeight: 600 } : undefined}>
+                    {u.twoFactorEnabled ? t("users.twoFactorOn") : t("users.twoFactorOff")}
+                  </span>
+                  <span>{u.lastLoginAt ? t("users.lastLogin", { date: new Date(u.lastLoginAt).toLocaleString("tr-TR") }) : t("users.neverLoggedIn")}</span>
                 </div>
                 <span
                   className="shrink-0 text-sm transition-transform"
@@ -484,6 +515,37 @@ function UsersTab({
                   </button>
                 </div>
               </div>
+
+              {currentUserRole === "ADMIN" && u.twoFactorEnabled && u.id !== currentUserId && (
+                <div className="mt-4">
+                  <span className="mb-1 block text-xs font-medium" style={{ color: "var(--text-secondary)" }}>
+                    {t("users.reset2faLabel")}
+                  </span>
+                  <p className="mb-1.5 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                    {t("users.reset2faHint")}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      placeholder={t("users.reset2faPasswordPlaceholder")}
+                      className="input min-w-0 flex-1 px-2 py-1 text-xs"
+                      value={reset2faDrafts[u.id] ?? ""}
+                      onChange={(e) => setReset2faDrafts((d) => ({ ...d, [u.id]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") reset2fa(u.id);
+                      }}
+                    />
+                    <button
+                      disabled={!(reset2faDrafts[u.id] ?? "")}
+                      className="btn-ghost shrink-0 text-xs text-red-600 dark:text-red-400"
+                      onClick={() => reset2fa(u.id)}
+                    >
+                      {t("users.reset2faButton")}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {currentUserRole === "ADMIN" && u.role !== "ADMIN" && u.id !== currentUserId && (
                 <div className="mt-4">
@@ -1380,6 +1442,7 @@ function SettingsTab() {
         files: d.purgedFiles,
         versions: d.purgedVersions,
         orders: d.overdueOrdersNotified ?? 0,
+        links: d.expiringLinksNotified ?? 0,
       })
     );
     toast(t("settings.runCleanup.completedToast"), "success");

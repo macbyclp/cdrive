@@ -26,9 +26,19 @@ export async function GET(req: Request) {
       }),
       prisma.user.count({ where }),
     ]);
+    // Son giriş = kullanıcının en yeni oturumunun açılışı; son görülme = en son etkinlik (tek sorgu).
+    const seen = await prisma.session.groupBy({
+      by: ["userId"],
+      where: { userId: { in: users.map((u) => u.id) } },
+      _max: { createdAt: true, lastSeenAt: true },
+    });
+    const seenBy = new Map(seen.map((r) => [r.userId, r._max]));
     return NextResponse.json(
       users.map((u) => ({
         ...u,
+        lastLoginAt: seenBy.get(u.id)?.createdAt ?? null,
+        lastSeenAt: seenBy.get(u.id)?.lastSeenAt ?? null,
+        twoFactorLastStep: undefined,
         passwordHash: undefined,
         twoFactorSecret: undefined, // 2FA gizli anahtarı hiçbir liste yanıtında dönmez
         usedBytes: u.usedBytes.toString(),
