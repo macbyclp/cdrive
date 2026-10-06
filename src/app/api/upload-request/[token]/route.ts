@@ -46,9 +46,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
     }
 
     // Kontenjan atomik alınır: eşzamanlı isteklerle maxFiles aşılamaz. Başarısızlıkta geri verilir.
+    // Süre, MySQL'in NOW()'una DEĞİL uygulamanın UTC anına karşı denetlenir: Prisma DATETIME'ı UTC yazar,
+    // sunucu saat dilimi UTC değilse NOW() karşılaştırması kayardı.
     const claimed = await prisma.$executeRaw`
       UPDATE upload_requests SET uploadCount = uploadCount + 1
-      WHERE id = ${r.id} AND revoked = 0 AND expiresAt > NOW(3) AND uploadCount < maxFiles`;
+      WHERE id = ${r.id} AND revoked = 0 AND expiresAt > ${new Date()} AND uploadCount < maxFiles`;
     if (claimed === 0) {
       return NextResponse.json({ error: "Bu istek artık dosya kabul etmiyor" }, { status: 410 });
     }

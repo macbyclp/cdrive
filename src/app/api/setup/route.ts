@@ -47,7 +47,8 @@ export async function POST(req: Request) {
         } finally {
           await tx.$queryRaw`SELECT RELEASE_LOCK('cdrive_setup')`;
         }
-      });
+        // GET_LOCK en çok 10 sn bekler; Prisma'nın varsayılan transaction süresi (5 sn) bunu kesmesin.
+      }, { timeout: 20_000, maxWait: 5_000 });
     } catch (e) {
       if (e instanceof SetupDoneError) {
         return NextResponse.json({ error: "Kurulum zaten tamamlanmış. Lütfen giriş yapın." }, { status: 409 });
