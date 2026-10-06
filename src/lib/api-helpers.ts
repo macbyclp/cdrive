@@ -20,8 +20,30 @@ export function errorResponse(err: unknown) {
   return NextResponse.json({ error: message }, { status });
 }
 
-export function clientIp(req: Request) {
-  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+/**
+ * İstemci IP'si. `X-Forwarded-For`'un SOL (ilk) değeri istemci tarafından sahte yazılabilir
+ * (nginx `$proxy_add_x_forwarded_for` istemcinin değerini korur, kendininkini SONA ekler) — hız
+ * sınırları ve denetim kaydı için güvenilmez. Güvenilen vekil sayısı `TRUSTED_PROXY_HOPS` (varsayılan 1,
+ * ör. Caddy/nginx) ile verilir ve IP, listenin SAĞINDAN o kadar geriden alınır. Vekilin kendi eklediği
+ * değerler sağdadır, istemcinin yazdıkları solda kalır. 0 = önünde vekil yok, başlık yok sayılır.
+ */
+export function clientIp(req: Request, env: NodeJS.ProcessEnv = process.env) {
+  const hops = trustedProxyHops(env);
+  if (hops === 0) return null;
+  const parts = (req.headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+  // Beklenenden kısa liste: vekil zinciri eksik/farklı; en soldaki değeri kullan.
+  return parts[Math.max(0, parts.length - hops)];
+}
+
+function trustedProxyHops(env: NodeJS.ProcessEnv): number {
+  const raw = env.TRUSTED_PROXY_HOPS?.trim();
+  if (!raw) return 1;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 0 ? n : 1;
 }
 
 /**
