@@ -4,7 +4,7 @@ import { serveStoredFile } from "@/lib/http-range";
 import { verifyPassword } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { rateLimit } from "@/lib/rate-limit";
-import { shareLinkStatus, makeShareProof, verifyShareProof, readCookie, shareProofCookieName, SHARE_PROOF_TTL_S } from "@/lib/share";
+import { shareLinkStatus, makeShareProof, verifyShareProof, readCookie, shareProofCookieName, SHARE_PROOF_TTL_S, maskToken } from "@/lib/share";
 import { errorResponse, clientIp } from "@/lib/api-helpers";
 import { contentDisposition } from "@/lib/download-names";
 
@@ -76,7 +76,7 @@ async function serve(req: Request, token: string, password: string) {
       if (claimed === 0) {
         return NextResponse.json({ error: "İndirme limitine ulaşıldı" }, { status: 410 });
       }
-      await logAudit({ ip: clientIp(req), action: "DOWNLOAD", targetType: "file", targetId: link.file.id, detail: `paylaşım linki: ${token}` });
+      await logAudit({ ip: clientIp(req), action: "DOWNLOAD", targetType: "file", targetId: link.file.id, detail: `paylaşım linki: ${maskToken(token)}` });
       headers["Set-Cookie"] = `${shareProofCookieName(link.id)}=${makeShareProof(link.id)}; Path=/; Max-Age=${SHARE_PROOF_TTL_S}; HttpOnly; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
     }
 

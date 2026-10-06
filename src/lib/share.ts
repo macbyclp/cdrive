@@ -81,3 +81,12 @@ export function shareLinkStatus(link: ShareLinkGate | null | undefined, now: Dat
   }
   return { ok: true };
 }
+
+/**
+ * Denetim kaydına yazılacak, GİZLİ olmayan token işareti. Tam token bir erişim anahtarıdır; kaydı
+ * okuyan biri (ör. yönetici) onunla dosyayı indirebilirdi. Son 6 karakter, kaydı bir bağlantıyla
+ * eşleştirmeye yetecek kadardır.
+ */
+export function maskToken(token: string): string {
+  return token.length <= 6 ? "…" : `…${token.slice(-6)}`;
+}

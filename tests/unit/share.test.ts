@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { shareLinkStatus, type ShareLinkGate } from "@/lib/share";
+import { shareLinkStatus, maskToken, type ShareLinkGate } from "@/lib/share";
 
 /**
  * Paylaşım bağlantısı kapısı. Bu, uygulamanın oturum gerektirmeyen TEK yüzeyi —
@@ -84,5 +84,17 @@ describe("shareLinkStatus — sınır durumları", () => {
     // 0 falsy olduğu için kontrol atlanıyor — "limit yok" anlamına geliyor.
     // Bu davranış bilinçli: limit koymak isteyen en az 1 girer.
     expect(shareLinkStatus(link({ maxDownloads: 0, downloadCount: 99 }), SIMDI).ok).toBe(true);
+  });
+});
+
+describe("maskToken", () => {
+  it("yalnız son 6 karakteri gösterir, tam token'ı sızdırmaz", () => {
+    const token = "abcdefghijklmnopqrstuvwxyz0123";
+    const masked = maskToken(token);
+    expect(masked).toBe(`…${token.slice(-6)}`);
+    expect(masked).not.toContain(token.slice(0, 10));
+  });
+  it("kısa token'da hiçbir şey göstermez", () => {
+    expect(maskToken("abc")).toBe("…");
   });
 });

@@ -56,4 +56,19 @@ describe("denetim kaydı kapsamı", () => {
     const text = await res.text();
     expect(text).toContain("'=kötü.xlsx");
   });
+
+  it("yalnız tarih verilen 'to' o günün sonuna kadar dahil edilir", async () => {
+    const { GET } = await import("@/app/api/admin/audit/route");
+    m.requireRole.mockResolvedValue({ id: "a", role: "ADMIN", departmentId: null });
+    await GET(req("?to=2026-10-06"));
+    const lte: Date = whereOf().createdAt.lte;
+    expect(lte.toISOString()).toBe("2026-10-06T23:59:59.999Z");
+  });
+
+  it("saat içeren 'to' olduğu gibi kullanılır", async () => {
+    const { GET } = await import("@/app/api/admin/audit/route");
+    m.requireRole.mockResolvedValue({ id: "a", role: "ADMIN", departmentId: null });
+    await GET(req("?to=2026-10-06T10:00:00Z"));
+    expect(whereOf().createdAt.lte.toISOString()).toBe("2026-10-06T10:00:00.000Z");
+  });
 });

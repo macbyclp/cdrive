@@ -38,7 +38,12 @@ export async function GET(req: Request) {
     }
     const range: { gte?: Date; lte?: Date } = {};
     if (from && !isNaN(Date.parse(from))) range.gte = new Date(from);
-    if (to && !isNaN(Date.parse(to))) range.lte = new Date(to);
+    if (to && !isNaN(Date.parse(to))) {
+      const end = new Date(to);
+      // Yalnız tarih verildiyse ("2026-10-06") o günün SONUNA kadar dahil et; aksi halde gün 00:00'da kesilirdi.
+      if (/^\d{4}-\d{2}-\d{2}$/.test(to)) end.setUTCHours(23, 59, 59, 999);
+      range.lte = end;
+    }
     if (range.gte || range.lte) where.createdAt = range;
     const logs = await prisma.auditLog.findMany({
       where,

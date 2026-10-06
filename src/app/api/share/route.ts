@@ -6,6 +6,7 @@ import { requireUser, hashPassword } from "@/lib/auth";
 import { canAccessFile } from "@/lib/access";
 import { logAudit } from "@/lib/audit";
 import { errorResponse } from "@/lib/api-helpers";
+import { maskToken } from "@/lib/share";
 
 const schema = z.object({
   fileId: z.string(),
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
         passwordHash: body.password ? await hashPassword(body.password) : null,
       },
     });
-    await logAudit({ userId: user.id, action: "SHARE_CREATE", targetType: "file", targetId: body.fileId, detail: token });
+    await logAudit({ userId: user.id, action: "SHARE_CREATE", targetType: "file", targetId: body.fileId, detail: maskToken(token) });
     return NextResponse.json({ ...link, passwordHash: undefined, hasPassword: !!link.passwordHash });
   } catch (err) {
     return errorResponse(err);
