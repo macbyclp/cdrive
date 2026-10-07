@@ -237,6 +237,16 @@ function DriveInner() {
     setSelected(new Set());
   }, [load]);
 
+  // Claude yardımcısı bir öneriyi uyguladığında (yeni sürüm/dosya) liste kendiliğinden yenilensin.
+  useEffect(() => {
+    const onChanged = () => {
+      load();
+      refreshMe();
+    };
+    window.addEventListener("cdrive:files-changed", onChanged);
+    return () => window.removeEventListener("cdrive:files-changed", onChanged);
+  }, [load, refreshMe]);
+
   // Onay bildiriminden gelindiyse (?approval=<fileId>) dosyayı çekip pencereyi aç.
   useEffect(() => {
     if (!approvalDeepLinkId) return;

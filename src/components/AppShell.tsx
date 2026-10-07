@@ -6,6 +6,7 @@ import TopBar from "@/components/TopBar";
 import AppSidebar, { type AppSidebarActive } from "@/components/AppSidebar";
 import Footer from "@/components/Footer";
 import MobileTabBar from "@/components/MobileTabBar";
+import ClaudePanel from "@/components/ClaudePanel";
 import { isGlassSkin, visualSkin } from "@/lib/skin";
 
 /**
@@ -37,6 +38,7 @@ export default function AppShell({
   dataSkin?: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [claudeOpen, setClaudeOpen] = useState(false);
   void dataSkin;
   const glass = isGlassSkin(user.uiSkin);
 
@@ -46,7 +48,7 @@ export default function AppShell({
       data-skin={visualSkin(user.uiSkin)}
       style={glass ? undefined : { backgroundColor: "var(--background)" }}
     >
-      <TopBar user={user} onSearch={onSearch} hideQuickNav onMenuClick={() => setMenuOpen(true)} />
+      <TopBar user={user} onSearch={onSearch} hideQuickNav onMenuClick={() => setMenuOpen(true)} onClaude={() => setClaudeOpen(true)} />
       <div className={glass ? "flex flex-1 gap-3 px-3 pt-3 sm:pl-3" : "flex flex-1"}>
         <AppSidebar
           user={user}
@@ -57,6 +59,7 @@ export default function AppShell({
         <main className={glass ? "lg-main min-w-0 flex-1 pt-1 sm:pt-2" : "flex-1 p-4 sm:p-6"}>{children}</main>
       </div>
       <Footer />
+      {claudeOpen && <ClaudePanel userId={user.id} onClose={() => setClaudeOpen(false)} />}
       {glass && <MobileTabBar user={user} active={active} onMenu={() => setMenuOpen(true)} />}
     </div>
   );

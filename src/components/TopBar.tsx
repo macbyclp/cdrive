@@ -12,16 +12,20 @@ import ImpersonationBanner from "@/components/ImpersonationBanner";
 import { withBasePath } from "@/lib/basePath";
 import { isGlassSkin } from "@/lib/skin";
 import NavIcon from "@/components/NavIcons";
+import { ClaudeLogo } from "@/components/ClaudePanel";
 
 export default function TopBar({
   user,
   onSearch,
   onMenuClick,
   hideQuickNav,
+  onClaude,
 }: {
   user: MeUser;
   onSearch?: (q: string) => void;
   onMenuClick?: () => void;
+  /** Verilirse "Cdrive" yazısının yanında yuvarlak Claude düğmesi çıkar; Claude yardımcı panelini açar. */
+  onClaude?: () => void;
   // Satış/Muhasebe/Yönetim kısayolları burada tekrar gösterilmesin — sayfa zaten
   // AppShell'in kenar çubuğuyla açılıyorsa (bkz. src/components/AppShell.tsx) aynı
   // linkler orada var, üstte tekrarlamaya gerek yok.
@@ -80,9 +84,26 @@ export default function TopBar({
         </span>
       </a>
 
+      {/* Claude yardımcısı: "Cdrive"ın hemen yanında yuvarlak cam düğme (arama kutusu onun sağına kayar). */}
+      {onClaude && (
+        <button
+          type="button"
+          onClick={onClaude}
+          aria-label="Claude"
+          title="Claude'a sor — dosyalarında ara, oku, düzenleme öner"
+          className={
+            glass
+              ? "glass lg-nav-link flex h-10 w-10 shrink-0 items-center justify-center !rounded-full !p-0"
+              : "btn-secondary flex h-10 w-10 shrink-0 items-center justify-center !rounded-full !p-0"
+          }
+        >
+          <ClaudeLogo size={22} />
+        </button>
+      )}
+
       {onSearch && (
         <form
-          className="max-w-lg flex-1"
+          className="ml-1 max-w-lg flex-1 sm:ml-3"
           onSubmit={(e) => {
             e.preventDefault();
             onSearch(q);

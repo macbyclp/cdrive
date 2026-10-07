@@ -1,0 +1,96 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { requireUser } from "@/lib/auth";
+import { errorResponse, limitOr429 } from "@/lib/api-helpers";
+import { getUserApiKey } from "@/lib/claude-key";
+import { runAgent, type AgentEvent } from "@/lib/claude-agent";
+
+// Uzun ömürlü akış: ajan adımları Server-Sent Events olarak iletilir.
+export const dynamic = "force-dynamic";
+export const maxDuration = 300;
+
+const bodySchema = z.object({
+  message: z.string().trim().min(1).max(4000),
+  history: z
+    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(6000) }))
+    .max(12)
+    .optional(),
+});
+
+// Kullanıcı başına eşzamanlı sohbet sınırı (tek Node süreci varsayımı).
+const active = new Map<string, number>();
+const MAX_CONCURRENT_PER_USER = 2;
+
+/**
+ * Claude yardımcısı: kullanıcının KENDİ Claude API anahtarıyla (Hesap ayarları) çalışır. Araçlar bu kullanıcının
+ * yetkileriyle işler; Claude dosyalara doğrudan yazamaz — düzenlemeler "öneri" olarak gelir, kullanıcı onaylar.
+ */
+export async function POST(req: Request) {
+  try {
+    const user = await requireUser();
+    const apiKey = await getUserApiKey(user.id);
+    if (!apiKey) {
+      return NextResponse.json({ error: "Önce Hesap ayarlarından Claude API anahtarınızı girin" }, { status: 409 });
+    }
+    const limited = limitOr429("claude-chat", user.id, 12, 60_000);
+    if (limited) return limited;
+    const body = bodySchema.parse(await req.json());
+
+    const running = active.get(user.id) ?? 0;
+    if (running >= MAX_CONCURRENT_PER_USER) {
+      return NextResponse.json({ error: "Zaten devam eden sohbetleriniz var; biraz bekleyin" }, { status: 429 });
+    }
+    active.set(user.id, running + 1);
+    const release = () => active.set(user.id, Math.max(0, (active.get(user.id) ?? 1) - 1));
+
+    const enc = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        let closed = false;
+        const send = (obj: object) => {
+          if (!closed) controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        };
+        send({ type: "ready" });
+        try {
+          await runAgent({
+            user,
+            apiKey,
+            message: body.message,
+            history: body.history,
+            signal: req.signal,
+            emit: (e: AgentEvent) => send(e),
+          });
+        } catch {
+          send({ type: "error", message: "Beklenmeyen bir hata oluştu" });
+        } finally {
+          release();
+          send({ type: "done" });
+          closed = true;
+          try {
+            controller.close();
+          } catch {
+            /* istemci zaten gitmiş olabilir */
+          }
+        }
+      },
+      cancel() {
+        /* istemci koptu: req.signal ajanı durdurur, sayaç finally'de düşer */
+      },
+    });
+    return new Response(stream, {
+      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" },
+    });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}
+
+/** Panel açılırken: bu kullanıcının anahtarı kayıtlı mı? (anahtarın kendisi asla dönmez) */
+export async function GET() {
+  try {
+    const user = await requireUser();
+    return NextResponse.json({ configured: !!(await getUserApiKey(user.id)) });
+  } catch (err) {
+    return errorResponse(err);
+  }
+}
