@@ -57,3 +57,4 @@ next-env.d.ts
 
 # Yerel demo hesapları (scripts/seed-demo.mjs)
 .demo-credentials.txt
+dev.log
