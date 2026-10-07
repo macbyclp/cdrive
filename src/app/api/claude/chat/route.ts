@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { errorResponse, limitOr429 } from "@/lib/api-helpers";
-import { claudeConfig, signToolToken } from "@/lib/claude";
+import { getUserApiKey } from "@/lib/claude-key";
+import { runAgent, type AgentEvent } from "@/lib/claude-agent";
 
-// Uzun ömürlü akış: yanıt, Claude sidecar'ından gelen Server-Sent Events'i olduğu gibi iletir.
+// Uzun ömürlü akış: ajan adımları Server-Sent Events olarak iletilir.
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
@@ -17,21 +17,20 @@ const bodySchema = z.object({
     .optional(),
 });
 
-// Kullanıcı başına eşzamanlı sohbet sınırı (Claude CLI süreçleri pahalı; tek Node süreci varsayımı).
+// Kullanıcı başına eşzamanlı sohbet sınırı (tek Node süreci varsayımı).
 const active = new Map<string, number>();
 const MAX_CONCURRENT_PER_USER = 2;
 
 /**
- * Claude yardımcısı: kullanıcının mesajını sidecar'a ("cdrive-claude") iletir. Sidecar, Claude CLI'ı
- * yalnızca Cdrive araçlarıyla (listele/ara/oku/öner) çalıştırır; araçlar bu kullanıcının yetkileriyle
- * işler. Claude dosyalara doğrudan yazamaz — düzenlemeler "öneri" olarak gelir, kullanıcı onaylar.
+ * Claude yardımcısı: kullanıcının KENDİ Claude API anahtarıyla (Hesap ayarları) çalışır. Araçlar bu kullanıcının
+ * yetkileriyle işler; Claude dosyalara doğrudan yazamaz — düzenlemeler "öneri" olarak gelir, kullanıcı onaylar.
  */
 export async function POST(req: Request) {
   try {
     const user = await requireUser();
-    const cfg = claudeConfig();
-    if (!cfg) {
-      return NextResponse.json({ error: "Claude yardımcısı yapılandırılmamış (CLAUDE_URL / CLAUDE_TOKEN)" }, { status: 503 });
+    const apiKey = await getUserApiKey(user.id);
+    if (!apiKey) {
+      return NextResponse.json({ error: "Önce Hesap ayarlarından Claude API anahtarınızı girin" }, { status: 409 });
     }
     const limited = limitOr429("claude-chat", user.id, 12, 60_000);
     if (limited) return limited;
@@ -41,57 +40,41 @@ export async function POST(req: Request) {
     if (running >= MAX_CONCURRENT_PER_USER) {
       return NextResponse.json({ error: "Zaten devam eden sohbetleriniz var; biraz bekleyin" }, { status: 429 });
     }
-
-    const runId = randomUUID();
-    const toolToken = await signToolToken(user.id, runId);
     active.set(user.id, running + 1);
     const release = () => active.set(user.id, Math.max(0, (active.get(user.id) ?? 1) - 1));
 
-    let upstream: Response;
-    try {
-      upstream = await fetch(`${cfg.url}/run`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${cfg.token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          runId,
-          toolToken,
-          message: body.message,
-          history: body.history ?? [],
-          user: { name: user.name, role: user.role },
-        }),
-        signal: req.signal,
-      });
-    } catch {
-      release();
-      return NextResponse.json({ error: "Claude servisine ulaşılamıyor" }, { status: 502 });
-    }
-    if (!upstream.ok || !upstream.body) {
-      release();
-      const d = (await upstream.json().catch(() => ({}))) as { error?: string };
-      return NextResponse.json(
-        { error: d.error ?? `Claude servisi hata döndürdü (${upstream.status})` },
-        { status: upstream.status === 429 ? 429 : 502 }
-      );
-    }
-
-    // Akış bitince/kopunca eşzamanlılık sayacını düşür.
-    const reader = upstream.body.getReader();
+    const enc = new TextEncoder();
     const stream = new ReadableStream({
-      async pull(controller) {
+      async start(controller) {
+        let closed = false;
+        const send = (obj: object) => {
+          if (!closed) controller.enqueue(enc.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        };
+        send({ type: "ready" });
         try {
-          const { done, value } = await reader.read();
-          if (done) {
-            release();
-            controller.close();
-          } else controller.enqueue(value);
+          await runAgent({
+            user,
+            apiKey,
+            message: body.message,
+            history: body.history,
+            signal: req.signal,
+            emit: (e: AgentEvent) => send(e),
+          });
         } catch {
+          send({ type: "error", message: "Beklenmeyen bir hata oluştu" });
+        } finally {
           release();
-          controller.close();
+          send({ type: "done" });
+          closed = true;
+          try {
+            controller.close();
+          } catch {
+            /* istemci zaten gitmiş olabilir */
+          }
         }
       },
       cancel() {
-        release();
-        void reader.cancel().catch(() => {});
+        /* istemci koptu: req.signal ajanı durdurur, sayaç finally'de düşer */
       },
     });
     return new Response(stream, {
@@ -102,11 +85,11 @@ export async function POST(req: Request) {
   }
 }
 
-/** Yapılandırma durumu — panel açılırken "kurulu mu?" göstermek için (ayrıntı sızdırmaz). */
+/** Panel açılırken: bu kullanıcının anahtarı kayıtlı mı? (anahtarın kendisi asla dönmez) */
 export async function GET() {
   try {
-    await requireUser();
-    return NextResponse.json({ configured: !!claudeConfig() });
+    const user = await requireUser();
+    return NextResponse.json({ configured: !!(await getUserApiKey(user.id)) });
   } catch (err) {
     return errorResponse(err);
   }

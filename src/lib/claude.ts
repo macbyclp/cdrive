@@ -1,60 +1,13 @@
 // Claude yardımcısı — uygulama tarafı ortak yardımcılar.
 //
-// Mimari (bkz. deploy/vds/claude/README.md): Claude CLI, docker soketi/host erişimi olmayan AYRI bir
-// konteynerde ("cdrive-claude") çalışır. Dosyalara diskten değil, Cdrive'ın kendi API'si
-// (/api/claude/tools/*) üzerinden, sohbeti başlatan kullanıcının YETKİLERİYLE erişir; böylece izinler,
-// kota, denetim kaydı ve sürümleme aynen işler. Claude hiçbir dosyaya doğrudan yazmaz: düzenlemeler
-// "öneri" olarak saklanır, kullanıcı onaylayınca yeni sürüm olarak yazılır.
+// Mimari: her kullanıcı kendi Claude API anahtarını Hesap ayarlarından girer (claude-key.ts); ajan döngüsü
+// (claude-agent.ts) Anthropic API'sini bu anahtarla çağırır ve araçları (claude-tools.ts) sohbeti başlatan
+// kullanıcının YETKİLERİYLE süreç içinde çalıştırır; izinler, kota, denetim kaydı ve sürümleme aynen işler.
+// Claude hiçbir dosyaya doğrudan yazmaz: düzenlemeler "öneri" olarak saklanır, kullanıcı onaylayınca yeni sürüm olur.
 
-import { SignJWT, jwtVerify } from "jose";
-import { createHmac } from "node:crypto";
 import AdmZip from "adm-zip";
 import ExcelJS from "exceljs";
-import type { User } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { resolveSecret } from "@/lib/session-secret";
 import { textFromPdf } from "@/lib/text-extract";
-import { AuthError } from "@/lib/auth";
-
-export function claudeConfig(): { url: string; token: string } | null {
-  const url = process.env.CLAUDE_URL?.trim().replace(/\/+$/, "");
-  const token = process.env.CLAUDE_TOKEN?.trim();
-  if (!url || !token) return null;
-  return { url, token };
-}
-
-// --- Araç token'ı: sidecar'ın kullanıcı adına araç çağırması için kısa ömürlü, tek kullanıcıya bağlı ---
-
-function toolSecret(): Uint8Array {
-  return new Uint8Array(createHmac("sha256", resolveSecret()).update("claude-tools-v1").digest());
-}
-
-export async function signToolToken(userId: string, runId: string): Promise<string> {
-  return new SignJWT({ uid: userId, rid: runId })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("12m")
-    .sign(toolSecret());
-}
-
-/** Araç isteğinin Bearer token'ından kullanıcıyı çözer; her çağrıda kullanıcının hâlâ aktif olduğunu doğrular. */
-export async function toolUserFromRequest(req: Request): Promise<{ user: User; runId: string }> {
-  const header = req.headers.get("authorization") ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!token) throw new AuthError("Araç belirteci gerekli", 401);
-  let uid: string;
-  let rid: string;
-  try {
-    const { payload } = await jwtVerify(token, toolSecret());
-    uid = String(payload.uid);
-    rid = String(payload.rid);
-  } catch {
-    throw new AuthError("Araç belirteci geçersiz veya süresi dolmuş", 401);
-  }
-  const user = await prisma.user.findUnique({ where: { id: uid } });
-  if (!user || !user.active) throw new AuthError("Kullanıcı bulunamadı veya pasif", 401);
-  return { user, runId: rid };
-}
 
 // --- Dosya içeriğini okunabilir metne çevirme ---
 

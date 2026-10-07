@@ -1,9 +1,7 @@
 import { describe, it, expect, afterEach, afterAll, vi, beforeEach } from "vitest";
 import { rmSync } from "fs";
-import { SignJWT } from "jose";
 import { prisma } from "@/lib/prisma";
 import { createFileFromBuffer } from "@/lib/file-versions";
-import { signToolToken, toolUserFromRequest } from "@/lib/claude";
 import { ToolError, toolListFolder, toolProposeEdit, toolProposeNewFile, toolRead, toolSearch } from "@/lib/claude-tools";
 import { createTestUser, createTestFolder, cleanupTestData } from "../helpers/db";
 
@@ -37,30 +35,6 @@ async function user(role: "ADMIN" | "MEMBER" = "MEMBER") {
 
 const file = (owner: { id: string }, name: string, text: string, folderId: string | null = null) =>
   createFileFromBuffer({ name, mimeType: "text/plain", folderId, ownerId: owner.id, buffer: Buffer.from(text) });
-
-describe("araç belirteci", () => {
-  const req = (token?: string) => new Request("http://x", { headers: token ? { authorization: `Bearer ${token}` } : {} });
-
-  it("geçerli belirteç kullanıcıyı çözer; belirteçsiz/bozuk/yanlış anahtarlı reddedilir", async () => {
-    const u = await user();
-    const ok = await signToolToken(u.id, "run1");
-    expect((await toolUserFromRequest(req(ok))).user.id).toBe(u.id);
-    await expect(toolUserFromRequest(req())).rejects.toMatchObject({ status: 401 });
-    await expect(toolUserFromRequest(req("bozuk.token.degeri"))).rejects.toMatchObject({ status: 401 });
-    const forged = await new SignJWT({ uid: u.id, rid: "x" })
-      .setProtectedHeader({ alg: "HS256" })
-      .setExpirationTime("10m")
-      .sign(new TextEncoder().encode("saldirganin-bildigi-baska-anahtar-0123456789"));
-    await expect(toolUserFromRequest(req(forged))).rejects.toMatchObject({ status: 401 });
-  });
-
-  it("pasifleştirilen kullanıcının belirteci artık çalışmaz", async () => {
-    const u = await user();
-    const token = await signToolToken(u.id, "run2");
-    await prisma.user.update({ where: { id: u.id }, data: { active: false } });
-    await expect(toolUserFromRequest(req(token))).rejects.toMatchObject({ status: 401 });
-  });
-});
 
 describe("araçlar kullanıcının yetkileriyle sınırlı", () => {
   it("MEMBER başkasının dosyasını OKUYAMAZ, aramada GÖREMEZ, klasörünü LİSTELEYEMEZ", async () => {

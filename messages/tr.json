@@ -253,7 +253,8 @@
     "example1": "Bu ay oluşturulan sözleşmeleri bul ve özetle",
     "example2": "Sürücümdeki notlar.txt dosyasındaki yazım hatalarını düzelt",
     "example3": "Bütçe.xlsx dosyasının içeriğini özetle",
-    "notConfigured": "Claude yardımcısı bu sunucuda henüz kurulu değil. Yönetici için kurulum adımları deploy/vds/claude/README.md dosyasında.",
+    "notConfigured": "Claude'u kullanmak için önce kendi Claude API anahtarınızı girin: Hesap ayarları → Claude API anahtarı.",
+    "openAccount": "Hesap ayarlarını aç",
     "failed": "Claude şu an yanıt veremiyor. Biraz sonra tekrar deneyin.",
     "tool": {
       "list_folder": "Klasör listeleniyor",

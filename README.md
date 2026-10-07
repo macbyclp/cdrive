@@ -70,7 +70,7 @@ Klasör ve dosya bazında ayrıca **VIEW / EDIT** izinleri verilir.
 - **Sürümleme:** aynı adla yüklenen dosya yeni sürüm olur; sürümleri karşılaştır, eskisine dön
 - **Belge tara:** kamera veya fotoğraflardan sayfa topla → filtre (Orijinal / Belge / Siyah-beyaz) → tek PDF. İsteğe bağlı OCR ile içerik araması ve **düzenlenebilir Word (.docx)** çıktısı ([#14](https://github.com/macbyclp/cdrive/pull/14))
 - Dosya adı ve metin/PDF içeriğinde arama, etiketler, yorumlar, onay akışları
-- **Claude yardımcısı:** kenar çubuğundaki Claude düğmesi; sunucudaki Claude CLI ile dosyalarında arar, belgelerini (metin/PDF/Word/Excel/PowerPoint) okuyup özetler ve düz metin dosyaları için **düzenleme önerir**. Her araç kullanıcının yetkileriyle çalışır, Claude doğrudan yazamaz: değişiklik farkı panelde görünür, **onaylayınca yeni sürüm** olur ([kurulum ve güvenlik modeli](deploy/vds/claude/README.md))
+- **Claude yardımcısı:** üst çubuktaki yuvarlak Claude düğmesi; kullanıcı **kendi Claude API anahtarını** Hesap ayarlarından girer (şifreli saklanır), Claude dosyalarında arar, belgelerini (metin/PDF/Word/Excel/PowerPoint) okuyup özetler ve düz metin dosyaları için **düzenleme önerir**. Her araç kullanıcının yetkileriyle çalışır, Claude doğrudan yazamaz: değişiklik farkı panelde görünür, **onaylayınca yeni sürüm** olur
 - İsteğe bağlı OnlyOffice ile tarayıcıda Word/Excel/PowerPoint düzenleme
 
 **Yönetim**

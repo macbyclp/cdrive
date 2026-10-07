@@ -121,6 +121,8 @@ model User {
   email        String   @unique
   name         String
   passwordHash String
+  // Kullanıcının kendi Claude API anahtarı (AES-256-GCM ile şifreli; bkz. src/lib/claude-key.ts). Boşsa Claude paneli kapalı.
+  claudeApiKeyEnc String? @db.Text
   role         Role     @default(MEMBER)
   active       Boolean  @default(true)
   quotaBytes   BigInt   @default(2147483648) // kullanıcı varsayılan kota: 2 GB
