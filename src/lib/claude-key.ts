@@ -1,4 +1,4 @@
-// Kullanıcının kendi Claude API anahtarının saklanması. Anahtar veritabanında AES-256-GCM ile şifrelenir;
+// Sistem geneli Claude API anahtarının saklanması (yalnızca yönetici girer). Anahtar veritabanında AES-256-GCM ile şifrelenir;
 // şifre çözme anahtarı SESSION_SECRET'tan türetilir (veritabanı yedeği tek başına anahtarları açığa çıkarmaz).
 // Anahtar API yanıtlarında ASLA dönmez; arayüze yalnızca "kayıtlı mı + son 4 hane" gösterilir.
 
@@ -35,11 +35,26 @@ export function decryptApiKey(blob: string): string | null {
   }
 }
 
-export async function getUserApiKey(userId: string): Promise<string | null> {
-  const row = await prisma.user.findUnique({ where: { id: userId }, select: { claudeApiKeyEnc: true } });
-  return row?.claudeApiKeyEnc ? decryptApiKey(row.claudeApiKeyEnc) : null;
+/** Sistem geneli anahtar: önce yönetici panelinde girilen (DB, şifreli), yoksa ANTHROPIC_API_KEY ortam değişkeni. */
+export async function getClaudeApiKey(): Promise<string | null> {
+  const row = await prisma.systemSettings.findUnique({ where: { id: 1 }, select: { claudeApiKeyEnc: true } });
+  const fromDb = row?.claudeApiKeyEnc ? decryptApiKey(row.claudeApiKeyEnc) : null;
+  if (fromDb) return fromDb;
+  const env = process.env.ANTHROPIC_API_KEY?.trim();
+  return env && isValidApiKeyFormat(env) ? env : null;
 }
 
-export async function setUserApiKey(userId: string, key: string | null): Promise<void> {
-  await prisma.user.update({ where: { id: userId }, data: { claudeApiKeyEnc: key ? encryptApiKey(key) : null } });
+/** Yönetici ekranı için durum (anahtarın kendisi dönmez): nereden geldiği ve son 4 hane. */
+export async function claudeKeyStatus(): Promise<{ configured: boolean; source: "panel" | "env" | null; last4: string | null }> {
+  const row = await prisma.systemSettings.findUnique({ where: { id: 1 }, select: { claudeApiKeyEnc: true } });
+  const fromDb = row?.claudeApiKeyEnc ? decryptApiKey(row.claudeApiKeyEnc) : null;
+  if (fromDb) return { configured: true, source: "panel", last4: fromDb.slice(-4) };
+  const env = process.env.ANTHROPIC_API_KEY?.trim();
+  if (env && isValidApiKeyFormat(env)) return { configured: true, source: "env", last4: env.slice(-4) };
+  return { configured: false, source: null, last4: null };
+}
+
+export async function setClaudeApiKey(key: string | null): Promise<void> {
+  const claudeApiKeyEnc = key ? encryptApiKey(key) : null;
+  await prisma.systemSettings.upsert({ where: { id: 1 }, create: { id: 1, claudeApiKeyEnc }, update: { claudeApiKeyEnc } });
 }

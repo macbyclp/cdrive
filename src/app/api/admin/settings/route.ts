@@ -16,7 +16,8 @@ async function getOrCreateSettings() {
 
 /** smtpPass API yanıtlarında ASLA geri dönmez — sadece "ayarlı mı" bilgisi (smtpPasswordSet). */
 function serialize(settings: Awaited<ReturnType<typeof getOrCreateSettings>>) {
-  const { smtpPass, ...rest } = settings;
+  const { smtpPass, claudeApiKeyEnc, ...rest } = settings;
+  void claudeApiKeyEnc; // şifreli Claude anahtarı da asla geri dönmez
   return {
     ...rest,
     maxFileSizeBytes: settings.maxFileSizeBytes?.toString() ?? null,

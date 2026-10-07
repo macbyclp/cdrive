@@ -62,7 +62,6 @@ function AccountInner() {
           </div>
           <AvatarCard user={user} onChange={refresh} />
           <PasswordCard />
-          <ClaudeKeyCard />
           <TwoFactorCard user={user} onChange={refresh} />
           <SessionsCard />
           <ShareLinksCard />
@@ -343,91 +342,6 @@ function describeDevice(userAgent: string | null) {
   if (/Macintosh/i.test(userAgent)) return "Mac · tarayıcı";
   if (/Linux/i.test(userAgent)) return "Linux · tarayıcı";
   return "Tarayıcı";
-}
-
-function ClaudeKeyCard() {
-  const toast = useToast();
-  const [state, setState] = useState<{ configured: boolean; last4: string | null } | null>(null);
-  const [apiKey, setApiKey] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    fetch(withBasePath("/api/account/claude"))
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setState(d))
-      .catch(() => {});
-  }, []);
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setBusy(true);
-    const res = await fetch(withBasePath("/api/account/claude"), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apiKey }),
-    });
-    setBusy(false);
-    const d = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      setError(d.error ?? "Anahtar kaydedilemedi");
-      return;
-    }
-    setApiKey("");
-    setState(d);
-    toast("Claude API anahtarı kaydedildi", "success");
-  }
-
-  async function remove() {
-    setBusy(true);
-    const res = await fetch(withBasePath("/api/account/claude"), { method: "DELETE" });
-    setBusy(false);
-    if (res.ok) {
-      setState({ configured: false, last4: null });
-      toast("Claude API anahtarı silindi", "success");
-    }
-  }
-
-  return (
-    <div className="card p-5">
-      <h2 className="mb-1 text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
-        Claude API anahtarı
-      </h2>
-      <p className="mb-4 text-sm" style={{ color: "var(--text-secondary)" }}>
-        Üst çubuktaki Claude düğmesi senin kendi anahtarınla çalışır; kullanım Anthropic hesabından faturalanır. Anahtar şifreli
-        saklanır ve bir daha gösterilmez. Claude yalnızca senin erişebildiğin dosyaları görür ve onayın olmadan hiçbir şeyi değiştirmez.
-      </p>
-      {state?.configured && (
-        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl p-3 text-sm" style={{ background: "var(--surface-muted)" }}>
-          <span style={{ color: "var(--text-primary)" }}>Kayıtlı anahtar: sk-ant-••••{state.last4}</span>
-          <button type="button" className="btn-secondary shrink-0 text-sm" disabled={busy} onClick={remove}>
-            Sil
-          </button>
-        </div>
-      )}
-      <form onSubmit={save} className="space-y-3">
-        <input
-          required
-          type="password"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="sk-ant-…"
-          className="input"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-        />
-        {error && (
-          <p className="text-sm" style={{ color: "var(--danger)" }}>
-            {error}
-          </p>
-        )}
-        <button className="btn-primary" disabled={busy || apiKey.trim().length < 20}>
-          {state?.configured ? "Anahtarı değiştir" : "Kaydet"}
-        </button>
-      </form>
-    </div>
-  );
 }
 
 function SessionsCard() {

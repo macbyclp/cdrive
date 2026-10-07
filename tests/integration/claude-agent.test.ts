@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, afterAll, vi, beforeEach } from "vites
 import { rmSync } from "fs";
 import { prisma } from "@/lib/prisma";
 import { createFileFromBuffer } from "@/lib/file-versions";
-import { decryptApiKey, encryptApiKey, getUserApiKey, isValidApiKeyFormat, setUserApiKey } from "@/lib/claude-key";
+import { claudeKeyStatus, decryptApiKey, encryptApiKey, getClaudeApiKey, isValidApiKeyFormat, setClaudeApiKey } from "@/lib/claude-key";
 import { runAgent, verifyApiKey, type AgentEvent } from "@/lib/claude-agent";
 import { createTestUser, cleanupTestData } from "../helpers/db";
 
@@ -40,24 +40,40 @@ async function collect(opts: Parameters<typeof runAgent>[0]) {
   return events;
 }
 
-describe("API anahtarı saklama", () => {
+describe("sistem API anahtarı saklama", () => {
+  afterEach(async () => {
+    await setClaudeApiKey(null);
+    delete process.env.ANTHROPIC_API_KEY;
+  });
+
   it("şifreler (düz metin DB'de yok), geri çözer, bozuk/yanlış sırrı reddeder", async () => {
-    const u = await user();
-    await setUserApiKey(u.id, KEY);
-    const row = await prisma.user.findUniqueOrThrow({ where: { id: u.id }, select: { claudeApiKeyEnc: true } });
+    await setClaudeApiKey(KEY);
+    const row = await prisma.systemSettings.findUniqueOrThrow({ where: { id: 1 }, select: { claudeApiKeyEnc: true } });
     expect(row.claudeApiKeyEnc).toBeTruthy();
     expect(row.claudeApiKeyEnc).not.toContain(KEY);
-    expect(await getUserApiKey(u.id)).toBe(KEY);
+    expect(await getClaudeApiKey()).toBe(KEY);
+    expect(await claudeKeyStatus()).toEqual({ configured: true, source: "panel", last4: KEY.slice(-4) });
 
-    // SESSION_SECRET değişirse çözülemez → null (kullanıcı yeniden girer), hata fırlatmaz
+    // SESSION_SECRET değişirse çözülemez → null, hata fırlatmaz
     const blob = encryptApiKey(KEY);
     process.env.SESSION_SECRET = "baska-bir-sir-baska-bir-sir-baska-bir-sir-9";
     expect(decryptApiKey(blob)).toBeNull();
     process.env.SESSION_SECRET = "test-secret-test-secret-test-secret-123";
     expect(decryptApiKey(blob.slice(0, -4) + "AAAA")).toBeNull(); // kurcalanmış şifreli metin (GCM etiketi)
 
-    await setUserApiKey(u.id, null);
-    expect(await getUserApiKey(u.id)).toBeNull();
+    await setClaudeApiKey(null);
+    expect(await getClaudeApiKey()).toBeNull();
+    expect(await claudeKeyStatus()).toEqual({ configured: false, source: null, last4: null });
+  });
+
+  it("panelde anahtar yoksa ANTHROPIC_API_KEY ortam değişkeni; panel anahtarı önceliklidir; geçersiz biçimli env yok sayılır", async () => {
+    process.env.ANTHROPIC_API_KEY = "geçersiz";
+    expect(await getClaudeApiKey()).toBeNull();
+    process.env.ANTHROPIC_API_KEY = "sk-ant-api03-ENVENVENVENVENVENVENV99";
+    expect(await getClaudeApiKey()).toBe("sk-ant-api03-ENVENVENVENVENVENVENV99");
+    expect((await claudeKeyStatus()).source).toBe("env");
+    await setClaudeApiKey(KEY);
+    expect(await getClaudeApiKey()).toBe(KEY);
   });
 
   it("biçim denetimi", () => {
