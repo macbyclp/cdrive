@@ -134,15 +134,30 @@ function run(body, req, res) {
     child.kill("SIGKILL");
   }, cfg.timeoutMs);
 
-  const finish = (obj) => {
+  const finish = (obj, reason = "") => {
     if (finished) return;
     finished = true;
     clearTimeout(timer);
-    if (obj) sse(res, obj);
-    sse(res, { type: "done" });
-    res.end();
-    fs.rmSync(dir, { recursive: true, force: true });
-    running--;
+    // Sayaç, başka hiçbir şey başarısız olsa da MUTLAKA önce düşürülür (aksi halde her takılan çalıştırma
+    // eşzamanlılık limitini kalıcı tüketir ve "Claude şu an meşgul" der).
+    running = Math.max(0, running - 1);
+    console.log(`[run] bitti (${reason || obj?.type || "tamam"}) çalışan=${running}`);
+    try {
+      if (obj) sse(res, obj);
+      sse(res, { type: "done" });
+      res.end();
+    } catch {
+      /* istemci zaten gitmiş olabilir */
+    }
+  };
+
+  // Geçici dizin, süreç kapandıktan SONRA silinir (Windows'ta çalışan sürecin cwd'si silinemez); hata yutulur.
+  const cleanupDir = () => {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+    } catch {
+      /* geçici dizin işletim sistemi tarafından temizlenir */
+    }
   };
 
   const onEvent = (ev) => {
@@ -169,8 +184,8 @@ function run(body, req, res) {
         }
       }
     } else if (ev.type === "result") {
-      if (ev.is_error) finish({ type: "error", message: String(ev.result || "Claude bir hata döndürdü").slice(0, 500) });
-      else finish(null);
+      if (ev.is_error) finish({ type: "error", message: String(ev.result || "Claude bir hata döndürdü").slice(0, 500) }, "claude-hata");
+      else finish(null, "tamam");
     }
   };
 
@@ -192,18 +207,19 @@ function run(body, req, res) {
   child.stderr.on("data", (d) => {
     stderr = (stderr + d.toString()).slice(-2000);
   });
-  child.on("error", (e) => finish({ type: "error", message: `Claude CLI başlatılamadı: ${e.message}` }));
+  child.on("error", (e) => finish({ type: "error", message: `Claude CLI başlatılamadı: ${e.message}` }, "baslatilamadi"));
   child.on("close", (code) => {
+    cleanupDir();
     if (!finished) {
       const hint = /login|auth|credential/i.test(stderr) ? " (Claude CLI'a giriş yapılmamış olabilir: `claude login`)" : "";
-      finish({ type: "error", message: `Claude beklenmedik şekilde kapandı (kod ${code})${hint}` });
+      finish({ type: "error", message: `Claude beklenmedik şekilde kapandı (kod ${code})${hint}` }, "surec-kapandi");
     }
   });
   // İstemci bağlantıyı keserse süreç öldürülür (boşuna maliyet/kaynak harcanmasın).
-  req.on("close", () => {
+  res.on("close", () => {
     if (!finished) {
       child.kill("SIGKILL");
-      finish(null);
+      finish(null, "istemci-koptu");
     }
   });
 }
@@ -221,7 +237,7 @@ function json(res, code, body) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || "/", "http://x");
-  if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true });
+  if (req.method === "GET" && url.pathname === "/health") return json(res, 200, { ok: true, running });
   if (!authorized(req)) return json(res, 401, { error: "Yetkisiz" });
 
   if (req.method === "GET" && url.pathname === "/auth") {
@@ -256,8 +272,12 @@ const server = http.createServer(async (req, res) => {
     if (typeof body.message !== "string" || !body.message.trim() || typeof body.toolToken !== "string" || !body.toolToken) {
       return json(res, 400, { error: "message ve toolToken gerekli" });
     }
-    if (running >= cfg.maxConcurrent) return json(res, 429, { error: "Claude şu an meşgul; biraz sonra tekrar deneyin" });
+    if (running >= cfg.maxConcurrent) {
+      console.log(`[run] reddedildi (meşgul) çalışan=${running}`);
+      return json(res, 429, { error: "Claude şu an meşgul; biraz sonra tekrar deneyin" });
+    }
     running++;
+    console.log(`[run] başladı çalışan=${running}`);
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" });
     sse(res, { type: "ready" });
     try {
