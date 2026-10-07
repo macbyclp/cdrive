@@ -242,6 +242,7 @@
   },
   "claude": {
     "beta": "Beta",
+    "resize": "Boyutlandır — kenardan sürükle, çift tıkla: sıfırla",
     "close": "Kapat",
     "newChat": "Yeni sohbet",
     "send": "Gönder",

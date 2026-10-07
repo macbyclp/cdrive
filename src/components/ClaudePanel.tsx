@@ -203,7 +203,26 @@ function ProposalCard({ id, onApplied }: { id: string; onApplied: () => void }) 
   );
 }
 
-/** Claude yardımcısı paneli — sağda cam çekmece (telefonda alttan açılan sayfa). */
+const SIZE_KEY = "cdrive-claude-size";
+const MIN_W = 340;
+const MIN_H = 360;
+const DEFAULT_W = 480;
+const MARGIN = 24; // ekran kenarlarından toplam boşluk (üst+alt / sol+sağ)
+
+/** Masaüstü panel boyutu; h === null "tam yükseklik" demek. Telefonda alttan açılan sayfa olduğu için kullanılmaz. */
+type PanelSize = { w: number; h: number | null };
+
+function readSize(): PanelSize {
+  try {
+    const v = JSON.parse(localStorage.getItem(SIZE_KEY) ?? "null");
+    if (v && typeof v.w === "number") return { w: v.w, h: typeof v.h === "number" ? v.h : null };
+  } catch {
+    /* depolama kapalı/bozuksa varsayılan boyut */
+  }
+  return { w: DEFAULT_W, h: null };
+}
+
+/** Claude yardımcısı paneli — sağda cam çekmece (telefonda alttan açılan sayfa). Masaüstünde kenarlardan boyutlandırılabilir. */
 export default function ClaudePanel({ userId, onClose }: { userId: string; onClose: () => void }) {
   const t = useTranslations("claude");
   const [messages, setMessages] = useState<Msg[]>(() => {
@@ -218,6 +237,83 @@ export default function ClaudePanel({ userId, onClose }: { userId: string; onClo
   const [busy, setBusy] = useState(false);
   const [configured, setConfigured] = useState<boolean | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // --- Boyutlandırma (yalnız masaüstü): sol kenar = genişlik, üst kenar = yükseklik, sol-üst köşe = ikisi ---
+  const [size, setSize] = useState<PanelSize>(readSize);
+  const sizeRef = useRef(size);
+  const [desktop, setDesktop] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches);
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const on = () => {
+      setDesktop(mq.matches);
+      bump((n) => n + 1); // pencere küçüldüyse panel ekrandan taşmasın diye yeniden hesapla
+    };
+    mq.addEventListener("change", on);
+    window.addEventListener("resize", on);
+    return () => {
+      mq.removeEventListener("change", on);
+      window.removeEventListener("resize", on);
+    };
+  }, []);
+  const clampW = (w: number) => Math.max(MIN_W, Math.min(w, window.innerWidth - MARGIN));
+  const clampH = (h: number) => Math.max(MIN_H, Math.min(h, window.innerHeight - MARGIN));
+  const curW = typeof window === "undefined" ? size.w : clampW(size.w);
+  const curH = typeof window === "undefined" ? 0 : size.h === null ? window.innerHeight - MARGIN : clampH(size.h);
+
+  const commit = (next: PanelSize) => {
+    sizeRef.current = next;
+    setSize(next);
+  };
+  const persist = () => {
+    try {
+      localStorage.setItem(SIZE_KEY, JSON.stringify(sizeRef.current));
+    } catch {
+      /* boyut yalnızca bu açılışta kalır */
+    }
+  };
+  const resetSize = () => {
+    commit({ w: DEFAULT_W, h: null });
+    try {
+      localStorage.removeItem(SIZE_KEY);
+    } catch {
+      /* yok say */
+    }
+  };
+  const startDrag = (mode: "w" | "h" | "both") => (e: React.PointerEvent<HTMLElement>) => {
+    e.preventDefault();
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const baseW = curW;
+    const baseH = curH;
+    const keepH = size.h;
+    const move = (ev: PointerEvent) =>
+      commit({
+        w: mode === "h" ? baseW : clampW(baseW + (startX - ev.clientX)),
+        h: mode === "w" ? keepH : clampH(baseH + (startY - ev.clientY)),
+      });
+    const up = () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+      persist();
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+  };
+  const nudge = (e: React.KeyboardEvent, axis: "w" | "h") => {
+    const step = e.shiftKey ? 80 : 24;
+    const grow = axis === "w" ? e.key === "ArrowLeft" : e.key === "ArrowUp";
+    const shrink = axis === "w" ? e.key === "ArrowRight" : e.key === "ArrowDown";
+    if (!grow && !shrink) return;
+    e.preventDefault();
+    const d = grow ? step : -step;
+    commit(axis === "w" ? { w: clampW(curW + d), h: size.h } : { w: curW, h: clampH(curH + d) });
+    persist();
+  };
   const endRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef(messages);
 
@@ -326,7 +422,47 @@ export default function ClaudePanel({ userId, onClose }: { userId: string; onClo
   const filesChanged = () => window.dispatchEvent(new Event("cdrive:files-changed"));
 
   return (
-    <div className="fixed inset-0 z-40 sm:inset-auto sm:bottom-3 sm:right-3 sm:top-3 sm:w-[30rem]" role="dialog" aria-modal="false" aria-label="Claude">
+    <div
+      className="fixed inset-0 z-40 sm:inset-auto sm:bottom-3 sm:right-3"
+      style={desktop ? { width: curW, height: curH } : undefined}
+      role="dialog"
+      aria-modal="false"
+      aria-label="Claude"
+    >
+      {/* Boyutlandırma tutamaçları (yalnız masaüstü): sol kenar, üst kenar, sol-üst köşe. Çift tıkla: sıfırla. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label={t("resize")}
+        title={t("resize")}
+        tabIndex={0}
+        onPointerDown={startDrag("w")}
+        onDoubleClick={resetSize}
+        onKeyDown={(e) => nudge(e, "w")}
+        className="group absolute -left-2 bottom-8 top-8 z-10 hidden w-4 cursor-ew-resize touch-none outline-none sm:block"
+      >
+        <span className="absolute left-1.5 top-1/2 h-14 w-1 -translate-y-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-70 group-focus-visible:opacity-100" style={{ background: "var(--text-tertiary)" }} />
+      </div>
+      <div
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label={t("resize")}
+        title={t("resize")}
+        tabIndex={0}
+        onPointerDown={startDrag("h")}
+        onDoubleClick={resetSize}
+        onKeyDown={(e) => nudge(e, "h")}
+        className="group absolute -top-2 left-8 right-8 z-10 hidden h-4 cursor-ns-resize touch-none outline-none sm:block"
+      >
+        <span className="absolute left-1/2 top-1.5 h-1 w-14 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-70 group-focus-visible:opacity-100" style={{ background: "var(--text-tertiary)" }} />
+      </div>
+      <div
+        aria-hidden="true"
+        title={t("resize")}
+        onPointerDown={startDrag("both")}
+        onDoubleClick={resetSize}
+        className="absolute -left-2 -top-2 z-10 hidden h-8 w-8 cursor-nwse-resize touch-none sm:block"
+      />
       <button
         type="button"
         aria-label={t("close")}
