@@ -254,6 +254,9 @@
     "example2": "Sürücümdeki notlar.txt dosyasındaki yazım hatalarını düzelt",
     "example3": "Bütçe.xlsx dosyasının içeriğini özetle",
     "notConfigured": "Claude henüz ayarlanmamış. Yöneticinizden Yönetim → Ayarlar bölümünde Claude API anahtarını girmesini isteyin.",
+    "disabled": "Claude yardımcısı yönetici tarafından kapatıldı.",
+    "roleDenied": "Claude yardımcısı rolünüz için açık değil. Yöneticinize danışın.",
+    "quotaReached": "Bugünkü Claude kullanım kotanız doldu. Yarın yeniden kullanabilirsiniz; daha fazlası için yöneticinize başvurun.",
     "failed": "Claude şu an yanıt veremiyor. Biraz sonra tekrar deneyin.",
     "tool": {
       "list_folder": "Klasör listeleniyor",

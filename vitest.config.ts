@@ -9,6 +9,9 @@ export default defineConfig({
     // arası izolasyon garantisi için tek fork) çalıştırılır.
     setupFiles: ["./tests/setup.ts"],
     pool: "forks",
+    // Dosyalar sırayla çalışır: testler paylaşılan tek-satırlık tablolara (system_settings) yazar; paralel dosyalar
+    // MySQL 1020 ("Record has changed since last read") ve sayım yarışları üretiyordu.
+    fileParallelism: false,
     testTimeout: 15_000,
     // `next build` (output: "standalone") tüm proje ağacını .next/standalone altına
     // kopyalıyor — testler dahil. Varsayılan exclude listesi .next'i kapsamadığı için
