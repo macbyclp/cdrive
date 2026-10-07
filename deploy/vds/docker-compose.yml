@@ -67,6 +67,12 @@ services:
       - UPDATER_TOKEN=replace-with-openssl-rand-hex-32
       - UPDATE_REPO=macbyclp/cdrive
       - UPDATE_BRANCH=main
+      # Claude yardımcısı (kenar çubuğundaki Claude düğmesi). CLAUDE_TOKEN, aşağıdaki cdrive-claude ile AYNI olmalı.
+      - CLAUDE_URL=http://cdrive-claude:9100
+      - CLAUDE_TOKEN=replace-with-openssl-rand-hex-32
+    networks:
+      - default
+      - claude_net
     volumes:
       - cdrive_storage:/app/storage
     mem_limit: ${CDRIVE_MEM_LIMIT:-1g}
@@ -108,7 +114,41 @@ services:
     mem_limit: 256m
     logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
 
+  # Claude yardımcısı: Claude CLI'ı Cdrive araçlarıyla çalıştıran sidecar. Veritabanına/diske/docker'a erişimi YOK:
+  # yalnızca claude_net üzerinden Cdrive API'sine ve (NAT ile) Anthropic'e ulaşır. İlk kurulumda giriş yapılır:
+  #   docker exec -it cdrive-claude claude login        (ayrıntı: deploy/vds/claude/README.md)
+  cdrive-claude:
+    build:
+      context: ./app/deploy/vds/claude
+    container_name: cdrive-claude
+    restart: unless-stopped
+    depends_on:
+      - cdrive
+    environment:
+      - CLAUDE_TOKEN=replace-with-openssl-rand-hex-32
+      - CDRIVE_URL=http://cdrive:3000
+      # - CLAUDE_MODEL=claude-sonnet-5-5   # isteğe bağlı; boşsa CLI varsayılanı
+      # - ANTHROPIC_API_KEY=               # abonelik girişi yerine API anahtarı kullanmak isterseniz
+    networks:
+      - claude_net
+    volumes:
+      - cdrive_claude_home:/home/claude
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+    cpus: 1.0
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+networks:
+  claude_net: {}
+
 volumes:
   cdrive_db_data:
   cdrive_storage:
   cdrive_updater_state:
+  cdrive_claude_home:

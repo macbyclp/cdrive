@@ -172,6 +172,7 @@ model User {
   notifications Notification[]
   sessions     Session[]
   passwordResetTokens PasswordResetToken[]
+  claudeProposals ClaudeProposal[]
   fileComments FileComment[]
   groupMemberships GroupMember[]
   templateMemberships PermissionTemplateMember[]
@@ -795,4 +796,25 @@ model ChatReadState {
 
   @@unique([userId, scopeKey])
   @@map("chat_read_states")
+}
+
+/// Claude yardımcısının önerdiği düzenleme / yeni dosya. Claude hiçbir dosyaya doğrudan yazmaz:
+/// öneri burada bekler, kullanıcı panelde farkı görüp "Uygula" derse yeni sürüm olarak yazılır.
+model ClaudeProposal {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind          String // "edit" | "create"
+  fileId        String? // edit: düzenlenecek dosya
+  baseVersionId String? // edit: öneri hangi sürüm üzerinden yapıldı (sonradan değiştiyse uygulanmaz)
+  folderId      String? // create: hedef klasör (null = kök)
+  name          String
+  content       String    @db.LongText
+  summary       String?   @db.Text
+  status        String    @default("PENDING") // PENDING | APPLIED | REJECTED
+  createdAt     DateTime  @default(now())
+  decidedAt     DateTime?
+
+  @@index([userId, status])
+  @@map("claude_proposals")
 }
