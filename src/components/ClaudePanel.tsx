@@ -30,7 +30,7 @@ type Proposal = {
 
 export function ClaudeLogo({ size = 22 }: { size?: number }) {
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={withBasePath("/claude-logo.png")} alt="" width={size} height={size} style={{ width: size, height: size, objectFit: "contain" }} />;
+  return <img src={withBasePath("/claude-logo.svg")} alt="" width={size} height={size} style={{ width: size, height: size, objectFit: "contain" }} />;
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);

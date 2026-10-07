@@ -6,7 +6,6 @@ import type { MeUser } from "@/lib/types";
 import { withBasePath } from "@/lib/basePath";
 import { isGlassSkin } from "@/lib/skin";
 import NavIcon, { type NavIconName } from "@/components/NavIcons";
-import { ClaudeLogo } from "@/components/ClaudePanel";
 
 export type AppSidebarActive =
   | "panel"
@@ -107,14 +106,11 @@ export default function AppSidebar({
   active,
   mobileOpen = false,
   onMobileClose,
-  onClaude,
 }: {
   user: MeUser;
   active: AppSidebarActive;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
-  /** Claude yardımcı panelini açar (kenar çubuğunun üstündeki Claude düğmesi). */
-  onClaude?: () => void;
 }) {
   const glass = isGlassSkin(user.uiSkin);
   const router = useRouter();
@@ -145,18 +141,6 @@ export default function AppSidebar({
       {/* Masaüstü — sabit kenar çubuğu */}
       {glass ? (
         <aside className="lg-shell-side sticky top-[5.25rem] hidden max-h-[calc(100dvh-6.25rem)] w-60 shrink-0 self-start overflow-y-auto p-3 sm:block">
-          {onClaude && (
-            <button
-              type="button"
-              onClick={onClaude}
-              className="lg-nav-link mb-2 flex w-full items-center gap-3 px-3 py-2.5 text-sm font-semibold"
-              style={{ color: "var(--text-primary)", background: "var(--surface-muted)" }}
-              title="Claude'a sor — dosyalarında ara, oku, düzenleme öner"
-            >
-              <ClaudeLogo size={20} />
-              Claude
-            </button>
-          )}
           <SidebarNav user={user} active={active} glass />
         </aside>
       ) : (
@@ -164,17 +148,6 @@ export default function AppSidebar({
           className="hidden w-60 shrink-0 border-r p-4 sm:block"
           style={{ background: "var(--surface)", borderColor: "var(--border)" }}
         >
-          {onClaude && (
-            <button
-              type="button"
-              onClick={onClaude}
-              className="mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold"
-              style={{ color: "var(--text-primary)", background: "var(--surface-muted)" }}
-            >
-              <ClaudeLogo size={20} />
-              Claude
-            </button>
-          )}
           <SidebarNav user={user} active={active} glass={false} />
         </aside>
       )}
@@ -201,20 +174,6 @@ export default function AppSidebar({
                 Kapat
               </button>
             </div>
-            {onClaude && (
-              <button
-                type="button"
-                onClick={() => {
-                  onMobileClose?.();
-                  onClaude();
-                }}
-                className="lg-nav-link mb-2.5 flex w-full items-center justify-center gap-2 px-3 py-3 text-sm font-semibold"
-                style={{ color: "var(--text-primary)", background: "var(--surface-muted)" }}
-              >
-                <ClaudeLogo size={20} />
-                Claude
-              </button>
-            )}
             <div onClick={onMobileClose} className="grid grid-cols-3 gap-2.5">
               {navItemsFor(user).map((item) => (
                 <a
