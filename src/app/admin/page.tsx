@@ -1105,6 +1105,99 @@ type SystemSettingsData = {
  * asla geri dönmediği için (bkz. /api/admin/settings) sadece "ayarlı mı" gösteriliyor;
  * yeni bir şifre girilmeden kaydedilirse eskisi (varsa) korunur.
  */
+function ClaudeCard() {
+  const toast = useToast();
+  const [state, setState] = useState<{ configured: boolean; source: "panel" | "env" | null; last4: string | null } | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    fetch(withBasePath("/api/admin/claude"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setState(d))
+      .catch(() => {});
+  }, []);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    const res = await fetch(withBasePath("/api/admin/claude"), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey }),
+    });
+    setBusy(false);
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(d.error ?? "Anahtar kaydedilemedi");
+      return;
+    }
+    setApiKey("");
+    setState(d);
+    toast("Claude API anahtarı kaydedildi", "success");
+  }
+
+  async function remove() {
+    setBusy(true);
+    const res = await fetch(withBasePath("/api/admin/claude"), { method: "DELETE" });
+    setBusy(false);
+    if (res.ok) {
+      setState(await res.json());
+      toast("Claude API anahtarı silindi", "success");
+    }
+  }
+
+  return (
+    <div className="card space-y-3 p-5">
+      <div>
+        <h2 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+          Claude yardımcısı (API anahtarı)
+        </h2>
+        <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
+          Üst çubuktaki Claude düğmesi herkes için bu tek anahtarla çalışır; kullanım Anthropic hesabından faturalanır. Anahtar şifreli
+          saklanır ve bir daha gösterilmez. Claude her kullanıcıda yalnızca o kullanıcının erişebildiği dosyaları görür ve onay olmadan
+          hiçbir şeyi değiştirmez. Kişi başına sınır: dakikada 12, saatte 60 sohbet.
+        </p>
+      </div>
+      {state?.configured && (
+        <div className="flex items-center justify-between gap-3 rounded-xl p-3 text-sm" style={{ background: "var(--surface-muted)" }}>
+          <span style={{ color: "var(--text-primary)" }}>
+            Kayıtlı anahtar: sk-ant-••••{state.last4}
+            {state.source === "env" && " (sunucu ortam değişkeninden)"}
+          </span>
+          {state.source === "panel" && (
+            <button type="button" className="btn-secondary shrink-0 text-sm" disabled={busy} onClick={remove}>
+              Sil
+            </button>
+          )}
+        </div>
+      )}
+      <form onSubmit={save} className="space-y-3">
+        <input
+          required
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          placeholder="sk-ant-…"
+          className="input"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+        />
+        {error && (
+          <p className="text-sm" style={{ color: "var(--danger)" }}>
+            {error}
+          </p>
+        )}
+        <button className="btn-primary" disabled={busy || apiKey.trim().length < 20}>
+          {state?.configured ? "Anahtarı değiştir" : "Kaydet"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function SmtpCard() {
   const t = useTranslations("admin");
   const toast = useToast();
@@ -1414,6 +1507,8 @@ function SettingsTab() {
       </form>
 
       <SmtpCard />
+
+      <ClaudeCard />
 
       <BackupsCard />
 

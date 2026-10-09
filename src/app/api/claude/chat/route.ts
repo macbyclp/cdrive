@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { errorResponse, limitOr429 } from "@/lib/api-helpers";
-import { getUserApiKey } from "@/lib/claude-key";
+import { getClaudeApiKey } from "@/lib/claude-key";
 import { runAgent, type AgentEvent } from "@/lib/claude-agent";
 
 // Uzun ömürlü akış: ajan adımları Server-Sent Events olarak iletilir.
@@ -22,18 +22,21 @@ const active = new Map<string, number>();
 const MAX_CONCURRENT_PER_USER = 2;
 
 /**
- * Claude yardımcısı: kullanıcının KENDİ Claude API anahtarıyla (Hesap ayarları) çalışır. Araçlar bu kullanıcının
+ * Claude yardımcısı: yöneticinin girdiği sistem geneli Claude API anahtarıyla çalışır. Araçlar bu kullanıcının
  * yetkileriyle işler; Claude dosyalara doğrudan yazamaz — düzenlemeler "öneri" olarak gelir, kullanıcı onaylar.
  */
 export async function POST(req: Request) {
   try {
     const user = await requireUser();
-    const apiKey = await getUserApiKey(user.id);
+    const apiKey = await getClaudeApiKey();
     if (!apiKey) {
-      return NextResponse.json({ error: "Önce Hesap ayarlarından Claude API anahtarınızı girin" }, { status: 409 });
+      return NextResponse.json({ error: "Claude henüz ayarlanmamış; yöneticinizden Yönetim → Ayarlar bölümünde Claude API anahtarını girmesini isteyin" }, { status: 409 });
     }
     const limited = limitOr429("claude-chat", user.id, 12, 60_000);
     if (limited) return limited;
+    // Anahtar herkesin ortak kullandığı tek hesap olduğundan, kişi başına saatlik üst sınır da var (maliyet koruması).
+    const hourly = limitOr429("claude-chat-hour", user.id, 60, 3_600_000);
+    if (hourly) return hourly;
     const body = bodySchema.parse(await req.json());
 
     const running = active.get(user.id) ?? 0;
@@ -85,11 +88,11 @@ export async function POST(req: Request) {
   }
 }
 
-/** Panel açılırken: bu kullanıcının anahtarı kayıtlı mı? (anahtarın kendisi asla dönmez) */
+/** Panel açılırken: sistem anahtarı ayarlı mı? (anahtarın kendisi asla dönmez) */
 export async function GET() {
   try {
-    const user = await requireUser();
-    return NextResponse.json({ configured: !!(await getUserApiKey(user.id)) });
+    await requireUser();
+    return NextResponse.json({ configured: !!(await getClaudeApiKey()) });
   } catch (err) {
     return errorResponse(err);
   }

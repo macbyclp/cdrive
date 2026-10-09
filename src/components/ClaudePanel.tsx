@@ -493,10 +493,7 @@ export default function ClaudePanel({ userId, onClose }: { userId: string; onClo
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {configured === false && (
             <p className="rounded-2xl p-3 text-sm" style={{ background: "var(--surface-muted)", color: "var(--text-secondary)" }}>
-              {t("notConfigured")}{" "}
-              <a href={withBasePath("/account")} className="font-medium underline" style={{ color: "var(--accent)" }}>
-                {t("openAccount")}
-              </a>
+              {t("notConfigured")}
             </p>
           )}
           {configured && messages.length === 0 && (
