@@ -236,6 +236,7 @@ export default function ClaudePanel({ userId, onClose }: { userId: string; onClo
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [configured, setConfigured] = useState<boolean | null>(null);
+  const [reason, setReason] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // --- Boyutlandırma (yalnız masaüstü): sol kenar = genişlik, üst kenar = yükseklik, sol-üst köşe = ikisi ---
@@ -334,7 +335,11 @@ export default function ClaudePanel({ userId, onClose }: { userId: string; onClo
     let cancelled = false;
     fetch(withBasePath("/api/claude/chat"))
       .then((r) => r.json())
-      .then((d) => !cancelled && setConfigured(!!d.configured))
+      .then((d) => {
+        if (cancelled) return;
+        setConfigured(!!d.configured);
+        setReason(d.reason ?? null);
+      })
       .catch(() => !cancelled && setConfigured(false));
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
@@ -493,7 +498,7 @@ export default function ClaudePanel({ userId, onClose }: { userId: string; onClo
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {configured === false && (
             <p className="rounded-2xl p-3 text-sm" style={{ background: "var(--surface-muted)", color: "var(--text-secondary)" }}>
-              {t("notConfigured")}
+              {t(reason === "disabled" ? "disabled" : reason === "role" ? "roleDenied" : reason === "quota" ? "quotaReached" : "notConfigured")}
             </p>
           )}
           {configured && messages.length === 0 && (

@@ -1107,7 +1107,21 @@ type SystemSettingsData = {
  */
 function ClaudeCard() {
   const toast = useToast();
-  const [state, setState] = useState<{ configured: boolean; source: "panel" | "env" | null; last4: string | null } | null>(null);
+  type ClaudeState = {
+    configured: boolean;
+    source: "panel" | "env" | null;
+    last4: string | null;
+    enabled: boolean;
+    roles: string[];
+    limits: { dailyTokens: number; dailyChats: number };
+  };
+  type ClaudeUsageReport = {
+    days: number;
+    totals: { inputTokens: number; outputTokens: number; requests: number; chats: number };
+    users: { userId: string; name: string; email: string; inputTokens: number; outputTokens: number; requests: number; chats: number; todayTokens: number }[];
+  };
+  const [state, setState] = useState<ClaudeState | null>(null);
+  const [usage, setUsage] = useState<ClaudeUsageReport | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1117,7 +1131,23 @@ function ClaudeCard() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => d && setState(d))
       .catch(() => {});
+    fetch(withBasePath("/api/admin/claude/usage"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setUsage(d))
+      .catch(() => {});
   }, []);
+
+  async function patch(body: { enabled?: boolean; roles?: string[] }) {
+    setBusy(true);
+    const res = await fetch(withBasePath("/api/admin/claude"), {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setBusy(false);
+    if (res.ok) setState(await res.json());
+    else toast("Ayar kaydedilemedi", "error");
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -1158,9 +1188,31 @@ function ClaudeCard() {
         <p className="mt-1 text-sm" style={{ color: "var(--text-secondary)" }}>
           Üst çubuktaki Claude düğmesi herkes için bu tek anahtarla çalışır; kullanım Anthropic hesabından faturalanır. Anahtar şifreli
           saklanır ve bir daha gösterilmez. Claude her kullanıcıda yalnızca o kullanıcının erişebildiği dosyaları görür ve onay olmadan
-          hiçbir şeyi değiştirmez. Kişi başına sınır: dakikada 12, saatte 60 sohbet.
+          hiçbir şeyi değiştirmez. Kişi başına sınırlar: dakikada 12 / saatte 60 sohbet, günlük {state ? `${state.limits.dailyChats} sohbet ve ${state.limits.dailyTokens.toLocaleString("tr-TR")} token` : "—"} (UTC günü; sunucuda CLAUDE_DAILY_TOKENS / CLAUDE_DAILY_CHATS ile değiştirilir).
         </p>
       </div>
+      {state && (
+        <div className="space-y-2 rounded-xl p-3 text-sm" style={{ background: "var(--surface-muted)" }}>
+          <label className="flex items-center gap-2" style={{ color: "var(--text-primary)" }}>
+            <input type="checkbox" checked={state.enabled} disabled={busy} onChange={(e) => patch({ enabled: e.target.checked })} />
+            Claude yardımcısı açık
+          </label>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1" style={{ color: "var(--text-secondary)" }}>
+            <span>Kullanabilen roller:</span>
+            {(["ADMIN", "MANAGER", "MEMBER"] as const).map((r) => (
+              <label key={r} className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={state.roles.includes(r)}
+                  disabled={busy || !state.enabled}
+                  onChange={(e) => patch({ roles: e.target.checked ? [...state.roles, r] : state.roles.filter((x) => x !== r) })}
+                />
+                {r}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
       {state?.configured && (
         <div className="flex items-center justify-between gap-3 rounded-xl p-3 text-sm" style={{ background: "var(--surface-muted)" }}>
           <span style={{ color: "var(--text-primary)" }}>
@@ -1194,6 +1246,53 @@ function ClaudeCard() {
           {state?.configured ? "Anahtarı değiştir" : "Kaydet"}
         </button>
       </form>
+      {usage && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+            Kullanım (son {usage.days} gün)
+          </h3>
+          {usage.users.length === 0 ? (
+            <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+              Henüz kullanım yok.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead style={{ color: "var(--text-secondary)" }}>
+                  <tr>
+                    <th className="py-1 pr-3 font-medium">Kullanıcı</th>
+                    <th className="py-1 pr-3 text-right font-medium">Sohbet</th>
+                    <th className="py-1 pr-3 text-right font-medium">İstek</th>
+                    <th className="py-1 pr-3 text-right font-medium">Girdi tok.</th>
+                    <th className="py-1 pr-3 text-right font-medium">Çıktı tok.</th>
+                    <th className="py-1 text-right font-medium">Bugün</th>
+                  </tr>
+                </thead>
+                <tbody style={{ color: "var(--text-primary)" }}>
+                  {usage.users.map((u) => (
+                    <tr key={u.userId} className="border-t" style={{ borderColor: "var(--border)" }}>
+                      <td className="py-1 pr-3">{u.name}</td>
+                      <td className="py-1 pr-3 text-right">{u.chats}</td>
+                      <td className="py-1 pr-3 text-right">{u.requests}</td>
+                      <td className="py-1 pr-3 text-right">{u.inputTokens.toLocaleString("tr-TR")}</td>
+                      <td className="py-1 pr-3 text-right">{u.outputTokens.toLocaleString("tr-TR")}</td>
+                      <td className="py-1 text-right">{u.todayTokens.toLocaleString("tr-TR")}</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t font-medium" style={{ borderColor: "var(--border)" }}>
+                    <td className="py-1 pr-3">Toplam</td>
+                    <td className="py-1 pr-3 text-right">{usage.totals.chats}</td>
+                    <td className="py-1 pr-3 text-right">{usage.totals.requests}</td>
+                    <td className="py-1 pr-3 text-right">{usage.totals.inputTokens.toLocaleString("tr-TR")}</td>
+                    <td className="py-1 pr-3 text-right">{usage.totals.outputTokens.toLocaleString("tr-TR")}</td>
+                    <td className="py-1 text-right" />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
