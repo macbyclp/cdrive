@@ -71,6 +71,7 @@ Klasör ve dosya bazında ayrıca **VIEW / EDIT** izinleri verilir.
 - **Belge tara:** kamera veya fotoğraflardan sayfa topla → filtre (Orijinal / Belge / Siyah-beyaz) → tek PDF. İsteğe bağlı OCR ile içerik araması ve **düzenlenebilir Word (.docx)** çıktısı ([#14](https://github.com/macbyclp/cdrive/pull/14))
 - Dosya adı ve metin/PDF içeriğinde arama, etiketler, yorumlar, onay akışları
 - **Claude yardımcısı:** üst çubuktaki yuvarlak Claude düğmesi; yönetici **sistem geneli Claude API anahtarını** Yönetim → Ayarlar'dan girer (şifreli saklanır), Claude dosyalarında arar, belgelerini (metin/PDF/Word/Excel/PowerPoint) okuyup özetler ve düz metin dosyaları için **düzenleme önerir**. Her araç kullanıcının yetkileriyle çalışır, Claude doğrudan yazamaz: değişiklik farkı panelde görünür, **onaylayınca yeni sürüm** olur
+- **Yapay zekâ bağlantısı (MCP):** Hesap ayarları → *Yapay zekâ bağlantısı*'ndan kişisel erişim anahtarı oluştur; Claude Code veya Codex'e tek komutla bağla (`claude mcp add` / `codex mcp add`, komutlar kartta hazır). Sonra "bu Excel'i Cdrive ana klasörüme gönder" demen yeterli: araç dosyayı senin adına yükler (yetki, kota, politika ve sürümleme normal yükleme gibi), Cdrive bildirim üretir ve masaüstü uygulaması tepsi balonu gösterir. Anahtar yalnızca `/api/agent/*` uçlarında (yükle/listele/ara/oku) geçerlidir, veritabanında yalnızca özeti durur, istediğin an iptal edersin
 - İsteğe bağlı OnlyOffice ile tarayıcıda Word/Excel/PowerPoint düzenleme
 
 **Yönetim**

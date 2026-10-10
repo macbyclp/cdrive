@@ -80,6 +80,7 @@ enum NotificationType {
   CHAT_MENTION
   APPROVAL_REQUESTED
   APPROVAL_DECIDED
+  AI_UPLOAD // bir yapay zekâ aracı (Claude Code/Codex…) kullanıcının sürücüsüne dosya yükledi
 }
 
 enum ApprovalStatus {
@@ -174,6 +175,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   claudeProposals ClaudeProposal[]
   claudeUsage     ClaudeUsage[]
+  apiTokens       ApiToken[]
   fileComments FileComment[]
   groupMemberships GroupMember[]
   templateMemberships PermissionTemplateMember[]
@@ -842,4 +844,23 @@ model ClaudeUsage {
   @@unique([userId, day])
   @@index([day])
   @@map("claude_usage")
+}
+
+// Kişisel erişim anahtarı: yapay zekâ araçlarının (Claude Code, Codex…) kullanıcı adına /api/agent/* uçlarını
+// çağırması için. Anahtarın kendisi saklanmaz, yalnızca SHA-256 özeti; oluşturulurken bir kez gösterilir.
+model ApiToken {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  tokenHash     String    @unique
+  prefix        String // gösterim için ilk karakterler ("cdrv_ab12…")
+  expiresAt     DateTime
+  lastUsedAt    DateTime?
+  lastUsedAgent String?
+  revokedAt     DateTime?
+  createdAt     DateTime  @default(now())
+
+  @@index([userId])
+  @@map("api_tokens")
 }
