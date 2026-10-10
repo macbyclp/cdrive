@@ -173,6 +173,7 @@ model User {
   sessions     Session[]
   passwordResetTokens PasswordResetToken[]
   claudeProposals ClaudeProposal[]
+  claudeUsage     ClaudeUsage[]
   fileComments FileComment[]
   groupMemberships GroupMember[]
   templateMemberships PermissionTemplateMember[]
@@ -249,6 +250,9 @@ model SystemSettings {
   // Sistem geneli Claude API anahtarı (AES-256-GCM ile şifreli; bkz. src/lib/claude-key.ts). Yalnızca ADMIN girer;
   // API yanıtlarında ASLA dönmez. Boşsa ANTHROPIC_API_KEY ortam değişkeni, o da yoksa Claude paneli kapalı.
   claudeApiKeyEnc String? @db.Text
+  // Claude özelliğini yönetici açıp kapatır; claudeRoles hangi rollerin kullanabildiğini belirler (virgülle).
+  claudeEnabled Boolean @default(true)
+  claudeRoles   String  @default("ADMIN,MANAGER,MEMBER")
 
   updatedAt            DateTime @updatedAt
 
@@ -821,4 +825,21 @@ model ClaudeProposal {
 
   @@index([userId, status])
   @@map("claude_proposals")
+}
+
+// Claude kullanım kaydı: kullanıcı × gün (UTC). Günlük kota ve yönetici raporu bundan okunur.
+model ClaudeUsage {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  day          String // "YYYY-MM-DD" (UTC)
+  inputTokens  BigInt   @default(0)
+  outputTokens BigInt   @default(0)
+  requests     Int      @default(0) // Anthropic API çağrısı sayısı
+  chats        Int      @default(0) // başlatılan sohbet (kullanıcı mesajı) sayısı
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, day])
+  @@index([day])
+  @@map("claude_usage")
 }

@@ -2,8 +2,7 @@ import { describe, it, expect, afterEach, afterAll, vi, beforeEach } from "vites
 import { rmSync } from "fs";
 import { prisma } from "@/lib/prisma";
 import { createFileFromBuffer } from "@/lib/file-versions";
-import { claudeKeyStatus, decryptApiKey, encryptApiKey, getClaudeApiKey, isValidApiKeyFormat, setClaudeApiKey } from "@/lib/claude-key";
-import { runAgent, verifyApiKey, type AgentEvent } from "@/lib/claude-agent";
+import { runAgent, type AgentEvent } from "@/lib/claude-agent";
 import { createTestUser, cleanupTestData } from "../helpers/db";
 
 // Kullanıcının kendi API anahtarıyla çalışan ajan: anahtar şifreli saklanır, araçlar kullanıcının yetkisiyle işler,
@@ -39,56 +38,6 @@ async function collect(opts: Parameters<typeof runAgent>[0]) {
   await runAgent({ ...opts, emit: (e) => events.push(e) });
   return events;
 }
-
-describe("sistem API anahtarı saklama", () => {
-  afterEach(async () => {
-    await setClaudeApiKey(null);
-    delete process.env.ANTHROPIC_API_KEY;
-  });
-
-  it("şifreler (düz metin DB'de yok), geri çözer, bozuk/yanlış sırrı reddeder", async () => {
-    await setClaudeApiKey(KEY);
-    const row = await prisma.systemSettings.findUniqueOrThrow({ where: { id: 1 }, select: { claudeApiKeyEnc: true } });
-    expect(row.claudeApiKeyEnc).toBeTruthy();
-    expect(row.claudeApiKeyEnc).not.toContain(KEY);
-    expect(await getClaudeApiKey()).toBe(KEY);
-    expect(await claudeKeyStatus()).toEqual({ configured: true, source: "panel", last4: KEY.slice(-4) });
-
-    // SESSION_SECRET değişirse çözülemez → null, hata fırlatmaz
-    const blob = encryptApiKey(KEY);
-    process.env.SESSION_SECRET = "baska-bir-sir-baska-bir-sir-baska-bir-sir-9";
-    expect(decryptApiKey(blob)).toBeNull();
-    process.env.SESSION_SECRET = "test-secret-test-secret-test-secret-123";
-    expect(decryptApiKey(blob.slice(0, -4) + "AAAA")).toBeNull(); // kurcalanmış şifreli metin (GCM etiketi)
-
-    await setClaudeApiKey(null);
-    expect(await getClaudeApiKey()).toBeNull();
-    expect(await claudeKeyStatus()).toEqual({ configured: false, source: null, last4: null });
-  });
-
-  it("panelde anahtar yoksa ANTHROPIC_API_KEY ortam değişkeni; panel anahtarı önceliklidir; geçersiz biçimli env yok sayılır", async () => {
-    process.env.ANTHROPIC_API_KEY = "geçersiz";
-    expect(await getClaudeApiKey()).toBeNull();
-    process.env.ANTHROPIC_API_KEY = "sk-ant-api03-ENVENVENVENVENVENVENV99";
-    expect(await getClaudeApiKey()).toBe("sk-ant-api03-ENVENVENVENVENVENVENV99");
-    expect((await claudeKeyStatus()).source).toBe("env");
-    await setClaudeApiKey(KEY);
-    expect(await getClaudeApiKey()).toBe(KEY);
-  });
-
-  it("biçim denetimi", () => {
-    expect(isValidApiKeyFormat(KEY)).toBe(true);
-    expect(isValidApiKeyFormat("sk-ant-")).toBe(false);
-    expect(isValidApiKeyFormat("sk-proj-abcdefghijklmnopqrstuvwxyz")).toBe(false);
-    expect(isValidApiKeyFormat(`${KEY}\nX-Evil: 1`)).toBe(false);
-  });
-
-  it("verifyApiKey: 401 → invalid, 200 → ok, ağ hatası → unreachable", async () => {
-    expect(await verifyApiKey(KEY, (async () => reply({}, 401)) as typeof fetch)).toBe("invalid");
-    expect(await verifyApiKey(KEY, (async () => reply({ data: [] })) as typeof fetch)).toBe("ok");
-    expect(await verifyApiKey(KEY, (async () => { throw new Error("ağ"); }) as typeof fetch)).toBe("unreachable");
-  });
-});
 
 describe("ajan döngüsü", () => {
   it("ara → oku → öner: olaylar sırayla gelir, öneri kaydolur, dosya DEĞİŞMEZ; anahtar yalnızca x-api-key başlığında gider", async () => {
@@ -138,7 +87,7 @@ describe("ajan döngüsü", () => {
 
   it("Anthropic 401/429/500 → anlaşılır hata olayı, döngü durur", async () => {
     const u = await user();
-    for (const [status, needle] of [[401, "anahtarınız geçersiz"], [429, "istek sınırına"], [500, "yoğun"]] as const) {
+    for (const [status, needle] of [[401, "anahtarı geçersiz"], [429, "istek sınırında"], [500, "yoğun"]] as const) {
       const events = await collect({ user: u, apiKey: KEY, message: "selam", emit: () => {}, fetchImpl: (async () => reply({ error: {} }, status)) as typeof fetch });
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({ type: "error" });

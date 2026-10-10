@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth";
 import { errorResponse, limitOr429 } from "@/lib/api-helpers";
 import { getClaudeApiKey } from "@/lib/claude-key";
 import { runAgent, type AgentEvent } from "@/lib/claude-agent";
+import { checkQuota, claudeAccess, recordChatStart, recordUsage } from "@/lib/claude-usage";
 
 // Uzun ömürlü akış: ajan adımları Server-Sent Events olarak iletilir.
 export const dynamic = "force-dynamic";
@@ -28,21 +29,23 @@ const MAX_CONCURRENT_PER_USER = 2;
 export async function POST(req: Request) {
   try {
     const user = await requireUser();
-    const apiKey = await getClaudeApiKey();
-    if (!apiKey) {
-      return NextResponse.json({ error: "Claude henüz ayarlanmamış; yöneticinizden Yönetim → Ayarlar bölümünde Claude API anahtarını girmesini isteyin" }, { status: 409 });
-    }
+    const access = await claudeAccess(user);
+    if (!access.ok) return NextResponse.json({ error: access.message, reason: access.reason }, { status: access.status });
+    const apiKey = (await getClaudeApiKey())!;
     const limited = limitOr429("claude-chat", user.id, 12, 60_000);
     if (limited) return limited;
     // Anahtar herkesin ortak kullandığı tek hesap olduğundan, kişi başına saatlik üst sınır da var (maliyet koruması).
     const hourly = limitOr429("claude-chat-hour", user.id, 60, 3_600_000);
     if (hourly) return hourly;
     const body = bodySchema.parse(await req.json());
+    const overQuota = await checkQuota(user.id);
+    if (overQuota) return NextResponse.json({ error: overQuota, reason: "quota" }, { status: 429 });
 
     const running = active.get(user.id) ?? 0;
     if (running >= MAX_CONCURRENT_PER_USER) {
       return NextResponse.json({ error: "Zaten devam eden sohbetleriniz var; biraz bekleyin" }, { status: 429 });
     }
+    await recordChatStart(user.id);
     active.set(user.id, running + 1);
     const release = () => active.set(user.id, Math.max(0, (active.get(user.id) ?? 1) - 1));
 
@@ -61,6 +64,8 @@ export async function POST(req: Request) {
             message: body.message,
             history: body.history,
             signal: req.signal,
+            beforeTurn: () => checkQuota(user.id),
+            onUsage: (u) => recordUsage(user.id, u),
             emit: (e: AgentEvent) => send(e),
           });
         } catch {
@@ -88,11 +93,14 @@ export async function POST(req: Request) {
   }
 }
 
-/** Panel açılırken: sistem anahtarı ayarlı mı? (anahtarın kendisi asla dönmez) */
+/** Panel açılırken: kullanılabilir mi? (anahtarın kendisi asla dönmez) reason: disabled | role | unconfigured | quota */
 export async function GET() {
   try {
-    await requireUser();
-    return NextResponse.json({ configured: !!(await getClaudeApiKey()) });
+    const user = await requireUser();
+    const access = await claudeAccess(user);
+    if (!access.ok) return NextResponse.json({ configured: false, reason: access.reason });
+    const quota = await checkQuota(user.id);
+    return NextResponse.json({ configured: !quota, reason: quota ? "quota" : null });
   } catch (err) {
     return errorResponse(err);
   }
