@@ -6,6 +6,7 @@ import TopBar from "@/components/TopBar";
 import AvatarBuilder from "@/components/AvatarBuilder";
 import FeatureTour from "@/components/FeatureTour";
 import Footer from "@/components/Footer";
+import AiBridgeCard from "@/components/AiBridgeCard";
 import { useToast } from "@/components/ToastProvider";
 import { useMe } from "@/lib/useMe";
 import type { MeUser } from "@/lib/types";
@@ -62,6 +63,7 @@ function AccountInner() {
           </div>
           <AvatarCard user={user} onChange={refresh} />
           <PasswordCard />
+          <AiBridgeCard />
           <TwoFactorCard user={user} onChange={refresh} />
           <SessionsCard />
           <ShareLinksCard />
