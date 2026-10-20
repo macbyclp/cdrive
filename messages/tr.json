@@ -23,6 +23,15 @@
     }
   },
   "drive": {
+    "uploadProgress": {
+      "uploading": "Yükleniyor… ({done}/{total})",
+      "finished": "{count} dosya yüklendi",
+      "finishedWithErrors": "{ok} yüklendi, {failed} başarısız",
+      "processing": "İşleniyor…",
+      "failed": "Başarısız",
+      "cancel": "İptal et",
+      "close": "Kapat"
+    },
     "nav": {
       "root": "Sürücüm",
       "recent": "Son kullanılanlar",
