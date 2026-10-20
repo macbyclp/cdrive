@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
   // cPanel/Passenger deploy'unu (kendi server.js'imiz) ETKİLEMEZ, sadece ekstra
   // bir çıktı klasörüdür (.next/standalone).
   output: "standalone",
+  // middleware/proxy (src/middleware.ts) çalışan rotalarda Next, istek gövdesini varsayılan 10 MB ile keser; daha büyük
+  // yüklemelerde FormData çözümlenemez ("Failed to parse body as FormData", 500). Dosya yüklemeleri için sınırı yükseltiyoruz;
+  // asıl dosya boyutu sınırı yönetici politikasında (Yönetim → Ayarlar → en büyük dosya boyutu).
+  experimental: { proxyClientMaxBodySize: "200mb" },
   // pdfkit runtime'da kendi .afm font veri dosyalarını __dirname'e göreli bir yoldan
   // okuyor — Next.js'in normal server bundling'i bu dosyaları paketlemeyip yolu
   // bozuyor ("ENOENT ...pdfkit/js/data/Helvetica.afm", gerçek deploy'da yakalandı).

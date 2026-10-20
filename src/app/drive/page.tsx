@@ -19,6 +19,8 @@ import { isGlassSkin } from "@/lib/skin";
 import RowMenu, { type RowMenuItem } from "@/components/RowMenu";
 import { InputDialog, ConfirmDialog, OfficeOpenModeDialog } from "@/components/Dialogs";
 import { useToast } from "@/components/ToastProvider";
+import UploadProgress, { type UploadItem } from "@/components/UploadProgress";
+import { errorOf, xhrUpload, type XhrUploadResult } from "@/lib/upload-xhr";
 import { useMe } from "@/lib/useMe";
 import type { Crumb, FileItem, FolderItem, Tag } from "@/lib/types";
 import { badgeColorForMime, extOf, formatBytesStr, formatDate, iconForMime, officeDocType, previewKind } from "@/lib/format";
@@ -123,6 +125,41 @@ function DriveInner() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
   const [zipUploading, setZipUploading] = useState(false);
+  // Yükleme ilerleme paneli: her dosya için bayt bazlı çubuk (XMLHttpRequest ile).
+  const [uploads, setUploads] = useState<UploadItem[]>([]);
+  const uploadSeq = useRef(0);
+  const uploadsActive = uploads.some((u) => u.status === "sending" || u.status === "processing");
+
+  // Yükleme sürerken sekmeyi kapatmaya/yenilemeye kalkarsa uyar (yarım kalan yükleme kaybolmasın).
+  useEffect(() => {
+    if (!uploadsActive) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [uploadsActive]);
+
+  /** Yeni bir yükleme grubu başlarken önceki biten grubun satırlarını temizler (etkin yükleme varsa korur). */
+  function startUploadBatch() {
+    setUploads((u) => (u.some((x) => x.status === "sending" || x.status === "processing") ? u : []));
+  }
+
+  /** Tek dosyayı ilerleme izleyerek yükler; panel satırını günceller. Hata bildirimi çağırana aittir. */
+  async function trackedUpload(file: File, targetFolderId: string | null, url = "/api/files"): Promise<XhrUploadResult> {
+    const id = ++uploadSeq.current;
+    const fd = new FormData();
+    fd.append("file", file);
+    if (targetFolderId) fd.append("folderId", targetFolderId);
+    const patch = (p: Partial<UploadItem>) => setUploads((list) => list.map((x) => (x.id === id ? { ...x, ...p } : x)));
+    const { promise, abort } = xhrUpload(withBasePath(url), fd, (loaded) => patch({ loaded }), () => patch({ status: "processing", loaded: file.size }));
+    setUploads((list) => [...list, { id, name: file.name, size: file.size, loaded: 0, status: "sending", abort }]);
+    const res = await promise;
+    if (res.ok) patch({ status: "done", loaded: file.size, abort: undefined });
+    else patch({ status: "error", error: errorOf(res, t("toast.uploadFailed")), abort: undefined });
+    return res;
+  }
   const [scanOpen, setScanOpen] = useState(false);
 
   useEffect(() => {
@@ -365,17 +402,11 @@ function DriveInner() {
   async function uploadFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
     let ok = 0;
+    startUploadBatch();
     for (const file of Array.from(fileList)) {
-      const fd = new FormData();
-      fd.append("file", file);
-      if (folderId) fd.append("folderId", folderId);
-      const res = await fetch(withBasePath("/api/files"), { method: "POST", body: fd });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        toast(`${file.name}: ${d.error ?? t("toast.uploadFailed")}`, "error");
-      } else {
-        ok++;
-      }
+      const res = await trackedUpload(file, folderId);
+      if (!res.ok) toast(`${file.name}: ${errorOf(res, t("toast.uploadFailed"))}`, "error");
+      else ok++;
     }
     if (ok > 0) toast(ok === 1 ? t("toast.fileUploaded") : t("toast.filesUploadedCount", { count: ok }), "success");
     load();
@@ -386,17 +417,14 @@ function DriveInner() {
     const zipFile = fileList?.[0];
     if (!zipFile) return;
     setZipUploading(true);
-    const fd = new FormData();
-    fd.append("file", zipFile);
-    if (folderId) fd.append("folderId", folderId);
-    const res = await fetch(withBasePath("/api/files/zip-upload"), { method: "POST", body: fd });
+    startUploadBatch();
+    const res = await trackedUpload(zipFile, folderId, "/api/files/zip-upload");
     setZipUploading(false);
     if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      toast(d.error ?? t("toast.zipUploadFailed"), "error");
+      toast(errorOf(res, t("toast.zipUploadFailed")), "error");
       return;
     }
-    const d = await res.json();
+    const d = res.data as { filesCreated: number; foldersCreated: number; skipped?: number };
     toast(
       t("toast.zipExtracted", { files: d.filesCreated, folders: d.foldersCreated }) +
         (d.skipped ? t("toast.zipSkippedSuffix", { skipped: d.skipped }) : ""),
@@ -433,14 +461,8 @@ function DriveInner() {
   async function uploadEntry(entry: FileSystemEntryLike, parentFolderId: string | null): Promise<boolean> {
     if (entry.isFile) {
       const file = await new Promise<File>((resolve, reject) => entry.file!(resolve, reject));
-      const fd = new FormData();
-      fd.append("file", file);
-      if (parentFolderId) fd.append("folderId", parentFolderId);
-      const res = await fetch(withBasePath("/api/files"), { method: "POST", body: fd });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        toast(`${entry.name}: ${d.error ?? t("toast.uploadFailed")}`, "error");
-      }
+      const res = await trackedUpload(file, parentFolderId);
+      if (!res.ok) toast(`${entry.name}: ${errorOf(res, t("toast.uploadFailed"))}`, "error");
       return res.ok;
     }
     if (entry.isDirectory) {
@@ -478,6 +500,7 @@ function DriveInner() {
       return;
     }
     let ok = 0;
+    startUploadBatch();
     for (const entry of entries) {
       if (await uploadEntry(entry, folderId)) ok++;
     }
@@ -1689,6 +1712,7 @@ function DriveInner() {
       {pending?.kind === "bulk-move" && (
         <MoveDialog itemName={t("selection.itemsLabel", { count: selectionCount })} onSelect={bulkMove} onClose={() => setPending(null)} />
       )}
+    <UploadProgress items={uploads} onClose={() => setUploads([])} />
     </AppShell>
   );
 }
