@@ -21,6 +21,7 @@ import { InputDialog, ConfirmDialog, OfficeOpenModeDialog } from "@/components/D
 import { useToast } from "@/components/ToastProvider";
 import UploadProgress, { type UploadItem } from "@/components/UploadProgress";
 import { errorOf, xhrUpload, type XhrUploadResult } from "@/lib/upload-xhr";
+import { CHUNKED_THRESHOLD, chunkedUpload } from "@/lib/chunk-upload";
 import { useMe } from "@/lib/useMe";
 import type { Crumb, FileItem, FolderItem, Tag } from "@/lib/types";
 import { badgeColorForMime, extOf, formatBytesStr, formatDate, iconForMime, officeDocType, previewKind } from "@/lib/format";
@@ -146,19 +147,98 @@ function DriveInner() {
     setUploads((u) => (u.some((x) => x.status === "sending" || x.status === "processing") ? u : []));
   }
 
-  /** Tek dosyayı ilerleme izleyerek yükler; panel satırını günceller. Hata bildirimi çağırana aittir. */
-  async function trackedUpload(file: File, targetFolderId: string | null, url = "/api/files"): Promise<XhrUploadResult> {
+  /**
+   * Tek dosyayı ilerleme izleyerek yükler; panel satırını günceller. Hata bildirimi çağırana aittir.
+   * 8 MB ve üstü dosyalar (video/foto/arşiv) parçalı yüklenir: bellek kullanmaz, GB'larca dosya yüklenebilir.
+   * extract: .zip sunucuda hedef klasöre çıkarılır (zip'in kendisi saklanmaz).
+   */
+  async function trackedUpload(file: File, targetFolderId: string | null, opts?: { extract?: boolean }): Promise<XhrUploadResult> {
     const id = ++uploadSeq.current;
-    const fd = new FormData();
-    fd.append("file", file);
-    if (targetFolderId) fd.append("folderId", targetFolderId);
     const patch = (p: Partial<UploadItem>) => setUploads((list) => list.map((x) => (x.id === id ? { ...x, ...p } : x)));
-    const { promise, abort } = xhrUpload(withBasePath(url), fd, (loaded) => patch({ loaded }), () => patch({ status: "processing", loaded: file.size }));
-    setUploads((list) => [...list, { id, name: file.name, size: file.size, loaded: 0, status: "sending", abort }]);
-    const res = await promise;
+    const onSent = () => patch({ status: "processing", loaded: file.size });
+    let handle: { promise: Promise<XhrUploadResult>; abort: () => void };
+    if (opts?.extract || file.size >= CHUNKED_THRESHOLD) {
+      handle = chunkedUpload({ file, folderId: targetFolderId, extract: opts?.extract, onProgress: (loaded) => patch({ loaded }), onSent });
+    } else {
+      const fd = new FormData();
+      fd.append("file", file);
+      if (targetFolderId) fd.append("folderId", targetFolderId);
+      handle = xhrUpload(withBasePath("/api/files"), fd, (loaded) => patch({ loaded }), onSent);
+    }
+    setUploads((list) => [...list, { id, name: file.name, size: file.size, loaded: 0, status: "sending", abort: handle.abort }]);
+    const res = await handle.promise;
     if (res.ok) patch({ status: "done", loaded: file.size, abort: undefined });
     else patch({ status: "error", error: errorOf(res, t("toast.uploadFailed")), abort: undefined });
     return res;
+  }
+
+  /** Boyutu bilinmeyen sunucu işlerini (ZIP hazırlama/çıkarma) panelde "işleniyor" satırı olarak gösterir. */
+  async function trackedBusy<T>(label: string, work: () => Promise<{ ok: boolean; data?: T; error?: string }>) {
+    const id = ++uploadSeq.current;
+    const patch = (p: Partial<UploadItem>) => setUploads((list) => list.map((x) => (x.id === id ? { ...x, ...p } : x)));
+    startUploadBatch();
+    setUploads((list) => [...list, { id, name: label, size: 0, loaded: 0, status: "processing" }]);
+    const r = await work();
+    patch(r.ok ? { status: "done" } : { status: "error", error: r.error });
+    return r;
+  }
+
+  /** Seçili öğeleri tek ZIP olarak indirir: form POST gizli iframe'e → tarayıcı doğrudan indirme olarak akıtır (JS belleğine alınmaz). */
+  function bulkZipDownload() {
+    const { selFolders, selFiles } = selectedItems();
+    const frame = document.createElement("iframe");
+    frame.name = `zipdl-${Date.now()}`;
+    frame.style.display = "none";
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = withBasePath("/api/files/zip-download");
+    form.target = frame.name;
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = "payload";
+    input.value = JSON.stringify({ fileIds: selFiles.map((f) => f.id), folderIds: selFolders.map((f) => f.id) });
+    form.appendChild(input);
+    document.body.append(frame, form);
+    form.submit();
+    toast(t("toast.zipDownloadStarted"), "success");
+    setTimeout(() => {
+      form.remove();
+      frame.remove();
+    }, 10 * 60 * 1000);
+  }
+
+  /** Seçili öğeleri sürücüde yeni bir .zip dosyası olarak saklar. */
+  async function bulkZipCreate() {
+    const { selFolders, selFiles } = selectedItems();
+    const r = await trackedBusy<{ name: string }>(t("uploadBusy.zipCreating"), async () => {
+      const res = await fetch(withBasePath("/api/files/zip-create"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileIds: selFiles.map((f) => f.id), folderIds: selFolders.map((f) => f.id), folderId }),
+      });
+      const d = await res.json().catch(() => ({}));
+      return res.ok ? { ok: true, data: d } : { ok: false, error: d.error ?? t("toast.zipCreateFailed") };
+    });
+    if (r.ok) {
+      toast(t("toast.zipCreated", { name: r.data!.name }), "success");
+      setSelected(new Set());
+      load();
+      refreshMe();
+    } else toast(r.error ?? t("toast.zipCreateFailed"), "error");
+  }
+
+  /** Sürücüdeki bir .zip'i, adıyla yeni bir klasöre çıkarır. */
+  async function extractZipFile(f: FileItem) {
+    const r = await trackedBusy<{ folderName: string; filesCreated: number }>(t("uploadBusy.zipExtracting", { name: f.name }), async () => {
+      const res = await fetch(withBasePath(`/api/files/${f.id}/extract`), { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const d = await res.json().catch(() => ({}));
+      return res.ok ? { ok: true, data: d } : { ok: false, error: d.error ?? t("toast.zipExtractFailed") };
+    });
+    if (r.ok) {
+      toast(t("toast.zipExtractedTo", { folder: r.data!.folderName, files: r.data!.filesCreated }), "success");
+      load();
+      refreshMe();
+    } else toast(r.error ?? t("toast.zipExtractFailed"), "error");
   }
   const [scanOpen, setScanOpen] = useState(false);
 
@@ -269,9 +349,11 @@ function DriveInner() {
   }, [refreshMe, loadStars]);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- veri klasör/görünüm değiştiğinde sunucudan yeniden çekilir
+    // Klasör/görünüm değiştiğinde veri sunucudan yeniden çekilir ve seçim sıfırlanır (harici sisteme senkronizasyon).
+    /* eslint-disable react-hooks/set-state-in-effect */
     load();
     setSelected(new Set());
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [load]);
 
   // Claude yardımcısı bir öneriyi uyguladığında (yeni sürüm/dosya) liste kendiliğinden yenilensin.
@@ -418,7 +500,7 @@ function DriveInner() {
     if (!zipFile) return;
     setZipUploading(true);
     startUploadBatch();
-    const res = await trackedUpload(zipFile, folderId, "/api/files/zip-upload");
+    const res = await trackedUpload(zipFile, folderId, { extract: true });
     setZipUploading(false);
     if (!res.ok) {
       toast(errorOf(res, t("toast.zipUploadFailed")), "error");
@@ -705,6 +787,7 @@ function DriveInner() {
     }
     return [
       { label: t("menu.download"), onClick: () => downloadFile(f) },
+      ...(f.name.toLowerCase().endsWith(".zip") && view === "root" ? [{ label: t("menu.extractZip"), onClick: () => extractZipFile(f) }] : []),
       { label: t("menu.share"), onClick: () => setShareTarget({ type: "file", id: f.id, name: f.name }) },
       ...officeMenuItem(f),
       ...convertMenuItem(f),
@@ -1247,6 +1330,12 @@ function DriveInner() {
               <div className="ml-auto flex flex-wrap gap-2">
                 <button className="btn-secondary text-xs" onClick={bulkDownload}>
                   {t("selection.download")}
+                </button>
+                <button className="btn-secondary text-xs" onClick={bulkZipDownload} title={t("selection.zipDownloadTitle")}>
+                  {t("selection.zipDownload")}
+                </button>
+                <button className="btn-secondary text-xs" onClick={bulkZipCreate} title={t("selection.zipCreateTitle")}>
+                  {t("selection.zipCreate")}
                 </button>
                 <button className="btn-secondary text-xs" onClick={() => setPending({ kind: "bulk-move" })}>
                   {t("selection.move")}

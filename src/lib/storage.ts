@@ -46,6 +46,32 @@ export function openReadStream(storageKey: string, range?: { start: number; end:
   return createReadStream(path.join(STORAGE_ROOT, storageKey), range ? { start: range.start, end: range.end } : undefined);
 }
 
+/** Yarım kalmış (parçalı) yüklemelerin ve geçici arşivlerin durduğu dizin — depolama kökünün İÇİNDE, yani rename() ile kopyasız taşınabilir. */
+export async function uploadsDir(): Promise<string> {
+  const dir = path.join(STORAGE_ROOT, ".uploads");
+  await fs.mkdir(dir, { recursive: true });
+  return dir;
+}
+
+/** Geçici bir dosyayı (uploadsDir içinde) kopyalamadan kalıcı depolamaya alır; yeni storage key döner. */
+export async function moveIntoStorage(srcPath: string): Promise<string> {
+  await ensureRoot();
+  const key = randomUUID();
+  await fs.rename(srcPath, path.join(STORAGE_ROOT, key));
+  return key;
+}
+
+/** Depolamanın bulunduğu diskte kullanılabilir bayt sayısı (bilinmiyorsa null). */
+export async function freeDiskBytes(): Promise<number | null> {
+  try {
+    await ensureRoot();
+    const st = await fs.statfs(STORAGE_ROOT);
+    return Number(st.bavail) * Number(st.bsize);
+  } catch {
+    return null;
+  }
+}
+
 /** Depolama kökü var ve bu süreç tarafından yazılabilir mi (sağlık kontrolü için; dosya yazmaz). */
 export async function isStorageWritable(): Promise<boolean> {
   try {

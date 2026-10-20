@@ -20,6 +20,8 @@ export default function UploadProgress({ items, onClose }: { items: UploadItem[]
   if (items.length === 0) return null;
 
   const total = items.reduce((s, i) => s + i.size, 0);
+  // Boyutu bilinmeyen işler (ZIP hazırlama/çıkarma) yalnız "işleniyor" gösterir.
+  const determinate = total > 0;
   const loaded = items.reduce((s, i) => s + (i.status === "done" || i.status === "processing" ? i.size : Math.min(i.loaded, i.size)), 0);
   const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
   const active = items.some((i) => i.status === "sending" || i.status === "processing");
@@ -59,12 +61,14 @@ export default function UploadProgress({ items, onClose }: { items: UploadItem[]
           style={{ width: `${pct}%`, background: errorCount > 0 && !active ? "var(--danger)" : "var(--accent)" }}
         />
       </div>
-      <div className="mb-2 flex justify-between text-xs" style={{ color: "var(--text-secondary)" }}>
-        <span>{pct}%</span>
-        <span>
-          {formatBytesStr(Math.round(loaded))} / {formatBytesStr(Math.round(total))}
-        </span>
-      </div>
+      {determinate && (
+        <div className="mb-2 flex justify-between text-xs" style={{ color: "var(--text-secondary)" }}>
+          <span>{pct}%</span>
+          <span>
+            {formatBytesStr(Math.round(loaded))} / {formatBytesStr(Math.round(total))}
+          </span>
+        </div>
+      )}
 
       <ul className="space-y-1.5">
         {visible.map((i) => {
