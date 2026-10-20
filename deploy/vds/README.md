@@ -45,6 +45,8 @@ docker compose up -d --build
 
 Caddy/nginx ile `cdrive` servisinin 3001 portunu alan adınıza yönlendirin (bkz. compose dosyasındaki 5. adım). **`cdrive-updater`'ı dışarı açmayın.**
 
+> **Büyük dosya yükleme:** istemci dosyayı 8 MB'lık parçalarla gönderir; ön tarafta (Caddy/nginx) en az **16 MB** istek gövdesi izin verin (nginx: `client_max_body_size 16m;`, varsayılanı 1 MB'tır ve yüklemeyi bozar). Yapay zekâ araçlarının tek istekle yüklediği dosyalar için (en çok 100 MB) `client_max_body_size 128m;` gerekir. Diski depolama volume'ünde yeterli boş alan bırakın; sunucu yüklemeden önce disk alanını denetler. Çok uzun süren ZIP çıkarma/oluşturma için vekil zaman aşımını (nginx: `proxy_read_timeout 900s;`) yükseltin.
+
 Yönetim → **Güncelleme** sekmesi çalışan sürümü (commit) ve GitHub'daki son sürümü gösterir.
 
 ### Ortam değişkenleri

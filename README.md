@@ -66,6 +66,7 @@ Klasör ve dosya bazında ayrıca **VIEW / EDIT** izinleri verilir.
 ## Neler var?
 
 **Dosyalar**
+- **Büyük dosyalar:** video/fotoğraf/arşiv gibi GB'larca dosyalar 8 MB'lık parçalarla yüklenir (sunucu belleği dosya boyutundan bağımsız, ilerleme çubuğu, kesintide parça yeniden denenir); **ZIP:** yükleyip çıkarma ve sürücüdeki ZIP'i "Zipten çıkar" (akışlı, zip-slip/zip bombası korumalı), seçili öğeleri tek ZIP olarak indirme veya sürücüde "ZIP oluştur"
 - Klasör ağacı, çoklu yükleme, ZIP yükleme, sürükle-bırak taşıma, kopyalama, çöp kutusu, yıldızlı ve son kullanılanlar
 - **Sürümleme:** aynı adla yüklenen dosya yeni sürüm olur; sürümleri karşılaştır, eskisine dön
 - **Belge tara:** kamera veya fotoğraflardan sayfa topla → filtre (Orijinal / Belge / Siyah-beyaz) → tek PDF. İsteğe bağlı OCR ile içerik araması ve **düzenlenebilir Word (.docx)** çıktısı ([#14](https://github.com/macbyclp/cdrive/pull/14))

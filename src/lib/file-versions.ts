@@ -28,8 +28,18 @@ export type NewFileInput = {
 
 /** Yeni dosya + v1 sürümü + kota güncellemesi; atomik. */
 export async function createFileFromBuffer(input: NewFileInput) {
-  const size = BigInt(input.buffer.byteLength);
   const storageKey = await writeFile(input.buffer);
+  return createFileFromKey({ ...input, storageKey, size: BigInt(input.buffer.byteLength) });
+}
+
+export type NewFileFromKeyInput = Omit<NewFileInput, "buffer"> & { storageKey: string; size: bigint };
+
+/**
+ * İçeriği ZATEN depolamada olan (ör. parçalı yüklemeden rename ile alınmış) dosya için kayıt oluşturur.
+ * Başarısız olursa depolamadaki dosya silinir — çağıran ayrıca temizlik yapmak zorunda değildir.
+ */
+export async function createFileFromKey(input: NewFileFromKeyInput) {
+  const { storageKey, size } = input;
   try {
     return await prisma.$transaction(async (tx) => {
       await lockUser(tx, input.ownerId);
@@ -70,9 +80,19 @@ export async function saveNewFileVersion(
   uploaderId: string,
   opts?: { mimeType?: string; auditDetailPrefix?: string }
 ) {
-  const size = BigInt(buffer.byteLength);
   const searchText = await extractSearchText(buffer, opts?.mimeType || existing.mimeType);
   const storageKey = await writeFile(buffer);
+  return saveNewFileVersionFromKey(existing, { storageKey, size: BigInt(buffer.byteLength), searchText }, uploaderId, opts);
+}
+
+/** saveNewFileVersion'ın, içeriği zaten depolamada olan (parçalı yükleme) hâli. Hatada depolamadaki dosya silinir. */
+export async function saveNewFileVersionFromKey(
+  existing: PrismaFile,
+  content: { storageKey: string; size: bigint; searchText?: string | null },
+  uploaderId: string,
+  opts?: { mimeType?: string; auditDetailPrefix?: string }
+) {
+  const { storageKey, size, searchText = null } = content;
 
   let result;
   try {

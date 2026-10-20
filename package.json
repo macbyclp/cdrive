@@ -37,6 +37,7 @@
     "react-dom": "19.2.8",
     "tesseract.js": "^7.0.0",
     "uuid": "^14.0.1",
+    "yauzl": "^3.4.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -54,6 +55,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "@types/yauzl": "^3.4.0",
     "@vitejs/plugin-react": "^6.0.5",
     "@vitest/coverage-v8": "^4.1.10",
     "dotenv": "^17.4.2",

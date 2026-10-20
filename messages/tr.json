@@ -23,6 +23,10 @@
     }
   },
   "drive": {
+    "uploadBusy": {
+      "zipCreating": "ZIP hazırlanıyor…",
+      "zipExtracting": "{name} çıkarılıyor…"
+    },
     "uploadProgress": {
       "uploading": "Yükleniyor… ({done}/{total})",
       "finished": "{count} dosya yüklendi",
@@ -82,6 +86,10 @@
       "count": "{count} öğe seçildi",
       "itemsLabel": "{count} öğe",
       "download": "İndir",
+      "zipDownload": "ZIP olarak indir",
+      "zipDownloadTitle": "Seçilenleri tek bir ZIP dosyası olarak indir",
+      "zipCreate": "ZIP oluştur",
+      "zipCreateTitle": "Seçilenlerden sürücüde yeni bir ZIP dosyası oluştur",
       "move": "Taşı",
       "delete": "Sil",
       "cancel": "Vazgeç"
@@ -94,6 +102,7 @@
     },
     "menu": {
       "downloadZip": "İndir (.zip)",
+      "extractZip": "Zipten çıkar",
       "share": "Paylaş",
       "move": "Taşı",
       "rename": "Yeniden adlandır",
@@ -140,6 +149,11 @@
       "fileUploaded": "Dosya yüklendi",
       "filesUploadedCount": "{count} dosya yüklendi",
       "zipUploadFailed": "Zip yüklenemedi",
+      "zipDownloadStarted": "ZIP indirmesi başlıyor…",
+      "zipCreated": "\"{name}\" oluşturuldu",
+      "zipCreateFailed": "ZIP oluşturulamadı",
+      "zipExtractedTo": "\"{folder}\" klasörüne {files} dosya çıkarıldı",
+      "zipExtractFailed": "Zip çıkarılamadı",
       "zipExtracted": "Zip'ten {files} dosya, {folders} klasör çıkarıldı",
       "zipSkippedSuffix": " ({skipped} atlandı)",
       "folderCreateFailedNamed": "\"{name}\" klasörü oluşturulamadı: {error}",
