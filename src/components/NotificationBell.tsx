@@ -96,6 +96,7 @@ export default function NotificationBell({ canManageOrders = false }: { canManag
     }
     else if (n.targetType === "approval" && n.targetId) router.push(`/drive?approval=${n.targetId}`);
     else if (n.targetType === "folder" && n.targetId) router.push(`/drive?folder=${n.targetId}`);
+    else if (n.targetType === "drive_root") router.push("/drive");
     else if (n.targetType === "chat_dm" && n.targetId) router.push(`/chat?dm=${n.targetId}`);
     else if (n.targetType === "chat_channel" && n.targetId) router.push(`/chat?channel=${n.targetId}`);
     else router.push("/drive?view=shared");
